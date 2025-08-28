@@ -99,7 +99,7 @@ urlpatterns = [
     #Event List
     path('hoo/Event/ViewAll', hoo_views.VIEWALL_EVENT, name='viewall_event'),
     #July 15 2025 11:41pm
-    #path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
+    path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
     #path('hoo/Event/Edit/<str:id>', hoo_views.EDIT_EVENT, name='edit_event'),
     #path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),

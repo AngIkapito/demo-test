@@ -728,11 +728,51 @@ def MEMBERSHIP_REGISTRATION(request):
     return render(request, 'hoo/membership_registration.html', context)
 
 def VIEWALL_EVENT(request):
-    event = Event.objects.all()
+    events = Event.objects.all() 
+    return render(request, 'hoo/viewall_event.html', {'events': events}) 
+
+def ADD_EVENT(request):
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        theme = request.POST.get('theme')
+        date = request.POST.get('date')
+        location = request.POST.get('location')
+        max_attendees = request.POST.get('max_attendees')
+        registration_fee = request.POST.get('registration_fee')
+        chair_id = request.POST.get('chair')
+        co_chair_id = request.POST.get('co_chair')
+        registration_link = request.POST.get('registration_link')
+        evaluation_link = request.POST.get('evaluation_link')
+        
+        # Handle file uploads
+        banner = request.FILES.get('banner')
+        qr_code = request.FILES.get('qr_code')
+        
+        # Create the event
+        event = Event(
+            title=title,
+            theme=theme,
+            date=date,
+            location=location,
+            max_attendees=max_attendees,
+            registration_fee=registration_fee,
+            chair_id=chair_id,
+            co_chair_id=co_chair_id,
+            registration_link=registration_link,
+            evaluation_link=evaluation_link,
+            banner=banner,
+            qr_code=qr_code,
+            created_by=request.user,  # Assuming the user is logged in
+            created_at=timezone.now(),
+            updated_at=timezone.now()
+        )
+        event.save()
+        messages.success(request, 'Event added successfully!')
+        return redirect('event_list')  # Redirect to the event list or another page
     
-    context = {
-        'event':event,
-    }
-    # print(teacher)
-    return render(request, 'hoo/viewall_event.html', context)
+    # Fetch all members and custom users for chair and co-chair selection
+    members = Member.objects.all()
+    custom_users = CustomUser .objects.filter(id__in=[member.admin_id for member in members])  # Filter custom users based on admin_id
+    
+    return render(request, 'hoo/add_event.html', {'members': members, 'custom_users': custom_users})
 
