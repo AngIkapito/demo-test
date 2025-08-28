@@ -1,0 +1,123 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+    <div class="row">
+        <div class="col-sm-12">
+           <div class="card">
+              <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+   <div class="d-sm-flex align-items-center justify-content-between mb-4">
+      <a href="{% url 'view_announcement' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+      <div class="text-center flex-grow-1">
+          <h1 class="h3 mb-0 text-gray-800">Add Announcement</h1>
+      </div>
+  </div>
+
+ </div>
+<!-- Page Heading -->
+
+<form method="post" action="{% url 'add_announcement' %}" enctype="multipart/form-data" >
+    {% csrf_token %}
+       {% include 'includes/messages.html' %}
+
+       <div class="col-sm-11">
+         <label for="announcement_title">Title</label>
+         <input type="text" class="form-control text-uppercase" id=""  name="announcement_title"
+             placeholder="Enter Announcement Title"/>
+       </div><br>
+
+       <div class="col-sm-11">
+         <label for="announcement_description">Description</label>
+         <input type="text" class="form-control text-uppercase" id="announcement_description"  name="announcement_description"
+             placeholder="Enter Announcement Description" />
+      </div><br>
+
+      <div class="col-sm-11">
+        <label for="announcement_banner">Banner</label>
+        <input type="file" class="form-control" id="announcement_banner" name="announcement_banner" accept="image/*" onchange="previewImage(event)" />
+    </div>
+    <div class="col-sm-11">
+        <img id="image_preview" src="#" alt="Image Preview" style="width: 192px; height: 192px; object-fit: cover; margin-top: 10px;border: 2px solid gray; border-radius: 4px;" />
+    </div><br>
+
+    <div class="col-sm-11">
+    <label for="announcement_tags">Tags (comma-separated):</label>
+    <input type="text" id="announcement_tags " name="announcement_tags" placeholder="Enter Tags (press Enter to add)" onkeydown="addTag(event)">
+        <div id="tag_container"><em>Tags: &nbsp;</em></div>
+    </div><br>
+
+     <div class="col-sm-11">
+        <label for="announcement_status">Publish it Now?</label>
+        <select class="form-control" id="announcement_status" name="announcement_status">
+            <option value="True">YES</option>
+            <option value="False">NO</option>
+        </select>
+    </div>
+
+       <div class="col-sm">
+         <br>
+          <button type="submit" class="btn btn-primary">Add Announcement</button>
+       </div>
+
+   <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</form>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<!-- /.container-fluid -->
+</div>
+<script>
+        function previewImage(event) {
+            const imagePreview = document.getElementById('image_preview');
+            const file = event.target.files[0]; // Get the selected file
+
+            if (file) {
+                const reader = new FileReader(); // Create a FileReader object
+
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result; // Set the src of the img element to the file's data URL
+                    imagePreview.style.display = 'block'; // Show the image
+                };
+
+                reader.readAsDataURL(file); // Read the file as a data URL
+            } else {
+                imagePreview.src = '#'; // Reset the src if no file is selected
+                imagePreview.style.display = 'none'; // Hide the image
+            }
+        }
+    </script>
+    
+
+  <script>
+        function addTag(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent form submission
+                const input = document.getElementById('announcement_tags');
+                const tagContainer = document.getElementById('tag_container');
+                const tag = input.value.trim();
+        
+                if (tag) {
+                    // Create a new span element for the tag
+                    const tagElement = document.createElement('span');
+                    tagElement.className = 'tag'; // You can style this class in CSS
+                    tagElement.textContent = `#${tag} `;
+                    tagContainer.appendChild(tagElement);
+        
+                    // Clear the input field
+                    input.value = '';
+                }
+            }
+        }
+        </script>
+{% endblock  %}
+

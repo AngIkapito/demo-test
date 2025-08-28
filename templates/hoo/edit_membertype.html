@@ -1,0 +1,57 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_membertype' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit MemberType</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_membertype' %}" >
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="membertype_id" name="membertype_id" value="{{membertype.0.id}}" hidden required/>
+            <div class="col-sm-11">
+               <label for="membertype_name">MemberType</label>
+               <input type="text" class="form-control  text-uppercase" id="membertype_name"  name="membertype_name"
+                   placeholder="Enter MemberType" value="{{membertype.0.name}}" />
+             </div><br>
+      
+             <div class="col-sm-11">
+               <label for="membertype_info">MemberType Information</label>
+               <input type="text" class="form-control  text-uppercase" id="membertype_info"  name="membertype_info"
+                   placeholder="Enter MemberType Information"  value="{{membertype.0.info}}" />
+            </div>
+
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update MemberType</button>
+      </div>
+         </div>
+      </div>
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+{% endblock  %}
+

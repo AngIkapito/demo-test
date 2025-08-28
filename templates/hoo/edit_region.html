@@ -1,0 +1,60 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_region' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ 
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit Region/Chapter</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_region' %}" >
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="region_id" name="region_id" value="{{region.0.id}}" hidden required/>
+            <div class="col-sm-11">
+               <label for="region_name">Region/Chapter Name</label>
+               <input type="text" class="form-control" id="region_name"  name="region_name"
+                   placeholder="Enter Region/Chapter Name" value="{{region.0.name}}" style="text-transform: uppercase;" />
+             </div><br>
+      
+             <div class="col-sm-11">
+               <label for="region_info">Region/Chapter</label>
+               <input type="text" class="form-control " id="region_info"  name="region_info"
+                   placeholder="Enter Region/Chapter Information"  value="{{region.0.info}}" style="text-transform: uppercase;"/>
+            </div>
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update Region/Chapter</button>
+      </div>
+         </div>
+      </div>
+
+      
+   
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+{% endblock  %}
+

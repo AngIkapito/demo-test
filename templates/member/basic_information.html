@@ -1,0 +1,66 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}  
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+
+ 
+ <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>Welcome, {{ user.username }}!</h2>
+            </div>
+
+            <!-- Cards -->
+                <div class="row mb-4">
+                    <div class="col-12 col-md-4 mb-3">
+                        <div class="card text-bg-light h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Total Events Attended</h5>
+                                <p class="card-text fs-3 fw-bold text-primary">8</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 mb-3">
+                        <div class="card text-bg-light h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Membership Status</h5>
+                                <p class="card-text fs-3 fw-bold text-success">Active</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 mb-3">
+                        <div class="card text-bg-light h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Points Earned</h5>
+                                <p class="card-text fs-3 fw-bold text-warning">120</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+        <!-- End Cards -->
+
+            <!-- Recent Events -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    Recent Events
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">PSITE-CL General Assembly <span class="text-muted float-end">May 25, 2025</span></li>
+                    <li class="list-group-item">Cybersecurity Webinar <span class="text-muted float-end">May 10, 2025</span></li>
+                    <li class="list-group-item">AI and Education Forum <span class="text-muted float-end">April 28, 2025</span></li>
+                </ul>
+            </div>
+
+            <!-- Analytics -->
+            <div class="card">
+                <div class="card-header">
+                    Engagement Overview
+                </div>
+                <div class="card-body text-center text-muted" style="height: 200px;">
+                    [Analytics Chart Placeholder]
+                </div>
+            </div>
+
+            
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</div>
+</div>
+{% endblock %}

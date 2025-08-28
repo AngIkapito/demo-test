@@ -1,0 +1,298 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+
+<!-- Begin Page Content -->
+<div class="container-fluid">
+<!-- Page Heading -->
+<div class="row">
+    <div class="col-sm-12">
+       <div class="card">
+          <div class="card-body">
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+
+<div class="col-sm-12">
+      <a href="{% url 'viewall_member' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+     <div class="text-center flex-grow-1">
+        <h1 class="h3 mb-0 text-gray-800">Edit Member</h1>
+    </div>
+ </div>
+      <form method="post" action=" {% url "update_member" %} " enctype="multipart/form-data">
+         {% csrf_token %}
+         {% include 'includes/messages.html' %}
+         <fieldset>
+            
+          <legend>For Access</legend>
+         <div class="form-group">
+            <p style="color: red" hidden>Current Member/CustomUser ID: {{ member.admin.id }}</p>
+             <input type="text" class="form-control" id="member_id" name="member_id" value= "{{ member.admin.id }}" hidden required/>
+             <label for="is_superuser" hidden>Is Superuser?</label>
+             <select class="form-control" id="is_superuser" name="is_superuser" hidden>
+                {% if member.admin.is_superuser == 1 %}
+                    <option value="{{ member.admin.is_superuser}}" selected> {{ member.admin.is_superuser }} </option>  <!-- Current user type as default -->
+                    <option value="0">False</option>
+                {% elif member.admin.is_superuser == 0 %}
+                    <option value="{{ member.admin.is_superuser }}" selected> {{ member.admin.is_superuser }} </option>  <!-- Current user type as default -->
+                    <option value="1">True</option>
+                {% endif %}
+
+            </select> 
+            <p style="color: red" hidden>Current is_Active: {{  member.admin.is_active }}</p>
+            <label for="is_active">Is Active?</label>
+            <select class="form-control" id="is_active" name="is_active" >
+                {% comment %} <option value="{{ customuser.0.is_active }}" selected>{{ customuser.0.is_active }}</option>  <!-- Current salutation as default -->
+                <option value="0" selected>False</option>  <!-- Default option if no salutation --> {% endcomment %}
+                {% if  member.admin.is_active == 1 %}
+                    <option value="{{  member.admin.is_active }}" selected> {{  member.admin.is_active }} </option>  <!-- Current user type as default -->
+                    <option value="0">False</option>
+                {% elif  member.admin.is_active == 0 %}
+                    <option value="{{  member.admin.is_active }}" selected> {{  member.admin.is_active }} </option>  <!-- Current user type as default -->
+                    <option value="1">True</option>
+                {% endif %}
+
+            </select> 
+            {% comment %} <label for="is_superuser">Is Superuser?</label>
+            <input type="number" class="form-control" id="is_superuser"
+                placeholder="Enter 0 here(Not Superuser)" name="is_superuser" value= "{{customuser.0.is_superuser}}" />
+            <label for="is_active">Is Active?</label>
+            <input type="number" class="form-control form-control-user" id="is_active"
+                placeholder="Enter 0 here(Not sActive)" name="is_active" value= "{{customuser.0.is_active}}" />  {% endcomment %}
+           <label for="user_type">User Type?</label>
+            <select class="form-control" id="user_type" name="user_type">
+                {% if  member.admin.user_type == "1" %}
+                    <option value="{{ member.admin.user_type }}" selected> 1 - HOO / PRESIDENT </option>  <!-- Current user type as default -->
+                    <option value="2">2 - OFFICER</option>
+                    <option value="3">3 - MEMBER</option>
+                {% elif  member.admin.user_type == "2" %}
+                    <option value="{{  member.admin.user_type }}" selected> 2 - OFFICER </option>  <!-- Current user type as default -->
+                    <option value="1">1 - HOO / PRESIDENT</option>
+                    <option value="3">3 - MEMBER</option>
+                {% elif  member.admin.user_type == "3" %}
+                    <option value="{{  member.admin.user_type }}" selected> 3 - MEMBER </option>  <!-- Current user type as default -->
+                    <option value="1">1 - HOO / PRESIDENT</option>
+                    <option value="2">2 - OFFICER</option>
+                {% elif  member.admin.user_type == "" %}
+                    <option value="" disabled selected>Select User Type</option>  <!-- Default option if no user type -->
+                    <option value="1">1 - HOO / PRESIDENT</option>
+                    <option value="2">2 - OFFICER</option>
+                    <option value="3">3 - MEMBER</option>
+                {% endif %}
+            </select> 
+
+  </fieldset>
+
+      <fieldset>
+          <legend>Member Information</legend>
+            <div class="form-group">
+                <label for="membership_type">Membership Type</label>
+                <p style="color: red" hidden>Current Membership Type: 
+                {% if member and member.membershiptype %}
+                    {{ member.membershiptype.name }}  <!-- Display the name of the current membership type -->
+                {% else %}
+                    None  <!-- Fallback message if no membership type is set -->
+                {% endif %} </p>
+
+                <select class="form-control" id="membership_type" name="membership_type" >
+                    {% if member and member.membershiptype %}
+                        <option value="{{ member.membershiptype.id }}" selected>{{ member.membershiptype.name }}</option>  <!-- Current membership type as default -->
+                    {% else %}
+                        <option value="" disabled selected>Select Membership Type</option>  <!-- Default option if no member -->
+                    {% endif %}
+    
+                    {% for membershiptype in membershiptypes %}
+                        {% if membershiptype.name != member.membershiptype.name %}  <!-- Exclude the current salutation from the list -->
+                            <option value="{{ membershiptype.id }}">{{ membershiptype.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+
+
+          {% comment %} <p style="color: red" hidden>Current Member Type: {{ member.membertype.name }}</p>
+          <label for="member_type">Member Type</label>
+          <select class="form-control" id="member_type" name="member_type" >
+                {% if member.membertype.name %}
+                    <option value="{{ member.membertype.id }}" selected>{{ member.membertype.name }}</option>  <!-- Current salutation as default -->
+                {% else %}
+                    <option value="" disabled selected>Select Member Type</option>  <!-- Default option if no salutation -->
+                {% endif %}
+
+                {% for membertype in membertypes %}
+                    {% if membertype.name != member.membertype.name %}  <!-- Exclude the current salutation from the list -->
+                        <option value="{{ membertype.id }}">{{ membertype.name }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select> {% endcomment %}
+        </div>
+
+      <div class="form-group">
+          <div class="form-group">
+            <p style="color: red" hidden>Current Salutation: {{  member.salutation.name }}</p>
+            <label for="salutation">Salutation</label>
+            <select class="form-control" id="salutation" name="salutation" >
+                {% if member.salutation.name %}
+                    <option value="{{ member.salutation.name }}" selected>{{ member.salutation.name }}</option>  <!-- Current salutation as default -->
+                {% else %}
+                    <option value="" disabled selected>Select Salutation</option>  <!-- Default option if no salutation -->
+                {% endif %}
+
+                {% for salutation in salutations %}
+                    {% if salutation.name != member.salutation.name %}  <!-- Exclude the current salutation from the list -->
+                        <option value="{{ salutation.name }}">{{ salutation.name }}</option>
+                    {% endif %}
+                {% endfor %}
+
+            </select>
+          </div>
+          <div class="form-group">
+              <label for="first_name">First Name</label>
+              <input type="text" style="text-transform: uppercase;" class="form-control form-control-user" id="first_name"
+                  placeholder="First Name" name="first_name" value= "{{ member.admin.first_name}}" />
+          </div>
+          <div class="form-group">
+              <label for="last_name">Last Name</label>
+              <input type="text" style="text-transform: uppercase;" class="form-control form-control-user" id="last_name"
+                  placeholder="Last Name" name="last_name" value= "{{ member.admin.last_name}}" />
+          </div>
+          <div class="form-group">
+              <label for="middle_name">Middle Name</label>
+              <input type="text" style="text-transform: uppercase;" class="form-control form-control-user" id="middle_name"
+                  placeholder="Middle Name" name="middle_name" value= "{{ member.admin.middle_name}}"/>
+          </div>
+      </div>
+
+      
+      <div class="form-group">
+          <label>Profile Picture</label>
+          <input type="file" class="form-control" accept=".jpg, .jpeg, .png" name="profile_pic" value= "{{ member.profile_pic}}" onchange="previewImage(event)"/>
+       </div> 
+       <div class="image-preview text-center" id="imagePreview" style="display: block;">
+        <img id="preview" src="{% if member.admin.profile_pic %}{{ member.admin.profile_pic.url }}{% else %}{% static 'img/default-profile.png' %}{% endif %}" alt="Image Preview" style="width: 192px; height: 192px; object-fit: cover; margin-top: 10px;border: 2px solid gray; border-radius: 4px;">
+    </div>
+      
+
+
+       <div class="form-group">
+        <p style="color: red" hidden>Current Position: {{ member.position }}</p>
+          <label for="position">Position</label>
+          <input type="text" style="text-transform: uppercase;" class="form-control form-control-user" id="position"
+              placeholder="Position" name="position" value= "{{ member.position}}"/>
+      </div>
+          <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" class="form-control form-control-user" id="email"
+                  placeholder="Email Address" name="email" value= "{{ member.admin.email}}" />
+          </div>
+
+          <div class="form-group">
+            <p style="color: red" hidden>Current Contact No: {{ member.contact_no }}</p>
+          <label for="contact_no">Contact Number</label>
+              <input type="text" class="form-control form-control-user" id="contact_no"
+                  placeholder="Contact No. Ex. 09123456789" name="contact_no" maxlength="11" value= "{{ member.contact_no}}" />
+          </div>
+          <div class="form-group">
+              <label for="birthdate">Birthdate</label>
+              <input type="date" class="form-control form-control-user" id="birthdate" name="birthdate"  value="{{ member.birthdate|date:'Y-m-d' }}" />
+          </div>
+          <div class="form-group">
+              <label for="facebook_profile_link">Facebook Profile Link:</label>
+              <input type="url" class="form-control form-control-user" id="facebook_profile_link" name="facebook_profile_link" placeholder="https://www.facebook.com/yourprofile"  value= "{{ member.facebook_profile_link}}"/>
+          </div>
+          <div class="form-group">
+              <label for="proof_of_payment">Proof of Payment:</label>
+              <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf, .jpg, .jpeg, .png"  value= "{{ member.proof_of_payment}}" />
+          </div>
+         <div class="form-group">
+              <label for="payment_date">Payment Date:</label>
+              <input type="date" class="form-control" id="payment_date" name="payment_date"  value= "{{ member.payment_date|date:'Y-m-d'}}" />
+          </div> 
+          
+      </fieldset>
+      <fieldset>
+          <legend>Login Information</legend>
+          <div class="form-group">
+              <label for="username">Username</label>
+              <input type="username" class="form-control form-control-user" id="exampleInputUsername"
+                  placeholder="Username" name="username"  value= "{{ member.admin.username }}"  readonly/>
+          </div>
+
+          <div class="form-group">
+              
+                  <label for="password">Password</label>
+                  <input type="password" class="form-control" name="password" placeholder="Fill only if you want to change your password" >
+
+          </div>
+      </fieldset>
+          <div class="col-sm mb-3">
+              <div class="form-group">
+                  <label hidden>
+                      <input type="radio" name="membershipAgreement" value="accepted" hidden />
+                      I accept the terms of membership.
+                  </label>
+                 
+              </div >
+              <div class="agreement" hidden>
+                  If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
+              </div>
+            </div>
+
+            <div class="col-12">
+               <button type="submit" class="btn btn-primary">Update Member</button>
+            </div>
+   
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div>
+
+<!-- /.container-fluid -->
+</div>
+<script>
+    document.getElementById("contact_no").addEventListener("input", function() {
+        const contactNo = this.value;
+        const errorMessage = document.getElementById("contactError");
+
+        // Clear previous error message
+        if (errorMessage) {
+            errorMessage.textContent = '';
+        }
+
+        // Check if the input starts with "09" and is 11 digits long
+        if (contactNo.length > 0 && !/^09[0-9]{9}$/.test(contactNo)) {
+            if (!errorMessage) {
+                const errorDiv = document.createElement("div");
+                errorDiv.id = "contactError";
+                errorDiv.className = "text-danger";
+                this.parentNode.appendChild(errorDiv);
+            }
+            errorMessage.textContent = "Contact number must start with '09' and be 11 digits long.";
+        }
+    });
+</script>
+<script>
+   function previewImage(event) {
+       const input = event.target;
+       const preview = document.getElementById('preview');
+       const imagePreviewContainer = document.getElementById('imagePreview');
+
+       if (input.files && input.files[0]) {
+           const reader = new FileReader();
+
+           reader.onload = function(e) {
+               preview.src = e.target.result;
+           }
+
+           reader.readAsDataURL(input.files[0]); // Convert the file to a data URL
+       } else {
+           preview.src = "path/to/placeholder-image.jpg"; // Reset to placeholder if no file is selected
+       }
+   }
+</script>
+{% endblock  %}
+
