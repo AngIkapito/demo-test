@@ -734,8 +734,9 @@ def MEMBERSHIP_REGISTRATION(request):
     return render(request, 'hoo/membership_registration.html', context)
 
 def VIEWALL_EVENT(request):
-    events = Event.objects.all() 
-    return render(request, 'hoo/viewall_event.html', {'events': events}) 
+    # Fetch all events with related school year to reduce queries
+    events = Event.objects.select_related('school_year').all()
+    return render(request, 'hoo/viewall_event.html', {'events': events})
 
 
 def ADD_EVENT(request):
@@ -787,7 +788,7 @@ def ADD_EVENT(request):
             request,
             f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!'
         )
-        return redirect('event_list')
+        return redirect('viewall_event')
     
     # Fetch data for dropdowns
     members = Member.objects.all()

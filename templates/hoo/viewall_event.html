@@ -8,20 +8,15 @@
 <div class="card shadow mb-4">
    <div class="card-body">
 
-      {% comment %} <p style="color: red">User ID: {{ customuser.0.id }}</p> {% endcomment %}
-
       <div class="col-sm-12">
          <div class="d-sm-flex align-items-center justify-content-between mb-4">
-            
             <a href="{% url 'hoo_home' %}" class="btn btn-secondary" title="Go Back">
                 <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
              <h1 class="h3 mb-0 text-gray-800">Event List</h1>
-             {% comment %} <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i
-               class="fas fa-download fa-sm text-white-50"></i> Generate Report</a> {% endcomment %}
-               <a href="{% url 'add_event'%}" class="btn btn-primary" title="Add Event"> 
+             <a href="{% url 'add_event'%}" class="btn btn-primary" title="Add Event"> 
                 <i class="fas fa-plus"></i>&nbsp;&nbsp; Event
             </a>
-            </div>
+         </div>
       </div>
      
        <div class="table-responsive">
@@ -31,25 +26,33 @@
                    <th>Event</th>
                    <th>Theme</th>
                    <th>Participants</th>
+                   <th>Event Cycle</th>
                    <th class="text-center">Action</th>
                 </tr>
              </thead>
              <tfoot>
                <tr>
-                <th>Event</th>
-                <th>Theme</th>
-                <th>Participants</th>
+                  <th>Event</th>
+                  <th>Theme</th>
+                  <th>Participants</th>
+                  <th>Event Cycle</th>
                   <th class="text-center">Action</th>
-               </tfoot>
-            </thead>
-            
+               </tr>
+             </tfoot>
             
             <tbody>
                 {% for event in events %}
                     <tr>
-                        <td>{{ event.title|upper }}</td>  <!-- Display event title -->
-                        <td>{{ event.theme|upper }}</td>  <!-- Display event theme -->
-                        <td>{{ event.max_attendees }}</td>  <!-- Display max attendees -->
+                        <td>{{ event.title|upper }}</td>  
+                        <td>{{ event.theme|upper }}</td>  
+                        <td>{{ event.max_attendees }}</td>  
+                        <td>
+                           {% if event.school_year %}
+                              {{ event.school_year.sy_start }} - {{ event.school_year.sy_end }}
+                           {% else %}
+                              N/A
+                           {% endif %}
+                        </td>
                         <td class="text-center">
                             <div class="d-flex justify-content-center align-items-center">
                                 <!-- View Icon -->
@@ -69,7 +72,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="4" class="text-center">No Events found.</td>
+                        <td colspan="5" class="text-center">No Events found.</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -129,26 +132,20 @@
         deleteButtons.forEach(function (button) {
             button.addEventListener('click', function () {
                 var memberId = button.getAttribute('data-id');
-                var memberSalutation = button.getAttribute('data-salutation'); // Assuming you set this attribute
-                var memberFirstName = button.getAttribute('data-firstname'); // Assuming you set this attribute
-                var memberLastName = button.getAttribute('data-lastname'); // Assuming you set this attribute
+                var memberSalutation = button.getAttribute('data-salutation');
+                var memberFirstName = button.getAttribute('data-firstname');
+                var memberLastName = button.getAttribute('data-lastname');
                 
-                // Set the confirmation message
                 document.getElementById('deleteConfirmationMessage').innerHTML = 
                     `Are you sure you want to delete this member? <br> <b> ${memberSalutation}. ${memberFirstName} ${memberLastName} </b>`;
     
-                // Show confirmation modal
                 $('#deleteConfirmationModal').modal('show');
-    
-                // Set program ID in modal's delete button dataset
                 $('#confirmDeleteBtn').data('id', memberId);
             });
         });
     
-        // Add event listener to modal's delete button
         document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
             var programId = $('#confirmDeleteBtn').data('id');
-            // Redirect to delete_program view with program ID
             window.location.href = "{% url 'delete_member' 0 %}".replace("0", programId);
         });
     });
@@ -157,19 +154,18 @@
 <script>
    $(document).ready(function() {
        $('#dataTable').DataTable({
-           "order": [[ 4, "desc" ]], // Order by 'Created at' column (index 4) from new to old
-           "paging": true, // Enable pagination
-           "searching": true, // Enable column filtering
+           "order": [[ 4, "desc" ]], 
+           "paging": true,
+           "searching": true,
            "columnDefs": [
-               { "orderable": true, "targets": [0, 1, 2, 3, 4, 5] } // Make all columns orderable
+               { "orderable": true, "targets": [0, 1, 2, 3, 4] }
            ]
        });
    });
-   </script>
+</script>
 
 <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
 <!-- /.container-fluid -->
 
 </div>
 {% endblock  %}
-
