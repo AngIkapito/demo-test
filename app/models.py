@@ -52,6 +52,12 @@ class School_Year(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
+    STATUS_CHOICES = (
+        (0,"Inactive"),
+        (1,"Active"),
+    )
+    status = models.IntegerField(choices=STATUS_CHOICES, default=0)
+    
     def __str__(self):
         return f"{self.sy_start.year}-{self.sy_end.year}"
     
@@ -139,9 +145,10 @@ class Event(models.Model):
     registration_link = models.URLField(blank=True, null=True)
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
     evaluation_link = models.URLField(blank=True, null=True)
+    school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE, null=True, blank=True)
 
     # def create_announcement(self, title, description, banner=None):
-    #     """Create an announcement for this event."""
+    #     """Create an announcement for this event.""
     #     announcement = Announcement.objects.create(
     #         title=title,
     #         description=description,

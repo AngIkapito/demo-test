@@ -26,15 +26,21 @@ def ADD_SCHOOLYEAR(request):
     if request.method == "POST":
         sy_start = request.POST.get('sy_start')
         sy_end = request.POST.get('sy_end')
-        # print(program_name)
-        school_year = School_Year (
-            sy_start = sy_start,
-            sy_end = sy_end,
-            created_by_id=request.user.id  # Set the created_by_username to the current user
+
+        # Deactivate all existing school years
+        School_Year.objects.update(status=0)
+
+        # Create the new one as active
+        school_year = School_Year(
+            sy_start=sy_start,
+            sy_end=sy_end,
+            status=1,  # auto set active
         )
         school_year.save()
-        messages.success(request, 'Cycle successfully added!')
+
+        messages.success(request, 'Cycle successfully added and set as Active!')
         return redirect('add_schoolyear')
+
     return render(request, 'hoo/add_schoolyear.html')
 
 def VIEW_SCHOOLYEAR(request):
@@ -731,6 +737,7 @@ def VIEWALL_EVENT(request):
     events = Event.objects.all() 
     return render(request, 'hoo/viewall_event.html', {'events': events}) 
 
+
 def ADD_EVENT(request):
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -747,7 +754,14 @@ def ADD_EVENT(request):
         # Handle file uploads
         banner = request.FILES.get('banner')
         qr_code = request.FILES.get('qr_code')
-        
+
+        # ✅ Get the active school year (status=1)
+        try:
+            active_schoolyear = School_Year.objects.get(status=1)
+        except School_Year.DoesNotExist:
+            messages.error(request, "No active school year found. Please activate a school year first.")
+            return redirect('add_event')
+
         # Create the event
         event = Event(
             title=title,
@@ -762,17 +776,30 @@ def ADD_EVENT(request):
             evaluation_link=evaluation_link,
             banner=banner,
             qr_code=qr_code,
-            created_by=request.user,  # Assuming the user is logged in
+            created_by=request.user,
             created_at=timezone.now(),
-            updated_at=timezone.now()
+            updated_at=timezone.now(),
+            school_year=active_schoolyear  # ✅ Link event to active school year
         )
         event.save()
-        messages.success(request, 'Event added successfully!')
-        return redirect('event_list')  # Redirect to the event list or another page
-    
-    # Fetch all members and custom users for chair and co-chair selection
-    members = Member.objects.all()
-    custom_users = CustomUser .objects.filter(id__in=[member.admin_id for member in members])  # Filter custom users based on admin_id
-    
-    return render(request, 'hoo/add_event.html', {'members': members, 'custom_users': custom_users})
 
+        messages.success(
+            request,
+            f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!'
+        )
+        return redirect('event_list')
+    
+    # Fetch data for dropdowns
+    members = Member.objects.all()
+    officertypes = OfficerType.objects.all()
+    custom_users = CustomUser.objects.filter(user_type__in=[1, 2], is_superuser=0)
+
+    # ✅ Pass active school year to template
+    active_schoolyear = School_Year.objects.filter(status=1).first()
+
+    return render(request, 'hoo/add_event.html', {
+        'members': members,
+        'custom_users': custom_users,
+        'officertypes': officertypes,
+        'active_schoolyear': active_schoolyear
+    })

@@ -2,12 +2,8 @@
 {% load static %}
 {% block content %}
 
-<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
-<!-- Begin Page Content -->
-
 <div class="card shadow mb-4">
     <div class="card-body">
-        <!-- Nested Row within Card Body -->
         <div class="p-5">
             {% include 'includes/messages.html' %}
             
@@ -21,6 +17,20 @@
             <form class="user" id="add_event" method="post" action="{% url 'add_event' %}" enctype="multipart/form-data">
                 {% csrf_token %}
                 
+                <fieldset>
+                    <legend>School Year</legend>
+                    <div class="form-group">
+                        <label for="sy_start">Start of Cycle:</label>
+                        <input type="text" class="form-control" id="sy_start" name="sy_start"
+                               value="{{ active_schoolyear.sy_start|date:'Y-m-d' }}" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="sy_end">End of Cycle:</label>
+                        <input type="text" class="form-control" id="sy_end" name="sy_end"
+                               value="{{ active_schoolyear.sy_end|date:'Y-m-d' }}" readonly>
+                    </div>
+                </fieldset>
+
                 <fieldset>
                     <legend>Event Information</legend>
 
@@ -57,9 +67,11 @@
                     <div class="form-group">
                         <label for="chair">Chair:</label>
                         <select class="form-control" id="chair" name="chair" required>
-                            <option value="" disabled selected>Select Chair</option>  <!-- Default option -->
+                            <option value="" disabled selected>Select Chair</option>
                             {% for user in custom_users %}
-                                <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>  <!-- Display only user.id -->
+                                <option value="{{ user.id }}">
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.officertype_name }})
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -67,13 +79,14 @@
                     <div class="form-group">
                         <label for="co_chair">Co-Chair:</label>
                         <select class="form-control" id="co_chair" name="co_chair" required>
-                            <option value="" disabled selected>Select Co-Chair</option>  <!-- Default option -->
+                            <option value="" disabled selected>Select Co-Chair</option>
                             {% for user in custom_users %}
-                                <option value="{{ user.id }}">{{ user.first_name }} {{ user.last_name }}</option>  <!-- Display only user.id -->
+                                <option value="{{ user.id }}">
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.officertype_name }})
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
-
 
                     <div class="form-group">
                         <label for="registration_link">Registration Link:</label>

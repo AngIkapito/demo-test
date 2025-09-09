@@ -3,7 +3,6 @@
 {% block content %}
 <!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
 
-
 {% include 'includes/messages.html' %}
 
 <div class="card shadow mb-4">
@@ -21,8 +20,6 @@
                <i class="fas fa-plus"></i>&nbsp;&nbsp;Cycle
            </a>
          
-             {% comment %} <a href="#" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i
-               class="fas fa-download fa-sm text-white-50"></i> Generate Report</a> {% endcomment %}
          </div>
       </div>
 
@@ -30,54 +27,52 @@
            <table class="table text-center table-bordered" id="dataTable" width="100%" cellspacing="0" >
              <thead>
                 <tr>
-                   {% comment %} <th>ID</th> {% endcomment %}
                    <th>Cycle</th>
                    <th>Start of Cycle</th>
                    <th>End of Cycle</th>
                    <th>Created at</th>
                    <th>Updated at</th>
-                   {% comment %} <th>Created by</th> {% endcomment %}
-                   <th class=" text-center">Action</th>
+                   <th>Status</th>
+                   <th class="text-center">Action</th>
                 </tr>
              </thead>
              <tfoot>
                <tr>
-                  {% comment %} <th>ID</th> {% endcomment %}
                   <th>Cycle</th>
                   <th>Start of Cycle</th>
                   <th>End of Cycle</th>
                   <th>Created at</th>
                   <th>Updated at</th>
-                  {% comment %} <th>Created by</th> {% endcomment %}
-                  <th class=" text-center">Action</th>
+                  <th>Status</th>
+                  <th class="text-center">Action</th>
                </tr>
             </tfoot>
              <tbody>
                {% for i in schoolyear %}
                 <tr>
-                   {% comment %} <td>{{i.id}}</td> {% endcomment %}
                    <td>{{i.sy_start.year}} - {{i.sy_end.year}}</td>
                    <td>{{i.sy_start}}</td>
                    <td>{{i.sy_end}}</td>
                    <td>{{i.created_at}}</td>
                    <td>{{i.updated_at}}</td>
-                   {% comment %} <td>{{i.created_by.username}}</td> {% endcomment %}
+                   <td>
+                     {% if i.status == 1 %}
+                        <span class="badge badge-success"><i class="fas fa-check-circle"></i> Active</span>
+                     {% else %}
+                        <span class="badge badge-danger"><i class="fas fa-times-circle"></i> Inactive</span>
+                     {% endif %}
+                   </td>
                    <td class="text-right">
                       <div class="actions text-center">
                          <a href="{% url 'edit_schoolyear' i.id %}" class="btn btn-sm bg-success-light" data-toggle="tooltip" data-placement="top" title="Edit">
                            <i class="fas fa-pen" style="font-size:20px"></i>
                        </a>
-                   
-                         {% comment %} <a href="{% url 'delete_program' i.id %}" class="btn btn-sm bg-danger-light">
-                           <i class="fas fa-trash"></i>
-                        </a> {% endcomment %}
                         <button class="btn btn-sm bg-danger-light delete-btn" data-id="{{i.id}}" data-toggle="tooltip" data-placement="top" title="Delete">
                            <i class="fas fa-trash" style="font-size:20px"></i>
                        </button>
                        </div>
                      </td>
                 </tr>               
-
               {% endfor %}
              </tbody>
           </table>
@@ -85,6 +80,7 @@
     </div>
  </div>
 </div>
+
 <!-- Modal Confirmation -->
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
 <div class="modal-dialog  modal-dialog-centered" role="document">
@@ -106,26 +102,27 @@
 </div>
 </div>
 </div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-// Add event listener to delete buttons
-var deleteButtons = document.querySelectorAll('.delete-btn');
-deleteButtons.forEach(function (button) {
-  button.addEventListener('click', function () {
-      var programId = button.getAttribute('data-id');
-      // Show confirmation modal
-      $('#deleteConfirmationModal').modal('show');
-      // Set program ID in modal's delete button dataset
-      $('#confirmDeleteBtn').data('id', programId);
-  });
-});
+   // Add event listener to delete buttons
+   var deleteButtons = document.querySelectorAll('.delete-btn');
+   deleteButtons.forEach(function (button) {
+      button.addEventListener('click', function () {
+         var programId = button.getAttribute('data-id');
+         // Show confirmation modal
+         $('#deleteConfirmationModal').modal('show');
+         // Set program ID in modal's delete button dataset
+         $('#confirmDeleteBtn').data('id', programId);
+      });
+   });
 
-// Add event listener to modal's delete button
-document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-  var programId = $('#confirmDeleteBtn').data('id');
-  // Redirect to delete_program view with program ID
-  window.location.href = "{% url 'delete_schoolyear' 0 %}".replace("0", programId);
-});
+   // Add event listener to modal's delete button
+   document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+      var programId = $('#confirmDeleteBtn').data('id');
+      // Redirect to delete_schoolyear view with program ID
+      window.location.href = "{% url 'delete_schoolyear' 0 %}".replace("0", programId);
+   });
 });
 </script>
 
@@ -140,10 +137,9 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', function (
            ]
        });
    });
-   </script>
+</script>
 
 <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
 <!-- /.container-fluid -->
 
-{% endblock  %}
-
+{% endblock %}
