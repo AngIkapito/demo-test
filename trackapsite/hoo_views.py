@@ -2,7 +2,7 @@ from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -11,15 +11,42 @@ import datetime
 # Create your views here.
 @login_required(login_url='/')
 def home(request):
+    # Get all members and events
     members = Member.objects.all()
     events = Event.objects.all()
-    
+
+    # Fetch the latest active event for the progress bar
+    event = Event.objects.filter(status='active').order_by('-date').first()
+
+    if event:
+        # Calculate the number of registered members for this event
+        registered_count = Member_Event_Registration.objects.filter(
+            event_id=event.id,
+            status='registered'
+        ).count()
+
+        # Calculate available slots
+        available_slots = max(event.max_attendees - registered_count, 0)
+
+        # Calculate percentage for progress bar
+        progress_percent = (registered_count / event.max_attendees) * 100 if event.max_attendees else 0
+    else:
+        # No active event
+        registered_count = 0
+        available_slots = 0
+        progress_percent = 0
+
     context = {
         'members': members,
         'events': events,
+        'event': event,
+        'registered_count': registered_count,
+        'available_slots': available_slots,
+        'progress_percent': progress_percent,  # pass percentage
     }
-    
-    return render(request,'hoo/home.html', context)
+
+    return render(request, 'hoo/home.html', context)
+
 
 # For Schoolyear 
 def ADD_SCHOOLYEAR(request):
@@ -739,6 +766,8 @@ def VIEWALL_EVENT(request):
     return render(request, 'hoo/viewall_event.html', {'events': events})
 
 
+
+
 def ADD_EVENT(request):
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -751,7 +780,7 @@ def ADD_EVENT(request):
         co_chair_id = request.POST.get('co_chair')
         registration_link = request.POST.get('registration_link')
         evaluation_link = request.POST.get('evaluation_link')
-        
+
         # Handle file uploads
         banner = request.FILES.get('banner')
         qr_code = request.FILES.get('qr_code')
@@ -763,7 +792,10 @@ def ADD_EVENT(request):
             messages.error(request, "No active school year found. Please activate a school year first.")
             return redirect('add_event')
 
-        # Create the event
+        # ✅ Deactivate all previous events before adding a new one
+        Event.objects.filter(status='active').update(status='inactive')
+
+        # ✅ Create the event
         event = Event(
             title=title,
             theme=theme,
@@ -780,7 +812,9 @@ def ADD_EVENT(request):
             created_by=request.user,
             created_at=timezone.now(),
             updated_at=timezone.now(),
-            school_year=active_schoolyear  # ✅ Link event to active school year
+            school_year=active_schoolyear,  # ✅ Link event to active school year
+            status='active',                # ✅ Set the new event as active
+            available_slots=max_attendees   # ✅ Initialize available slots
         )
         event.save()
 
@@ -789,7 +823,7 @@ def ADD_EVENT(request):
             f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!'
         )
         return redirect('viewall_event')
-    
+
     # Fetch data for dropdowns
     members = Member.objects.all()
     officertypes = OfficerType.objects.all()

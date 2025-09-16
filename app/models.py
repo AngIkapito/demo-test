@@ -129,6 +129,9 @@ class Membership(models.Model):
     def __str__(self):
         return f"{self.member.admin.first_name} {self.member.admin.last_name} - {self.membership_type.name} ({self.school_year})"
     
+
+
+
 class Event(models.Model):
     title = models.CharField(max_length=200)
     theme = models.TextField()  # The theme of the event
@@ -139,13 +142,36 @@ class Event(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     max_attendees = models.PositiveIntegerField(default=0)
+    available_slots = models.PositiveIntegerField(default=0)
     registration_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
-    chair = models.ForeignKey(CustomUser , on_delete=models.CASCADE, related_name='chair_events', limit_choices_to={'user_type': 2})
-    co_chair = models.ForeignKey(CustomUser , on_delete=models.CASCADE, related_name='co_chair_events', limit_choices_to={'user_type': 2})
+    chair = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='chair_events',
+        limit_choices_to={'user_type': 2}
+    )
+    co_chair = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name='co_chair_events',
+        limit_choices_to={'user_type': 2}
+    )
     registration_link = models.URLField(blank=True, null=True)
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
     evaluation_link = models.URLField(blank=True, null=True)
     school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE, null=True, blank=True)
+
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('inactive', 'Inactive'),
+        ('full', 'Full'),
+    ]
+    status = models.CharField(
+        max_length=8,
+        choices=STATUS_CHOICES,
+        default='active',
+        help_text='Set whether the event is active or inactive'
+    )
 
     # def create_announcement(self, title, description, banner=None):
     #     """Create an announcement for this event.""
@@ -160,7 +186,7 @@ class Event(models.Model):
 
     def __str__(self):
         return self.title
-    
+
 class Announcement(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()  # Changed to TextField for longer descriptions
@@ -195,8 +221,28 @@ class Test(models.Model):
         return self.name
     
 
-    
-  
+
+
+class Member_Event_Registration(models.Model):
+    STATUS_CHOICES = [
+        ('unregister', 'Unregister'),
+        ('registered', 'Registered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    user_id = models.IntegerField()           # Stores only the user ID
+    event_id = models.IntegerField()          # Stores only the event ID
+    date_created = models.DateTimeField(default=timezone.now)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='unregister'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"User {self.user_id} - Event {self.event_id} ({self.status})"
 
 
     

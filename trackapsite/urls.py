@@ -108,7 +108,10 @@ urlpatterns = [
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),
+    path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
     
+    #officer event List
+    path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event'),
     #Member Panel
     path('member/home', member_views.home, name='member_home'),
     path('member/basic_information', member_views.basic_information, name='basic_information'),
