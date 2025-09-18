@@ -64,7 +64,11 @@
                                     <i class="fas fa-pen" style="font-size: 16px;"></i>
                                 </button>
                                 <!-- Delete Icon -->
-                                <button class="btn btn-sm bg-danger-light delete-btn" data-id="{{ event.id }}" data-toggle="tooltip" title="Delete">
+                                <button class="btn btn-sm bg-danger-light delete-btn" 
+                                        data-id="{{ event.id }}" 
+                                        data-title="{{ event.title }}" 
+                                        data-toggle="tooltip" 
+                                        title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -83,12 +87,12 @@
  </div>
 </div>
 
-<!-- Modal Confirmation Delete Member -->
+<!-- Modal Confirmation Delete Event -->
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" role="dialog" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" role="document">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="deleteConfirmationModalLabel">Delete Member?</h5>
+                <h5 class="modal-title" id="deleteConfirmationModalLabel">Delete Event?</h5>
                 <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                     <span aria-hidden="true">&times;</span>
                 </button>
@@ -104,49 +108,28 @@
     </div>
 </div>
 
-<!-- Modal Confirmation View Member -->
-<div class="modal fade" id="viewConfirmationModal" tabindex="-1" role="dialog" aria-labelledby="viewConfirmationModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewConfirmationModalLabel">Member Information</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" id="viewConfirmationMessage">
-                <!-- Dynamic message will be inserted here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" hidden>Delete</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <script>
     document.addEventListener("DOMContentLoaded", function () {
-        // Add event listener to delete buttons
+        // Attach click handlers to delete buttons
         var deleteButtons = document.querySelectorAll('.delete-btn');
         deleteButtons.forEach(function (button) {
             button.addEventListener('click', function () {
-                var memberId = button.getAttribute('data-id');
-                var memberSalutation = button.getAttribute('data-salutation');
-                var memberFirstName = button.getAttribute('data-firstname');
-                var memberLastName = button.getAttribute('data-lastname');
+                var eventId = button.getAttribute('data-id');
+                var eventTitle = button.getAttribute('data-title');
                 
                 document.getElementById('deleteConfirmationMessage').innerHTML = 
-                    `Are you sure you want to delete this member? <br> <b> ${memberSalutation}. ${memberFirstName} ${memberLastName} </b>`;
+                    `Are you sure you want to delete the event <br><b>${eventTitle}</b>?`;
     
                 $('#deleteConfirmationModal').modal('show');
-                $('#confirmDeleteBtn').data('id', memberId);
+                $('#confirmDeleteBtn').data('id', eventId);
             });
         });
     
+        // Confirm delete action
         document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-            var programId = $('#confirmDeleteBtn').data('id');
-            window.location.href = "{% url 'delete_member' 0 %}".replace("0", programId);
+            var eventId = $('#confirmDeleteBtn').data('id');
+            // ✅ Use DELETE_EVENT URL instead of delete_member
+            window.location.href = "{% url 'delete_event' 0 %}".replace("0", eventId);
         });
     });
 </script>

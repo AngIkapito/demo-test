@@ -781,21 +781,20 @@ def ADD_EVENT(request):
         registration_link = request.POST.get('registration_link')
         evaluation_link = request.POST.get('evaluation_link')
 
-        # Handle file uploads
         banner = request.FILES.get('banner')
         qr_code = request.FILES.get('qr_code')
 
-        # ✅ Get the active school year (status=1)
+        # ✅ Get active school year
         try:
             active_schoolyear = School_Year.objects.get(status=1)
         except School_Year.DoesNotExist:
             messages.error(request, "No active school year found. Please activate a school year first.")
             return redirect('add_event')
 
-        # ✅ Deactivate all previous events before adding a new one
+        # ✅ Deactivate previous active events
         Event.objects.filter(status='active').update(status='inactive')
 
-        # ✅ Create the event
+        # ✅ Create and save new event
         event = Event(
             title=title,
             theme=theme,
@@ -812,9 +811,9 @@ def ADD_EVENT(request):
             created_by=request.user,
             created_at=timezone.now(),
             updated_at=timezone.now(),
-            school_year=active_schoolyear,  # ✅ Link event to active school year
-            status='active',                # ✅ Set the new event as active
-            available_slots=max_attendees   # ✅ Initialize available slots
+            school_year=active_schoolyear,
+            status='active',
+            available_slots=max_attendees
         )
         event.save()
 
@@ -824,12 +823,21 @@ def ADD_EVENT(request):
         )
         return redirect('viewall_event')
 
-    # Fetch data for dropdowns
+    # Fetch dropdown data
     members = Member.objects.all()
     officertypes = OfficerType.objects.all()
     custom_users = CustomUser.objects.filter(user_type__in=[1, 2], is_superuser=0)
 
-    # ✅ Pass active school year to template
+    # ✅ Map officertype names to each custom user
+    for user in custom_users:
+        try:
+            member = members.get(admin_id=user.id)
+            officer_type = officertypes.get(id=member.officertype_id)
+            user.officertype_name = officer_type.name
+        except (Member.DoesNotExist, OfficerType.DoesNotExist):
+            user.officertype_name = "N/A"
+
+    # ✅ Active school year for template
     active_schoolyear = School_Year.objects.filter(status=1).first()
 
     return render(request, 'hoo/add_event.html', {
@@ -838,3 +846,10 @@ def ADD_EVENT(request):
         'officertypes': officertypes,
         'active_schoolyear': active_schoolyear
     })
+
+
+def DELETE_EVENT(request, id):
+    event = Event.objects.get(id = id)
+    event.delete()
+    messages.success(request, 'event successfully deleted')
+    return redirect('viewall_event')

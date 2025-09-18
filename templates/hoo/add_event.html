@@ -20,14 +20,9 @@
                 <fieldset>
                     <legend>School Year</legend>
                     <div class="form-group">
-                        <label for="sy_start">Start of Cycle:</label>
-                        <input type="text" class="form-control" id="sy_start" name="sy_start"
-                               value="{{ active_schoolyear.sy_start|date:'Y-m-d' }}" readonly>
-                    </div>
-                    <div class="form-group">
-                        <label for="sy_end">End of Cycle:</label>
-                        <input type="text" class="form-control" id="sy_end" name="sy_end"
-                               value="{{ active_schoolyear.sy_end|date:'Y-m-d' }}" readonly>
+                        <label for="school_cycle">Cycle:</label>
+                        <input type="text" class="form-control" id="school_cycle" name="school_cycle"
+                               value="{{ active_schoolyear.sy_start|date:'Y-m-d' }} to {{ active_schoolyear.sy_end|date:'Y-m-d' }}" readonly>
                     </div>
                 </fieldset>
 
@@ -111,6 +106,49 @@
 
                 <button class="btn btn-primary btn-block" type="submit">Add Event</button>
             </form>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const chairSelect = document.getElementById('chair');
+                    const coChairSelect = document.getElementById('co_chair');
+
+                    // Store original options for rebuilding
+                    const chairOptions = Array.from(chairSelect.options).map(opt => ({value: opt.value, text: opt.text, disabled: opt.disabled}));
+                    const coChairOptions = Array.from(coChairSelect.options).map(opt => ({value: opt.value, text: opt.text, disabled: opt.disabled}));
+
+                    function rebuildOptions() {
+                        const selectedChair = chairSelect.value;
+                        const selectedCoChair = coChairSelect.value;
+
+                        // Rebuild chair dropdown excluding selected Co-Chair
+                        chairSelect.innerHTML = '';
+                        chairOptions.forEach(opt => {
+                            if (opt.value === selectedCoChair && opt.value !== '') return;
+                            const option = document.createElement('option');
+                            option.value = opt.value;
+                            option.text = opt.text;
+                            option.disabled = opt.disabled;
+                            chairSelect.appendChild(option);
+                        });
+                        chairSelect.value = selectedChair || '';
+
+                        // Rebuild co-chair dropdown excluding selected Chair
+                        coChairSelect.innerHTML = '';
+                        coChairOptions.forEach(opt => {
+                            if (opt.value === selectedChair && opt.value !== '') return;
+                            const option = document.createElement('option');
+                            option.value = opt.value;
+                            option.text = opt.text;
+                            option.disabled = opt.disabled;
+                            coChairSelect.appendChild(option);
+                        });
+                        coChairSelect.value = selectedCoChair || '';
+                    }
+
+                    chairSelect.addEventListener('change', rebuildOptions);
+                    coChairSelect.addEventListener('change', rebuildOptions);
+                });
+            </script>
         </div>
     </div>
 </div>
