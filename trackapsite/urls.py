@@ -100,7 +100,8 @@ urlpatterns = [
     path('hoo/Event/ViewAll', hoo_views.VIEWALL_EVENT, name='viewall_event'),
     #July 15 2025 11:41pm
     path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
-    #path('hoo/Event/Edit/<str:id>', hoo_views.EDIT_EVENT, name='edit_event'),
+    path('hoo/Event/Get/<int:id>/', hoo_views.GET_EVENT_JSON, name='get_event_json'),
+    path('hoo/Events/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     
@@ -111,7 +112,7 @@ urlpatterns = [
     path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
     
     #officer event List
-    path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event'),
+    path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),
     #Member Panel
     path('member/home', member_views.home, name='member_home'),
     path('member/basic_information', member_views.basic_information, name='basic_information'),

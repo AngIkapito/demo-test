@@ -23,7 +23,7 @@
            <table class="table text-center text-uppercase table-bordered" id="dataTable" width="100%" cellspacing="0" >
              <thead>
                 <tr>
-                   <th>Eventtt</th>
+                   <th>Event</th>
                    <th>Theme</th>
                    <th>Participants</th>
                    <th>Event Cycle</th>
@@ -44,7 +44,7 @@
                 {% for event in events %}
                     <tr>
                         <td>{{ event.title|upper }}</td>  
-                        <td>{{ event.theme|upper }}</td>  
+                        <td>{{ event.theme|upper }}</td>
                         <td>{{ event.max_attendees }}</td>  
                         <td>
                            {% if event.school_year %}
@@ -56,13 +56,20 @@
                         <td class="text-center">
                             <div class="d-flex justify-content-center align-items-center">
                                 <!-- View Icon -->
-                                <button class="btn btn-sm bg-info-light view-btn" data-toggle="tooltip" title="View Event Info" disabled>
+                                <button class="btn btn-sm bg-info-light view-btn" 
+                                        data-id="{{ event.id }}" 
+                                        data-toggle="tooltip" 
+                                        title="View Event Info">
                                     <i class="fas fa-eye"></i>
                                 </button>
                                 <!-- Edit Icon -->
-                                <button class="btn btn-sm bg-success-light" data-toggle="tooltip" title="Edit" disabled>
+                                 <button class="btn btn-sm bg-success-light edit-btn" 
+                                       data-id="{{ event.id }}" 
+                                       data-toggle="tooltip" 
+                                       title="Edit">
                                     <i class="fas fa-pen" style="font-size: 16px;"></i>
-                                </button>
+                                 </button>
+
                                 <!-- Delete Icon -->
                                 <button class="btn btn-sm bg-danger-light delete-btn" 
                                         data-id="{{ event.id }}" 
@@ -108,30 +115,148 @@
     </div>
 </div>
 
+<!-- Modal for Edit Event -->
+<div class="modal fade" id="editEventModal" tabindex="-1" role="dialog" aria-labelledby="editEventModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <form id="editEventForm" method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title" id="editEventModalLabel">Edit Event</h5>
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="event_id" id="editEventId">
+          <div class="form-group">
+            <label>Title</label>
+            <input type="text" name="title" id="editTitle" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Theme</label>
+            <input type="text" name="theme" id="editTheme" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" name="date" id="editDate" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Location</label>
+            <input type="text" name="location" id="editLocation" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Max Attendees</label>
+            <input type="number" name="max_attendees" id="editMaxAttendees" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label>Registration Fee</label>
+            <input type="number" step="0.01" name="registration_fee" id="editRegistrationFee" class="form-control">
+          </div>
+          <div class="form-group">
+            <label>Banner</label>
+            <input type="file" name="banner" class="form-control-file">
+          </div>
+          <div class="form-group">
+            <label>QR Code</label>
+            <input type="file" name="qr_code" class="form-control-file">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- View Event Modal -->
+<div class="modal fade" id="viewEventModal" tabindex="-1" role="dialog" aria-labelledby="viewEventModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewEventModalLabel">Event Details</h5>
+        <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Title:</strong> <span id="viewTitle"></span></p>
+        <p><strong>Theme:</strong> <span id="viewTheme"></span></p>
+        <p><strong>Date:</strong> <span id="viewDate"></span></p>
+        <p><strong>Location:</strong> <span id="viewLocation"></span></p>
+        <p><strong>Max Attendees:</strong> <span id="viewMaxAttendees"></span></p>
+        <p><strong>Registration Fee:</strong> <span id="viewFee"></span></p>
+        <p><strong>School Year:</strong> <span id="viewSchoolYear"></span></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Attach click handlers to delete buttons
-        var deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(function (button) {
-            button.addEventListener('click', function () {
-                var eventId = button.getAttribute('data-id');
-                var eventTitle = button.getAttribute('data-title');
-                
-                document.getElementById('deleteConfirmationMessage').innerHTML = 
-                    `Are you sure you want to delete the event <br><b>${eventTitle}</b>?`;
-    
-                $('#deleteConfirmationModal').modal('show');
-                $('#confirmDeleteBtn').data('id', eventId);
-            });
-        });
-    
-        // Confirm delete action
-        document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
-            var eventId = $('#confirmDeleteBtn').data('id');
-            // ✅ Use DELETE_EVENT URL instead of delete_member
-            window.location.href = "{% url 'delete_event' 0 %}".replace("0", eventId);
+document.addEventListener("DOMContentLoaded", function () {
+    // ===== DELETE HANDLER =====
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const eventId = this.dataset.id;
+            const eventTitle = this.dataset.title;
+            document.getElementById('deleteConfirmationMessage').innerHTML =
+                `Are you sure you want to delete the event <br><b>${eventTitle}</b>?`;
+            $('#deleteConfirmationModal').modal('show');
+            $('#confirmDeleteBtn').data('id', eventId);
         });
     });
+
+    document.getElementById('confirmDeleteBtn').addEventListener('click', function () {
+        const eventId = $('#confirmDeleteBtn').data('id');
+        window.location.href = "{% url 'delete_event' 0 %}".replace("0", eventId);
+    });
+
+    // ===== EDIT HANDLER =====
+    document.querySelectorAll('.edit-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const eventId = this.dataset.id;
+            fetch(`/hoo/Event/Edit/${eventId}/`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('editEventForm').action = `/hoo/Event/Edit/${data.id}/`;
+                document.getElementById('editEventId').value = data.id;
+                document.getElementById('editTitle').value = data.title;
+                document.getElementById('editTheme').value = data.theme;
+                document.getElementById('editDate').value = data.date;
+                document.getElementById('editLocation').value = data.location;
+                document.getElementById('editMaxAttendees').value = data.max_attendees;
+                document.getElementById('editRegistrationFee').value = data.registration_fee || '';
+                $('#editEventModal').modal('show');
+            })
+            .catch(error => console.error('Error fetching event:', error));
+        });
+    });
+
+    // ===== VIEW HANDLER =====
+    document.querySelectorAll('.view-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const eventId = this.dataset.id;
+            fetch(`/hoo/Event/Get/${eventId}/`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('viewTitle').innerText = data.title;
+                document.getElementById('viewTheme').innerText = data.theme;
+                document.getElementById('viewDate').innerText = data.date;
+                document.getElementById('viewLocation').innerText = data.location;
+                document.getElementById('viewMaxAttendees').innerText = data.max_attendees;
+                document.getElementById('viewFee').innerText = data.registration_fee || 'Free';
+                document.getElementById('viewSchoolYear').innerText = data.school_year || 'N/A';
+                $('#viewEventModal').modal('show');
+            })
+            .catch(error => console.error('Error fetching event:', error));
+        });
+    });
+});
 </script>
 
 <script>
@@ -151,4 +276,4 @@
 <!-- /.container-fluid -->
 
 </div>
-{% endblock  %}
+{% endblock %}

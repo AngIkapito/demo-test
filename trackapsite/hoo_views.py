@@ -5,7 +5,7 @@ from django.contrib import messages
 from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
 from django.utils.safestring import mark_safe
 from django.utils import timezone
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 import datetime
 
 # Create your views here.
@@ -767,6 +767,26 @@ def VIEWALL_EVENT(request):
 
 
 
+def GET_EVENT_JSON(request, id):
+    """Return event details as JSON for the View modal."""
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        try:
+            event = Event.objects.get(pk=id)
+            data = {
+                "id": event.id,
+                "title": event.title,
+                "theme": event.theme,
+                "date": event.date.strftime("%Y-%m-%d") if event.date else "",
+                "location": event.location,
+                "max_attendees": event.max_attendees,
+                "registration_fee": str(event.registration_fee) if event.registration_fee else "",
+                "school_year": f"{event.school_year.sy_start} - {event.school_year.sy_end}" if event.school_year else "N/A",
+            }
+            return JsonResponse(data)
+        except Event.DoesNotExist:
+            raise Http404("Event not found")
+    else:
+        raise Http404("Invalid request")
 
 def ADD_EVENT(request):
     if request.method == 'POST':
@@ -853,3 +873,39 @@ def DELETE_EVENT(request, id):
     event.delete()
     messages.success(request, 'event successfully deleted')
     return redirect('viewall_event')
+
+
+
+def EDIT_EVENT(request, id):
+    event = get_object_or_404(Event, id=id)
+
+    if request.method == 'POST':
+        event.title = request.POST.get('title')
+        event.theme = request.POST.get('theme')
+        event.date = request.POST.get('date')
+        event.location = request.POST.get('location')
+        event.max_attendees = request.POST.get('max_attendees')
+        event.registration_fee = request.POST.get('registration_fee')
+
+        if 'banner' in request.FILES:
+            event.banner = request.FILES['banner']
+        if 'qr_code' in request.FILES:
+            event.qr_code = request.FILES['qr_code']
+
+        event.save()
+        messages.success(request, f'Event "{event.title}" updated successfully!')
+        return redirect('viewall_event')
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({
+            'id': event.id,
+            'title': event.title,
+            'theme': event.theme,
+            'date': event.date.strftime('%Y-%m-%d'),
+            'location': event.location,
+            'max_attendees': event.max_attendees,
+            'registration_fee': event.registration_fee,
+        })
+
+    return redirect('viewall_event')
+
