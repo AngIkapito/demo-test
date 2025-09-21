@@ -1,0 +1,80 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}  
+<style>
+    .member-info {
+        display: flex;
+        flex-direction: column; /* Stack rows vertically */
+        gap: 10px; /* Adjust spacing between rows */
+    }
+    .member-row {
+        display: flex;
+        flex-wrap: wrap; /* Allow wrapping on smaller screens */
+        gap: 10px; /* Adjust spacing between items */
+    }
+    .member-item {
+        flex: 1; /* Allow items to take equal space */
+        min-width: 150px; /* Minimum width for items to prevent them from being too small */
+    }
+
+    @media (min-width: 768px) {
+        .member-row {
+            justify-content: space-between; /* Space between items on larger screens */
+        }
+    }
+</style>
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+ 
+<div class="container d-flex justify-content-center align-items-center" >
+    <div class="card o-hidden border-0 shadow-lg ">
+        <div class="card-body p-5">
+            
+            <a href="{% url 'viewall_member' %}" class="btn btn-secondary mb-3" title="Go Back">
+                <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+            </a>
+            <div class="image-preview text-center" id="imagePreview" style="display: block;">
+                <img id="preview" src="{% if member.admin.profile_pic %}{{ member.admin.profile_pic.url }}{% else %}{% static 'img/default-profile.png' %}{% endif %}" alt="Image Preview" style="width: 192px; height: 192px; object-fit: cover; margin-top: 10px;border: 2px solid gray; border-radius: 4px;">
+            </div>
+                
+            <div class="card-body text-center">
+                <h6 class="text-gray-800 text-center">Member Information: <br><b>{{ member.salutation }} {{ member.admin.first_name }} {{ member.admin.last_name }}</b></h6>
+            </div>
+           
+               
+               
+                <div class="col-lg-7 col-md-12">
+                   
+                   
+                        <div class="member-row">
+                            <div class="member-item"><strong>Salutation:</strong> {{ member.salutation }}</div>
+                            <div class="member-item"><strong>First Name:</strong> {{ member.admin.first_name }}</div>
+                            <div class="member-item"><strong>Middle Name:</strong> {{ member.middle_name }}</div>
+                            <div class="member-item"><strong>Last Name:</strong> {{ member.admin.last_name }}</div>
+                        </div>
+                        <div class="member-row">
+                            <div class="member-item"><strong>Position:</strong> {{ member.position }}</div>
+                            <div class="member-item"><strong>Email:</strong> <a href="mailto:{{ member.admin.email }}">{{ member.admin.email }}</a></div>
+                            <div class="member-item"><strong>Contact Number:</strong> {{ member.contact_no }}</div>
+                            <div class="member-item"><strong>Birthdate:</strong> {{ member.birthdate|date:"F j, Y" }}</div>
+                        </div>
+                        <div class="member-row">
+                            <div class="member-item"><strong>Membership Type:</strong> {{ member.membershiptype.name }}</div>
+                            <div class="member-item"><strong>Member Type:</strong> {{ member.membertype.name }}</div>
+                        </div>
+                        <div class="member-row">
+                            <div class="member-item"><strong>Facebook Profile:</strong> <a href="{{ member.facebook_profile_link }}" target="_blank" rel="noopener noreferrer">{{ member.facebook_profile_link }}</a></div>
+                            <div class="member-item"><strong>Payment Date:</strong> {{ member.payment_date|date:"F j, Y" }}</div>
+                            <div class="member-item"><strong>Proof of Payment:</strong> <a href="{{ member.proof_of_payment }}" class="btn btn-primary" download>Download</a></div>
+                        </div>
+                       
+
+                </div>
+                
+            </div>
+        
+        </div>
+    </div>
+</div>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+{% endblock %}

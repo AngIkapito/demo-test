@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+
+<h2>Announcements</h2>
+
+<!--Start of Announcement Container-->
+<div class="announcement-container" style="width: 100%;">
+  {% for announcement in announcements %}
+  <div class="card announcement hover-card" style="margin: 10px;" 
+       data-tags="{{ announcement.tags.all|join:', ' }}" 
+       data-title="{{ announcement.title }}" 
+       data-description="{{ announcement.description }}" 
+       data-date="{{ announcement.updated_at|date:'F j, Y' }}" 
+       data-image="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" 
+       data-toggle="modal" 
+       data-target="#announcementModal">
+      <img src="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" class="card-img-top" alt="...">
+      <div class="card-body">
+          <h5 class="card-title"><b>{{ announcement.title }}</b></h5>
+          <p class="card-text">Info: <b>{{ announcement.description|truncatewords:3 }}</b>...</p>
+          <p class="card-text">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</b></p>
+          <p class="card-text">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
+          <a href="#" class="btn btn-primary" data-toggle="modal" data-target="#announcementModal">See more...</a>
+      </div>
+  </div>
+{% endfor %}
+</div>
+<!--End of Announcement Container-->
+
+<!-- Error message element -->
+<div id="no-matches" style="display: none; margin-top: 20px; color: red;">
+    No announcements found for this tag.
+</div>
+
+
+<div class="tag-buttons text-center" style="padding-top: 30px;" aria-label="Basic example">
+  <i>Tags:</i>
+  {% for tag in tags %}
+  <button type="button" class="btn btn-secondary" data-tag="{{ tag }}">#{{ tag }}</button>
+  {% endfor %}
+  <button type="button" class="btn btn-secondary" id="show-all">Show All</button>
+  </a>
+</div>
+
+<!-- Modal for the latest announcement -->
+<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="announcementModalLabel">{{ latest_announcement.title }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImage" src="{{ latest_announcement.image.url }}" class="img-fluid" alt="...">
+        <h5 id="modalTitle">{{ latest_announcement.title }}</h5>
+        <p id="modalDescription">Info: <b>{{ latest_announcement.description }}</b></p>
+        <p id="modalDate">Date Published: <b>{{ latest_announcement.updated_at|date:"F j, Y" }}</b></p>
+        <p id="modalTags">Tags: {% for tag in latest_announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% for announcement in announcements %}
+<!-- Modal for announcement card -->
+<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="announcementModalLabel">{{ announcement.title }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImage" src="{{ announcement.image.url }}" class="img-fluid" alt="...">
+        <h5 id="modalTitle">{{ announcement.title }}</h5>
+        <p id="modalDescription">Info: <b>{{ announcement.description|truncatewords:3 }}</p>
+        <p id="modalDate">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</p>
+        <p id="modalTags">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+
+
+{% comment %} {% for announcement in announcements %}
+<!-- Modal for announcement card -->
+<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="announcementModalLabel">{{ announcement.title }}</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <img id="modalImage" src="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" class="img-fluid" alt="...">
+        <h5 id="modalTitle">{{ announcement.title }}</h5>
+        <p id="modalDescription">Info: <b>{{ announcement.description }}</p>
+        <p id="modalDate">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</p>
+        <p id="modalTags">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %} {% endcomment %}
+
+<script>
+  // JavaScript to filter announcements based on the clicked tag
+  document.querySelectorAll('.btn-secondary[data-tag]').forEach(button => {
+      button.addEventListener('click', function() {
+          const selectedTag = this.getAttribute('data-tag');
+          const announcements = document.querySelectorAll('.announcement');
+          let hasMatches = false; // Flag to check if there are any matches
+
+          announcements.forEach(announcement => {
+              const tags = announcement.getAttribute('data-tags').split(', ');
+              if (tags.includes(selectedTag)) {
+                  announcement.style.display = 'block'; // Show announcement
+                  hasMatches = true; // Set flag to true if there's a match
+              } else {
+                  announcement.style.display = 'none'; // Hide announcement
+              }
+          });
+
+          // Show or hide the no matches message
+          const noMatchesMessage = document.getElementById('no-matches');
+          if (hasMatches) {
+              noMatchesMessage.style.display = 'none'; // Hide message if there are matches
+          } else {
+              noMatchesMessage.style.display = 'block'; // Show message if no matches
+          }
+      });
+  });
+
+  // JavaScript to show all announcements
+  document.getElementById('show-all').addEventListener('click', function() {
+      const announcements = document.querySelectorAll('.announcement');
+      announcements.forEach(announcement => {
+          announcement.style.display = 'block'; // Show all announcements
+      });
+      
+      document.getElementById('no-matches').style.display = 'none'; // Hide no matches message
+       // Scroll to the top after showing all
+       
+  });
+</script>
+<script>
+  $(document).ready(function() {
+    $('.announcement .btn-primary').on('click', function() {
+      var card = $(this).closest('.announcement'); // Get the closest card
+      var title = card.data('title');
+      var description = card.data('description');
+      var date = card.data('date');
+      var image = card.data('image');
+      var tags = card.data('tags');
+
+      $('#modalTitle').text(title);
+      $('#modalDescription').text(description);
+      $('#modalDate').text('Date Published: ' + date);
+      $('#modalImage').attr('src', image);
+      
+      // Format tags
+      var tagsHtml = tags.split(', ').map(tag => `<i>#${tag}</i>`).join(' ');
+      $('#modalTags').html('Tags: ' + tagsHtml);
+    });
+  });
+</script>
+<!-- STOP HERE! -->
+{% endblock %}
