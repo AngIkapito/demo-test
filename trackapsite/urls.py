@@ -101,7 +101,7 @@ urlpatterns = [
     #July 15 2025 11:41pm
     path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
     path('hoo/Event/Get/<int:id>/', hoo_views.GET_EVENT_JSON, name='get_event_json'),
-    path('hoo/Events/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
+    path('hoo/Event/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     

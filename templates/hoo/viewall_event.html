@@ -221,6 +221,7 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .then(response => response.json())
             .then(data => {
+                console.log('Edit data:', data);
                 document.getElementById('editEventForm').action = `/hoo/Event/Edit/${data.id}/`;
                 document.getElementById('editEventId').value = data.id;
                 document.getElementById('editTitle').value = data.title;
