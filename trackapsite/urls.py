@@ -105,7 +105,10 @@ urlpatterns = [
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     
+    #Membership Registration
     path('hoo/MembershipRegistration/View', hoo_views.MEMBERSHIP_REGISTRATION, name='membership_registration'),
+    #This is a table for the approval 
+    path('hoo/MembershipRegistration/Approve', hoo_views.MEMBERSHIP_APPROVAL, name='membership_approval'),
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),
