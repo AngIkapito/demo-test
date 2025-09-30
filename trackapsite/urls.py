@@ -17,7 +17,7 @@ urlpatterns = [
     path('registration_new/', views.REGISTRATION_NEW, name='registration_new'),
     path('registration_renew/', views.REGISTRATION_RENEW, name='registration_renew'),
     path('error/', views.ERRORPAGE, name='error_page'),  # Define the error page URL
-    # path('forgot_password/', views.FORGOT_PASSWORD, name='forgot_password'),
+    path('forgot_password/', views.FORGOT_PASSWORD, name='forgot_password'),
 
     #Login
     path('login', views.LOGIN,name='login'),
@@ -31,6 +31,9 @@ urlpatterns = [
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
+    path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),
+    path('hoo/profile/update',hoo_views.PROFILE_UPDATE, name='profile_update_hoo'),
+    
     
     #add Member
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
@@ -112,12 +115,19 @@ urlpatterns = [
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),
+    
+    path('officer/profile', officer_views.PROFILE, name='profile_officer'),
+    path('officer/profile/update',officer_views.PROFILE_UPDATE, name='profile_update_officer'),
+     
     path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
     
     #officer event List
     path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),
     #Member Panel
     path('member/home', member_views.home, name='member_home'),
+    path('member/profile', member_views.PROFILE, name='profile_member'),
+    path('member/profile/update',member_views.PROFILE_UPDATE, name='profile_update_member'),
+    
     path('member/basic_information', member_views.basic_information, name='basic_information'),
     #path('member/registration_member', member_views.REGISTRATION_MEMBER, name='registration_member'),
     

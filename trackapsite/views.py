@@ -1,5 +1,5 @@
 from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
-from django.contrib.auth import authenticate, logout, login
+from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization
@@ -8,7 +8,10 @@ from django.urls import path, include, reverse
 from django.utils.crypto import get_random_string
 from datetime import datetime
 from taggit.models import Tag
-
+from django.core.mail import send_mail, BadHeaderError
+from django.conf import settings
+import random
+import string
 # Create your views here.
 
 def BASE(request):
@@ -147,6 +150,7 @@ def PROFILE(request):
     }
     return render(request, 'profile.html', context)
 
+
 @login_required(login_url='/')
 def PROFILE_UPDATE(request):
     if request.method == "POST":
@@ -155,26 +159,28 @@ def PROFILE_UPDATE(request):
         last_name = request.POST.get('last_name')
         email = request.POST.get('email')
         username = request.POST.get('username')
-        password = request.POST.get('password')
+        change_password = request.POST.get('change_password')  # renamed field
 
         try:
-            customuser = CustomUser .objects.get(id=request.user.id)
+            customuser = CustomUser.objects.get(id=request.user.id)
 
             customuser.first_name = first_name
             customuser.last_name = last_name
-            
-            if password !=None and password != "":
-                customuser.set_password(password)
-            
-            if profile_pic !=None and profile_pic != "":
+
+            # If change password field is filled, update password
+            if change_password and change_password.strip() != "":
+                customuser.set_password(change_password)
+
+            if profile_pic and profile_pic != "":
                 customuser.profile_pic = profile_pic
 
             customuser.save()
-            messages.success(request, 'Your Profile updated successfully!')
-            return redirect('login')  # Ensure 'profile' is a valid URL name
-        except:
+            messages.success(request, 'Your profile was updated successfully!')
+            return redirect('login')  # You may redirect to profile instead if needed
+        except Exception as e:
+            print("Error updating profile:", e)  # for debugging
             messages.error(request, 'Failed to update your profile')
-    # If GET request or if there was an error, render the profile page with existing data
+    
     return render(request, 'login.html')
 
 
@@ -439,3 +445,40 @@ def REGISTRATION_RENEW(request):
     }
     
     return render(request, 'registration_new.html', context)
+
+
+
+User = get_user_model()
+
+def FORGOT_PASSWORD(request):
+    if request.method == "POST":
+        email = request.POST.get("email")
+        try:
+            user = User.objects.get(email=email)
+
+            # Generate a random new password
+            new_password = "".join(
+                random.choices(string.ascii_letters + string.digits, k=10)
+            )
+
+            # Set and save new password (hashed)
+            user.set_password(new_password)
+            user.save()
+
+            # Send the new password to the user’s email
+            send_mail(
+                "Your New Password",
+                f"Hello {user.username},\n\nYour new password is: {new_password}\n\n"
+                f"Please log in and change it immediately.",
+                settings.DEFAULT_FROM_EMAIL,
+                [email],
+                fail_silently=True,
+            )
+
+        except User.DoesNotExist:
+            # Do nothing if user not found (don’t expose info)
+            pass
+
+        return render(request, "forgot_password_done.html")
+
+    return render(request, "forgot_password.html")
