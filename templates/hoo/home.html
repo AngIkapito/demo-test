@@ -1,0 +1,156 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}  
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+
+<!-- Main Content -->
+    {% comment %} <div class="col-md-9 col-lg-10 p-4"> {% endcomment %}
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Welcome, {{user.username}}! </h2>
+        {% comment %} <button class="btn btn-primary">Generate Report</button> {% endcomment %}
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="row mb-4">
+        <div class="col-12 col-md-4 mb-3">
+          <div class="card text-bg-light shadow h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="text-muted">Total Registered Members</h6>
+                <h4 class="text-success">{{members.count}} Active</h4>
+              </div>
+              <i class="fas fa-users fa-2x text-secondary"></i>
+            </div>
+          </div>
+        </div>
+       
+        <div class="col-12 col-md-4 mb-3">
+          <div class="card text-bg-light shadow h-100">
+            <a href="{% url 'viewall_event' %}">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="text-muted">Total Events Conducted</h6>
+                <h4 class="text-primary">{{events.count}}</h4>
+              </div>
+              <i class="fas fa-calendar-check fa-2x text-secondary"></i>
+            </div>
+             </a>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-4 mb-3">
+          <div class="card text-bg-light shadow h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+              <div>
+                <h6 class="text-muted">Reports Generated</h6>
+                <h4 class="text-warning">17</h4>
+              </div>
+              <i class="fas fa-file-alt fa-2x text-secondary"></i>
+            </div>
+          </div>
+        </div>
+      </div>  
+
+      <!-- Real-time Registration Overview -->
+      <!-- Real-time Registration Overview -->
+          <div class="card mb-4 shadow">
+            <div class="card-header bg-primary text-white">
+              Real-time Registration Overview
+            </div>
+            <div class="card-body">
+              {% if event %}
+                <p><strong>Current Event:</strong> {{ event.title }}</p>
+                <div class="progress mb-3">
+                  <div class="progress-bar bg-success" role="progressbar"
+                      style="width: {{ progress_percent }}%;"
+                      aria-valuenow="{{ registered_count }}" 
+                      aria-valuemin="0" 
+                      aria-valuemax="{{ event.max_attendees }}">
+                    {{ registered_count }}/{{ event.max_attendees }} Registered
+                  </div>
+                </div>
+                <p class="text-muted">{{ available_slots }} slots remaining</p>
+              {% else %}
+                <p>No active events at the moment.</p>
+              {% endif %}
+            </div>
+          </div>
+
+
+      <!-- Past Events Summary -->
+<div class="card mb-4 shadow">
+  <div class="card-header bg-secondary shadow text-white">
+    Past Events Summary
+  </div>
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Event</th>
+            <th>Date</th>
+            <th>Registered</th>
+            <th>Attended</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>AI Forum 2025</td>
+            <td>April 18, 2025</td>
+            <td>180</td>
+            <td>172</td>
+            <td><a href="#" class="btn btn-sm btn-outline-info">View</a></td>
+          </tr>
+          <tr>
+            <td>Cybersecurity Webinar</td>
+            <td>March 15, 2025</td>
+            <td>210</td>
+            <td>198</td>
+            <td><a href="#" class="btn btn-sm btn-outline-info">View</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+      <!-- Reports Section -->
+      <div class="card shadow">
+        <div class="card-header bg-dark text-white">
+          Reports
+        </div>
+        <div class="card-body">
+          <p>You can generate and download the latest reports on membership, event attendance, and registrations.</p>
+          <button class="btn btn-outline-primary">Download PDF</button>
+          <button class="btn btn-outline-success">Export to Excel</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<script>
+  window.onload = function () {
+    var chart = new CanvasJS.Chart("chartContainer",{
+      animationEnabled: true,
+      theme: "light2",
+      title:{
+        text: "Python Area Chart"
+      },
+      data: [{        
+        type: "area",
+        indexLabelFontSize: 16,
+        dataPoints: {{ datapoints|safe }}
+      }]
+    });
+    chart.render();
+  }
+</script>    
+{% comment %} </div> {% endcomment %}
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_officertype' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit OfficerType</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_officertype' %}" >
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="officertype_id" name="officertype_id" value="{{officertype.0.id}}" hidden required/>
+            <div class="col-sm-11">
+               <label for="officertype_name">OfficerType</label>
+               <input type="text" class="form-control" id="officertype_name"  name="officertype_name"
+                   placeholder="Enter Region/Chapter Name" value="{{officertype.0.name}}" style="text-transform: uppercase;"/>
+             </div><br>
+      
+             <div class="col-sm-11">
+               <label for="officertype_info">OfficerType Information</label>
+               <input type="text" class="form-control " id="officertype_info"  name="officertype_info"
+                   placeholder="Enter OfficerType Information"  value="{{officertype.0.info}}" style="text-transform: uppercase;"/>
+            </div>
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update Region/Chapter</button>
+      </div>
+         </div>
+      </div>
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+{% endblock  %}
+

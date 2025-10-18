@@ -1,0 +1,60 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="card shadow mb-4">
+  <div class="card-body">
+    <div class="p-5">
+        {% include 'includes/messages.html' %}
+      <div class="text-center">
+        <h1 class="h3 mb-0 text-gray-800">Member Event Registration</h1>
+      </div>
+
+      <form class="user" id="member_event_registration" method="post">
+        {% csrf_token %}
+        <fieldset>
+          <legend>Event Details</legend>
+
+          <!-- Event Title as Readonly Textbox -->
+          <div class="form-group">
+            <label for="event_title">Event Title:</label>
+            <input type="text" class="form-control" id="event_title" name="event_title" 
+                   value="{{ event.title }}" readonly />
+          </div>
+
+          <div class="form-group">
+            <label for="event_theme">Event Theme:</label>
+            <textarea class="form-control" id="event_theme" name="event_theme" readonly>{{ event.theme }}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="event_date">Date:</label>
+            <input type="datetime-local" class="form-control" id="event_date" name="event_date" 
+                   value="{{ event.date|date:'Y-m-d\\TH:i' }}" readonly />
+          </div>
+
+          <div class="form-group">
+            <label for="event_location">Location:</label>
+            <input type="text" class="form-control" id="event_location" name="event_location" 
+                   value="{{ event.location }}" readonly />
+          </div>
+
+          <div class="form-group">
+            <label for="registration_fee">Registration Fee:</label>
+            <input type="number" step="0.01" class="form-control" id="registration_fee" name="registration_fee" 
+                   value="{{ event.registration_fee }}" readonly />
+          </div>
+
+          <div class="form-group">
+            <label for="full_name">Full Name:</label>
+            <input type="text" class="form-control" id="full_name" 
+                   value="{{ request.user.first_name }} {{ request.user.last_name }}" readonly />
+          </div>
+        </fieldset>
+
+        <button class="btn btn-primary btn-block" type="submit">Register</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="p-5">
+            {% include 'includes/messages.html' %}
+            
+            <a href="{% url 'viewall_event' %}" class="btn btn-secondary" title="Go Back">
+                <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
+                
+            <div class="text-center">
+                <h1 class="h3 mb-0 text-gray-800">Add Event</h1>
+            </div>
+
+            <form class="user" id="add_event" method="post" action="{% url 'add_event' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <fieldset>
+                    <legend>School Year</legend>
+                    <div class="form-group">
+                        <label for="school_cycle">Cycle:</label>
+                        <input type="text" class="form-control" id="school_cycle" name="school_cycle"
+                               value="{{ active_schoolyear.sy_start|date:'Y-m-d' }} to {{ active_schoolyear.sy_end|date:'Y-m-d' }}" readonly>
+                    </div>
+                </fieldset>
+
+                <fieldset>
+                    <legend>Event Information</legend>
+
+                    <div class="form-group">
+                        <label for="title">Title:</label>
+                        <input type="text" class="form-control" id="title" name="title" required/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="theme">Theme:</label>
+                        <textarea class="form-control" id="theme" name="theme" required></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="date">Date:</label>
+                        <input type="datetime-local" class="form-control" id="date" name="date" required/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location">Location:</label>
+                        <input type="text" class="form-control" id="location" name="location" required/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="max_attendees">Max Attendees:</label>
+                        <input type="number" class="form-control" id="max_attendees" name="max_attendees" min="0" required/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="registration_fee">Registration Fee:</label>
+                        <input type="number" step="0.01" class="form-control" id="registration_fee" name="registration_fee" required/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="chair">Chair:</label>
+                        <select class="form-control" id="chair" name="chair" required>
+                            <option value="" disabled selected>Select Chair</option>
+                            {% for user in custom_users %}
+                                <option value="{{ user.id }}">
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.officertype_name }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="co_chair">Co-Chair:</label>
+                        <select class="form-control" id="co_chair" name="co_chair" required>
+                            <option value="" disabled selected>Select Co-Chair</option>
+                            {% for user in custom_users %}
+                                <option value="{{ user.id }}">
+                                    {{ user.first_name }} {{ user.last_name }} ({{ user.officertype_name }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="registration_link">Registration Link:</label>
+                        <input type="url" class="form-control" id="registration_link" name="registration_link"/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="evaluation_link">Evaluation Link:</label>
+                        <input type="url" class="form-control" id="evaluation_link" name="evaluation_link"/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="banner">Banner:</label>
+                        <input type="file" class="form-control" id="banner" name="banner" accept=".jpg, .jpeg, .png"/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="qr_code">QR Code:</label>
+                        <input type="file" class="form-control" id="qr_code" name="qr_code" accept=".jpg, .jpeg, .png"/>
+                    </div>
+                </fieldset>
+
+                <button class="btn btn-primary btn-block" type="submit">Add Event</button>
+            </form>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    const chairSelect = document.getElementById('chair');
+                    const coChairSelect = document.getElementById('co_chair');
+
+                    // Store original options for rebuilding
+                    const chairOptions = Array.from(chairSelect.options).map(opt => ({value: opt.value, text: opt.text, disabled: opt.disabled}));
+                    const coChairOptions = Array.from(coChairSelect.options).map(opt => ({value: opt.value, text: opt.text, disabled: opt.disabled}));
+
+                    function rebuildOptions() {
+                        const selectedChair = chairSelect.value;
+                        const selectedCoChair = coChairSelect.value;
+
+                        // Rebuild chair dropdown excluding selected Co-Chair
+                        chairSelect.innerHTML = '';
+                        chairOptions.forEach(opt => {
+                            if (opt.value === selectedCoChair && opt.value !== '') return;
+                            const option = document.createElement('option');
+                            option.value = opt.value;
+                            option.text = opt.text;
+                            option.disabled = opt.disabled;
+                            chairSelect.appendChild(option);
+                        });
+                        chairSelect.value = selectedChair || '';
+
+                        // Rebuild co-chair dropdown excluding selected Chair
+                        coChairSelect.innerHTML = '';
+                        coChairOptions.forEach(opt => {
+                            if (opt.value === selectedChair && opt.value !== '') return;
+                            const option = document.createElement('option');
+                            option.value = opt.value;
+                            option.text = opt.text;
+                            option.disabled = opt.disabled;
+                            coChairSelect.appendChild(option);
+                        });
+                        coChairSelect.value = selectedCoChair || '';
+                    }
+
+                    chairSelect.addEventListener('change', rebuildOptions);
+                    coChairSelect.addEventListener('change', rebuildOptions);
+                });
+            </script>
+        </div>
+    </div>
+</div>
+{% endblock %}

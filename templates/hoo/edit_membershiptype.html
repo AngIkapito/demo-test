@@ -1,0 +1,62 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_membershiptype' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit MembershipType</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_membershiptype' %}" >
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="membershiptype_id" name="membershiptype_id" value="{{membershiptype.0.id}}" hidden required/>
+            <div class="col-sm-11">
+               <label for="membershiptype_name">MembershipType</label>
+               <input type="text" class="form-control  text-uppercase" id="membershiptype_name"  name="membershiptype_name"
+                   placeholder="Enter MembershipType" value="{{membershiptype.0.name}}" />
+             </div><br>
+      
+             <div class="col-sm-11">
+               <label for="membershiptype_info">MembershipType Information</label>
+               <input type="text" class="form-control  text-uppercase" id="membershiptype_info"  name="membershiptype_info"
+                   placeholder="Enter MembershipType Information"  value="{{membershiptype.0.info}}" />
+            </div>
+
+            <div class="col-sm-11">
+               <label for="membershiptype_price">Price</label>
+               <input type="text" class="form-control " id="membershiptype_price"  name="membershiptype_price"
+                   placeholder="Enter MembershipType Price"  value="{{membershiptype.0.price|floatformat:0}}" />
+            </div>
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update MembershipType</button>
+      </div>
+         </div>
+      </div>
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+{% endblock  %}
+
