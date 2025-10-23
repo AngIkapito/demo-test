@@ -820,6 +820,7 @@ def MEMBERSHIP_REGISTRATION(request):
     return render(request, 'hoo/membership_registration.html', context)
 
 
+@login_required(login_url='/')
 @require_http_methods(["GET", "POST"])
 def MEMBERSHIP_APPROVAL(request):
     """

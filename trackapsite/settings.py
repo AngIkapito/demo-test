@@ -106,7 +106,7 @@ WSGI_APPLICATION = 'trackapsite.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'trackpsite_db',
+        'NAME': 'trackapsite_db',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'USER': 'root',
