@@ -1,20 +1,17 @@
 from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.contrib.auth import authenticate, logout, login, get_user_model
-from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from django.contrib import messages
-from django.utils.http import urlsafe_base64_encode
-from django.utils.encoding import force_bytes
-from django.core.mail import send_mail
-from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization
 from django.utils.safestring import mark_safe
 from django.urls import path, include, reverse
+from django.utils.crypto import get_random_string
 from datetime import datetime
 from taggit.models import Tag
+from django.core.mail import send_mail, BadHeaderError
+from django.conf import settings
 import random
 import string
-
 # Create your views here.
 
 def BASE(request):
@@ -135,7 +132,7 @@ def doLogin(request):
                 messages.error(request, 'Invalid user type.')
                 return redirect('login')
         else:
-            messages.error(request, 'Email and Password are Invalid')
+            messages.error(request, 'Email and Password are Invalid, or Wait for the Admin to approve your Membership.')
             return redirect('login')
             
 def doLogout(request):
@@ -153,6 +150,7 @@ def PROFILE(request):
     }
     return render(request, 'profile.html', context)
 
+
 @login_required(login_url='/')
 def PROFILE_UPDATE(request):
     if request.method == "POST":
@@ -161,26 +159,28 @@ def PROFILE_UPDATE(request):
         last_name = request.POST.get('last_name')
         email = request.POST.get('email')
         username = request.POST.get('username')
-        password = request.POST.get('password')
+        change_password = request.POST.get('change_password')  # renamed field
 
         try:
-            customuser = CustomUser .objects.get(id=request.user.id)
+            customuser = CustomUser.objects.get(id=request.user.id)
 
             customuser.first_name = first_name
             customuser.last_name = last_name
-            
-            if password !=None and password != "":
-                customuser.set_password(password)
-            
-            if profile_pic !=None and profile_pic != "":
+
+            # If change password field is filled, update password
+            if change_password and change_password.strip() != "":
+                customuser.set_password(change_password)
+
+            if profile_pic and profile_pic != "":
                 customuser.profile_pic = profile_pic
 
             customuser.save()
-            messages.success(request, 'Your Profile updated successfully!')
-            return redirect('login')  # Ensure 'profile' is a valid URL name
-        except:
+            messages.success(request, 'Your profile was updated successfully!')
+            return redirect('login')  # You may redirect to profile instead if needed
+        except Exception as e:
+            print("Error updating profile:", e)  # for debugging
             messages.error(request, 'Failed to update your profile')
-    # If GET request or if there was an error, render the profile page with existing data
+    
     return render(request, 'login.html')
 
 
@@ -219,6 +219,8 @@ def PROFILE_UPDATE(request):
 
 # Pagamit ito sa mga SSITE officer para mag add ng mga members sa 
 # System using trackapsite.com/registration_bypass1/
+
+
 def REGISTRATION_NEW(request):
     salutations = Salutation.objects.all()
     membershiptypes = MembershipType.objects.all()
@@ -227,90 +229,105 @@ def REGISTRATION_NEW(request):
     organizations = Organization.objects.all()
     memberships = Membership.objects.all()
     school_year = School_Year.objects.all()
-    latest_school_year = School_Year.objects.latest('sy_start')
-    
+
+    # ✅ Get active School Year
+    active_school_year = get_object_or_404(School_Year, status=1)
+    active_school_year_id = active_school_year.id
+
     if request.method == "POST":
-        first_name = request.POST.get('first_name').upper()
-        last_name = request.POST.get('last_name').upper()
-        email = request.POST.get('email').strip().lower()
-        username = request.POST.get('username').strip().lower()
+        # ✅ Safely get and normalize form values
+        first_name = (request.POST.get('first_name') or '').strip().upper()
+        last_name = (request.POST.get('last_name') or '').strip().upper()
+        middle_name = (request.POST.get('middle_name') or '').strip().upper()
+        email = (request.POST.get('email') or '').strip().lower()
+        username = (request.POST.get('username') or '').strip()  # Get from HTML
         membershiptype_id = request.POST.get('membershiptype_id')
         membertype_id = request.POST.get('membertype_id')
         organization_id = request.POST.get('organization_id')
         salutation_id = request.POST.get('salutation_id')
         officertype_id = request.POST.get('officertype_id')
         school_year_id = request.POST.get('school_year_id')
-        
-        middle_name = request.POST.get('middle_name').upper()
-        position = request.POST.get('position').upper()
-        contact_no = request.POST.get('contact_no')
+        position = (request.POST.get('position') or '').strip().upper()
+        contact_no = (request.POST.get('contact_no') or '').strip()
         birthdate = request.POST.get('birthdate')
-        facebook_profile_link = request.POST.get('facebook_profile_link')
-        
+        facebook_profile_link = (request.POST.get('facebook_profile_link') or '').strip()
+
         proof_of_payment = request.FILES.get('proof_of_payment')
         payment_date = request.POST.get('payment_date')
-        
-        terms_accepted = request.POST.get('terms_accepted') == 'true'
-        password = request.POST.get('password')
-        
-        # password = f"{first_name[:2]}{last_name[-2:]}{birth_year[-2:]}"  # Example: Joith90
-        
-        # Check if email already exists
-        if email and CustomUser .objects.filter(email=email).exists():
-            messages.warning(request, 'Email is already taken')
+
+        # Terms checkbox
+        terms_accepted = request.POST.get('terms_accepted') == 'true' or request.POST.get('terms_accepted') == 'on'
+
+        # ✅ Ensure submitted school_year_id corresponds to an active school year
+        school_year_instance = get_object_or_404(School_Year, id=school_year_id, status=1)
+
+        # ✅ Validate required fields
+        if not first_name or not last_name or not email or not username:
+            messages.error(request, 'First name, last name, email, and username are required.')
             return redirect('registration_new')
-        
-        else:
-            
-        # Create the CustomUser instance
-            user = CustomUser (
-                is_superuser=0,
-                is_active=0,
-                user_type=3,
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                username=username,
-                password=password,
-            )
-            
-            user.set_password(password)
-            user.save()
-            
-            # Create the Member instance
-            member = Member (
-                admin=user,
-                membershiptype_id=membershiptype_id,
-                officertype_id=officertype_id,
-                organization_id=organization_id,
-                salutation_id=salutation_id,
-                middle_name=middle_name,
-                birthdate=birthdate,
-                position=position,
-                contact_no=contact_no,
-                facebook_profile_link=facebook_profile_link,
-                terms_accepted=terms_accepted,
-            )
-            member.save()
-            
-            # Retrieve the MemberType instance
-            # member_type_instance = get_object_or_404(MemberType, id=membertype_id)
-        
-            # Create the Membership instance
-            membership = Membership(
-                member=member,  # Link to the Member instance
-                membertype_id=membertype_id,  # Use the MemberType instance
-                school_year_id=school_year_id,
-                payment_date=payment_date,
-                proof_of_payment=proof_of_payment,
-            )
-            membership.save()
-            
+
+        # ✅ Check if email already exists
+        if CustomUser.objects.filter(email=email).exists():
+            messages.warning(request, 'Email is already registered.')
+            return redirect('registration_new')
+
+        # ✅ Check if username already exists
+        if CustomUser.objects.filter(username=username).exists():
+            messages.warning(request, 'Username already exists. Please modify your first/last name to generate a new one.')
+            return redirect('registration_new')
+
+        # ✅ Auto-generate a password
+        password = get_random_string(length=10)
+
+        # ✅ Create CustomUser
+        user = CustomUser(
+            is_superuser=0,
+            is_active=0,
+            user_type=3,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            username=username,
+        )
+        user.set_password(password)
+        user.save()
+
+        # ✅ Create Member
+        member = Member(
+            admin=user,
+            membershiptype_id=membershiptype_id,
+            officertype_id=officertype_id,
+            organization_id=organization_id,
+            salutation_id=salutation_id,
+            middle_name=middle_name,
+            birthdate=birthdate,
+            position=position,
+            contact_no=contact_no,
+            facebook_profile_link=facebook_profile_link,
+            terms_accepted=terms_accepted,
+        )
+        member.save()
+
+        # ✅ Create Membership
+        membership = Membership(
+            member=member,
+            membertype_id=membertype_id,
+            school_year_id=school_year_id,
+            payment_date=payment_date,
+            proof_of_payment=proof_of_payment,
+        )
+        membership.save()
+
+        # ✅ Confirmation message
         home_link = reverse('login')
-        registration_message = f'{user.first_name} {user.last_name}. Kindly wait for the verification of your Membership. <br>Your default credentials will be sent via your Email. <a href="{home_link}">Click here to go to Homepage.</a>'
+        registration_message = (
+            f"{user.first_name} {user.last_name}, kindly wait for membership verification.<br>"
+            f"Your login credentials (Username: <b>{username}</b>) will be emailed after approval.<br>"
+            f'<a href="{home_link}">Click here to go to Homepage.</a>'
+        )
         messages.success(request, mark_safe(registration_message))
         return redirect('login')
-    
+
     context = {
         'salutations': salutations,
         'membershiptypes': membershiptypes,
@@ -319,9 +336,9 @@ def REGISTRATION_NEW(request):
         'organizations': organizations,
         'memberships': memberships,
         'school_year': school_year,
-        'latest_school_year': latest_school_year,
+        'active_school_year_id': active_school_year_id,
     }
-    
+
     return render(request, 'registration_new.html', context)
 
 def REGISTRATION_RENEW(request):
@@ -431,9 +448,7 @@ def REGISTRATION_RENEW(request):
 
 
 
-
 User = get_user_model()
-
 
 def FORGOT_PASSWORD(request):
     if request.method == "POST":
