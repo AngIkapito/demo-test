@@ -116,18 +116,34 @@ class Member(models.Model):
     def __str__(self):
         return self.admin.first_name + " " + self.admin.last_name
     
+
 class Membership(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Declined', 'Declined'),
+    ]
+
     member = models.ForeignKey(Member, on_delete=models.CASCADE, related_name='members')
     membertype = models.ForeignKey(MemberType, on_delete=models.CASCADE, related_name='membertypes')
     school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE)
     proof_of_payment = models.FileField(upload_to='payments/')
     payment_date = models.DateField(null=True, blank=True)
-    
+
+    # ✅ New status field with default = Pending
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='Pending',
+        help_text='Membership status: Pending (default), Approved, or Declined.'
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.member.admin.first_name} {self.member.admin.last_name} - {self.membership_type.name} ({self.school_year})"
+        return f"{self.member.admin.first_name} {self.member.admin.last_name} - {self.membertype.name} ({self.school_year})"
+
     
 
 

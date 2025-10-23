@@ -111,6 +111,9 @@ DATABASES = {
         'PORT': '3306',
         'USER': 'root',
         'PASSWORD': '',
+        'OPTIONS': {
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES,STRICT_ALL_TABLES'"
+        },
     }
 }  
 # Password validation
@@ -170,19 +173,23 @@ AUTH_USER_MODEL = 'app.CustomUser'
 
 AUTHENTICATION_BACKENDS = [
     #'app.backend.EmailBackEnd',  # Replace 'yourapp' with your actual app name
-    'django.contrib.auth.backends.ModelBackend',
-    # Default backend
+    'django.contrib.auth.backends.ModelBackend',  # Default backend
 ]
 
 TAGGIT_CASE_INSENSITIVE = True
 
 
+# -------------------------------
+# Email Configuration (Gmail SMTP)
+# -------------------------------
+# Use Gmail's SMTP server for sending emails.
+# Make sure to enable 2-Step Verification on your Gmail account
+# and generate an App Password to use here (do NOT use your main password).
 
-# 📧 Email configuration
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"         # Gmail SMTP server
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = "jujuzapanta@gmail.com"   # replace with your Gmail
-EMAIL_HOST_PASSWORD = "jnyj tyee gitj vogj"  # use an App Password, not your Gmail password
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+EMAIL_HOST_USER = 'jujuzapanta@gmail.com'  # Replace with your Gmail address
+EMAIL_HOST_PASSWORD = 'jnyj tyee gitj vogj'        # Replace with your Gmail App Password
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email

@@ -31,6 +31,9 @@ urlpatterns = [
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
+    path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),
+    path('hoo/profile/update',hoo_views.PROFILE_UPDATE, name='profile_update_hoo'),
+    
     
     #add Member
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
@@ -101,20 +104,30 @@ urlpatterns = [
     #July 15 2025 11:41pm
     path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
     path('hoo/Event/Get/<int:id>/', hoo_views.GET_EVENT_JSON, name='get_event_json'),
-    path('hoo/Events/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
+    path('hoo/Event/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     
+    #Membership Registration
     path('hoo/MembershipRegistration/View', hoo_views.MEMBERSHIP_REGISTRATION, name='membership_registration'),
+    #This is a table for the approval 
+    path('hoo/MembershipRegistration/Approve', hoo_views.MEMBERSHIP_APPROVAL, name='membership_approval'),
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),
+    
+    path('officer/profile', officer_views.PROFILE, name='profile_officer'),
+    path('officer/profile/update',officer_views.PROFILE_UPDATE, name='profile_update_officer'),
+     
     path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
     
     #officer event List
     path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),
     #Member Panel
     path('member/home', member_views.home, name='member_home'),
+    path('member/profile', member_views.PROFILE, name='profile_member'),
+    path('member/profile/update',member_views.PROFILE_UPDATE, name='profile_update_member'),
+    
     path('member/basic_information', member_views.basic_information, name='basic_information'),
     #path('member/registration_member', member_views.REGISTRATION_MEMBER, name='registration_member'),
     

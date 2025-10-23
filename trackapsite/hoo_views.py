@@ -1,11 +1,16 @@
 from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
 from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse, Http404
+from django.views.decorators.http import require_http_methods
+from django.core.mail import send_mail
+from django.conf import settings
+from django.utils.crypto import get_random_string
 import datetime
 
 # Create your views here.
@@ -46,6 +51,60 @@ def home(request):
     }
 
     return render(request, 'hoo/home.html', context)
+
+
+#for the profile
+@login_required(login_url='/')
+def PROFILE(request):
+    user = CustomUser.objects.get(id = request.user.id)
+    
+    context = {
+        "user":user,
+
+    }
+    return render(request, 'hoo/profile.html', context)
+
+
+
+@login_required(login_url='/')
+def PROFILE_UPDATE(request):
+    if request.method == "POST":
+        profile_pic = request.FILES.get('profile_pic')
+        first_name = request.POST.get('first_name')
+        last_name = request.POST.get('last_name')
+        email = request.POST.get('email')
+        username = request.POST.get('username')
+        change_password = request.POST.get('change_password')  # renamed field
+
+        try:
+            customuser = CustomUser.objects.get(id=request.user.id)
+
+            customuser.first_name = first_name
+            customuser.last_name = last_name
+            customuser.email = email
+            customuser.username = username
+
+            # If change password field is filled, update password
+            if change_password and change_password.strip() != "":
+                customuser.set_password(change_password)
+                customuser.save()
+                update_session_auth_hash(request, customuser)  # keep user logged in
+            else:
+                customuser.save()
+
+            if profile_pic and profile_pic != "":
+                customuser.profile_pic = profile_pic
+                customuser.save()
+
+            messages.success(request, 'Your profile was updated successfully!')
+            return redirect('profile_update_hoo')  # redirect to the same update page
+        except Exception as e:
+            print("Error updating profile:", e)  # for debugging
+            messages.error(request, 'Failed to update your profile')
+            return redirect('profile_update_hoo')
+    
+    return render(request, 'hoo/profile.html')  # use your correct template
+
 
 
 # For Schoolyear 
@@ -759,6 +818,100 @@ def MEMBERSHIP_REGISTRATION(request):
     }
     # print(teacher)
     return render(request, 'hoo/membership_registration.html', context)
+
+
+@require_http_methods(["GET", "POST"])
+def MEMBERSHIP_APPROVAL(request):
+    """
+    View for Membership Registration Approval.
+    GET: Fetch all members and map membership status.
+    POST: Update membership status using membership.member_id for uniqueness.
+    Sends emails using CustomUser email linked via Member.admin.
+    """
+    if request.method == "POST":
+        # Use membership.member_id as unique identifier
+        member_id = request.POST.get("member_id")
+        action = request.POST.get("action")  # "approve" or "decline"
+
+        # Find Member
+        member = get_object_or_404(Member, id=member_id)
+        # Get CustomUser details for name/email
+        user = member.admin
+
+        # Get related Membership
+        membership = get_object_or_404(Membership, member_id=member.id)
+
+        if action == "approve":
+            membership.status = "APPROVED"
+            membership.save()
+
+            # ✅ Generate new password
+            password = get_random_string(length=10)
+            user.set_password(password)
+
+            # ✅ Activate the user
+            user.is_active = 1
+            user.save()
+
+            # ✅ Send approval email with username and password
+            send_mail(
+                subject="Membership Approved",
+                message=(
+                    f"Dear {user.first_name} {user.last_name},\n\n"
+                    f"Your membership has been approved.\n"
+                    f"Here are your login credentials:\n\n"
+                    f"Username: {user.username}\n"
+                    f"Password: {password}\n\n"
+                    f"Please login and change your password as soon as possible."
+                ),
+                from_email="yourgmail@gmail.com",  # Replace with your EMAIL_HOST_USER
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+
+            messages.success(
+                request, f"Membership for {user.first_name} {user.last_name} approved, user activated, and email with credentials sent."
+            )
+
+        elif action == "decline":
+            membership.status = "DECLINED"
+            membership.save()
+
+            messages.warning(
+                request, f"Membership for {user.first_name} {user.last_name} declined."
+            )
+        else:
+            messages.error(request, "Invalid action.")
+
+        return redirect("membership_approval")
+
+    # --- GET logic ---
+    members = Member.objects.select_related('admin', 'organization', 'membershiptype')
+    memberships = Membership.objects.only('member_id', 'status', 'proof_of_payment')
+
+    # Map status and proof_of_payment to member_id
+    membership_status_map = {m.member_id: m.status for m in memberships}
+    membership_payment_map = {m.member_id: m.proof_of_payment for m in memberships}
+
+    # Add dynamic attributes for display
+    for member in members:
+        member.status = membership_status_map.get(member.id, 'PENDING')
+        member.proof_of_payment = membership_payment_map.get(member.id, None)
+
+    context = {
+        'schoolyear': School_Year.objects.all(),
+        'users': CustomUser.objects.all(),
+        'members': members,
+        'membership_status_map': membership_status_map,
+        'memberships': memberships,
+        'membership_types': MembershipType.objects.all(),
+        'member_types': MemberType.objects.all(),
+        'organization': Organization.objects.all(),
+    }
+
+    return render(request, 'hoo/membership_approval.html', context)
+
+
 
 def VIEWALL_EVENT(request):
     # Fetch all events with related school year to reduce queries
