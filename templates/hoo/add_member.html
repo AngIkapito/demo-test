@@ -1,0 +1,418 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <!-- Nested Row within Card Body -->
+        {% comment %} <div class="row"> {% endcomment %}
+            {% comment %} <div class="col-lg-5 d-none d-lg-block bg-register-image">
+                 <img src=" {% static "img/android-chrome-512x512.png" %} " class="img-fluid" alt="TracKaPSITElogo"> 
+            </div>  {% endcomment %}
+                <div class="p-5">
+                    
+                    {% include 'includes/messages.html' %}
+                    
+                    <a href="{% url 'viewall_member' %}" class="btn btn-secondary" title="Go Back">
+                        <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
+                        
+                    <div class="text-center">
+                        <h1 class="h3 mb-0 text-gray-800">Add Member</h1>
+                    </div>
+
+                    <form class="user" id="add_member" method="post" action=" {% url "add_member" %} " enctype="multipart/form-data" onsubmit="return validateForm()" >
+                       {% csrf_token %}
+                       
+                    <fieldset>
+                        {% comment %} <legend>For Access</legend>
+                        <div class="form-group">
+                            <label for="is_superuser" hidden>Is Superuser?</label>
+                            <select class="form-control" id="is_superuser" name="is_superuser" hidden/>
+                                    <option value="1">True</option>  <!-- Current salutation as default -->
+                                    <option value="0" selected>False</option>  <!-- Default option if no salutation -->
+                            </select> 
+                         <label for="user_type">User Type?</label>
+                            <select class="form-control" id="user_type" name="user_type" required/>
+                                <option value="" disabled selected>SELECT USER TYPE</option>  <!-- Default option -->
+                                <option value="1">1 - PRESIDENT</option>
+                                <option value="2">2 - OFFICER/AREA COORDINATOR</option>
+                                <option value="3" selected>3 - MEMBER</option>
+                            </select>
+                        </div> {% endcomment %}
+                        
+                        <label for="is_active">Is Active?</label>
+                        <select class="form-control" id="is_active" name="is_active" >
+                            <option value="1" selected>True</option>  <!-- Current salutation as default -->
+                            <option value="0">False</option>  <!-- Default option if no salutation -->
+                        </select> 
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Member Information</legend>
+
+                        <label for="officertype_id">PSITE CL Officer?</label>
+                        <select class="form-control" id="officertype_id" name="officertype_id" required/>
+                        <option value="9" selected>MEMBER ONLY</option>  <!-- Default option if no membership type is selected -->
+
+                        {% for officertype in officertypes %}
+                            {% if officertype.id != 9 and officertype.id != customuser.officertype_id %}  <!-- Exclude 'Non-Officer/Member only' and the current officertype -->
+                                <option value="{{ officertype.id }}">{{ officertype.name }}</option>
+                            {% endif %}
+
+                        {% endfor %}
+
+                        </select>
+
+                            <div class="form-group">
+                                <label for="membershiptype_id">Membership Type
+                                    <i class="fas fa-info-circle" 
+                                    data-toggle="tooltip" 
+                                    title="Select your membership type. Each type has different benefits and pricing."></i>
+                                </label>
+                                <select class="form-control" id="membershiptype_id" name="membershiptype_id" required/>
+                                    <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>  <!-- Default option if no membership type is selected -->
+                                    {% for membershiptype in membershiptypes %}
+                                        <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{membershiptype.price}} PESOS</option>
+                                    {% endfor %}
+                                </select>
+
+                        <label for="membertype_id">Member Type</label>
+                        <select class="form-control" id="membertype_id" name="membertype_id" required/>
+                            <option value="" disabled selected>SELECT MEMBER TYPE</option>  <!-- Default option if no salutation -->
+                            {% for membertype in membertypes %}
+                                <option value="{{ membertype.id }}">{{ membertype.name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        </div>
+                        <div class="form-group">
+                            <label for="organization_id">School/Organization</label>
+                            <select class="form-control" id="organization_id" name="organization_id" required/>
+                            <option value="" disabled selected>SELECT SCHOOL / ORGANIZATION</option>  <!-- Default option -->
+                                {% for organization in organizations %}
+                                    <option value="{{ organization.id }}">{{ organization.name }}</option>  <!-- Display each salutation -->
+                                {% endfor %}
+                        </select>
+                        </div>
+                         <div class="form-group">
+                            <label for="position">Position</label>
+                            <input type="text" class="form-control text-uppercase" id="position"
+                                placeholder="Position" name="position" required/>
+                        </div>
+                    <div class="form-group">
+                        <div class="form-group">
+                            <label for="salutation_id">Salutation</label>
+                            <select class="form-control" id="salutation_id" name="salutation_id" required/>
+                            <option value="" disabled selected>SELECT SALUTATION</option>  <!-- Default option -->
+                                {% for salutation in salutations %}
+                                    <option value="{{ salutation.id }}">{{ salutation.name }}</option>  <!-- Display each salutation -->
+                                {% endfor %}
+                        </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="first_name">First Name</label>
+                            <input type="text" class="form-control  text-uppercase" id="first_name"
+                                placeholder="First Name" oninput="generateUsername()" name="first_name" required/>
+                        </div>
+                        <div class="form-group">
+                            <label for="last_name">Last Name</label>
+                            <input type="text" class="form-control text-uppercase" id="last_name"
+                                placeholder="Last Name" oninput="generateUsername()" name="last_name" required/>
+                        </div>
+                        <div class="form-group">
+                            <label for="middle_name">Middle Name</label>
+                            <input type="text" style="text-transform: uppercase;" class="form-control  " id="middle_name"
+                                placeholder="Middle Name" name="middle_name"/>
+                        </div>
+                    </div>
+
+                    
+                    {% comment %} <div class="form-group">
+                        <label>Profile Picture</label>
+                        <input type="file" class="form-control" accept=".jpg, .jpeg, .png" name="profile_pic"/>
+                     </div>  {% endcomment %}
+                   
+                        <div class="form-group">
+                            <label for="email">Email Address</label>
+                            <input type="email" class="form-control text-lowercase" id="email"
+                                placeholder="Email Address" name="email" required/>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="contact_no">Contact Number</label>
+                            <input type="tel" class="form-control" id="contact_no"
+                            placeholder="eg. 09123456789" name="contact_no" 
+                            maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number."/>                        
+                        </div>
+                            
+                        <div class="form-group">
+                            <label for="birthdate">Birthdate</label>
+                            <input type="date" class="form-control" id="birthdate" name="birthdate" required/>
+                        </div>
+                        <div class="form-group">
+                            <label for="facebook_profile_link">Facebook Profile Link:</label>
+                            <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" required />
+                        </div>
+                        <div class="form-group">
+                        <label for="proof_of_payment">Proof of Payment:</label>
+                        <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf, .jpg, .jpeg, .png">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment_date">Payment Date:</label>
+                            <input type="date" class="form-control" id="payment_date" name="payment_date" required/>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Login Information</legend>
+
+                        <div class="form-group">
+                            <label for="username">Username
+                                <i class="fas fa-info-circle" 
+                                    data-toggle="tooltip" 
+                                    title="You cannot change this after creating this Member Account"></i>
+                            </label>
+                            <input type="text" class="form-control text-lowercase" id="username" placeholder="Username" name="username" required/>
+                        </div>
+                    
+                        <div class="form-group">
+                                <label for="password">Password</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" id="password" placeholder="Type 'Sample#01'" name="password" required/>
+                                    <div class="input-group-append">
+                                        <span class="input-group-text toggle-password" 
+                                            onclick="togglePasswordVisibility()" 
+                                            data-toggle="tooltip" 
+                                            title="Show/Hide Password">
+                                            <i class="fas fa-eye" id="eye-icon"></i>
+                                        </span>
+                                        <button  title="Generate Password" class="btn btn-outline-secondary" type="button" onclick="generatePassword()"><i class="fas fa-dice"></i></button>
+                                    </div>
+                                </div>
+                                
+                    </fieldset>
+                    <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="col-sm mb-3">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="termsCheckbox" name="terms_accepted" value="true"  required>
+                                I accept the terms of membership.
+                            </label>
+                        </div>
+                        <div class="agreement">
+                            If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
+                        </div>
+                    </div>
+
+                    <button id="registerButton" class="btn btn-primary btn-block" type="submit" onclick="return validateForm()">Add Member</button>
+                    
+                    {% comment %} <hr> {% endcomment %}
+
+                    {% comment %} <div class="text-center">
+                        <a class="small" href="forgot_password.html">Forgot Password?</a>
+                    </div>
+                    <div class="text-center">
+                        <a class="small" href="{% url 'login' %}">Already have an account? Login!</a>
+                    </div> {% endcomment %}
+
+</div>
+</div>
+</div>
+</div>
+</div>
+
+{% comment %} password validator {% endcomment %}
+<script>
+    function validateForm() {
+         var checkbox = document.getElementById("termsCheckbox");
+         var password = document.getElementById("password").value;
+         var username = document.getElementById("username").value; // Get the username value
+         //var passwordError = document.getElementById("passwordError");
+         var notificationArea = document.getElementById("notificationArea");
+         
+         // Clear previous notifications
+         notificationArea.innerHTML = '';
+         notificationArea.classList.add('d-none');
+     
+         // Validate checkbox
+         if (!checkbox.checked) {
+             notificationArea.innerHTML += "You must agree to the terms of service before being creating your TracKaPSITE account.<br>";
+             notificationArea.classList.remove('d-none');
+             return false;
+         }
+     
+        // Check if username and password are the same
+        if (username && password && username === password) {
+            notificationArea.innerHTML += "Username and password cannot be the same.<br>";
+            notificationArea.classList.remove('d-none'); // Show password error area
+            return false;
+        }
+
+         // Additional password validation
+         if (!isValidPassword(password)) {
+             return false;
+         }
+     
+         return true;
+     }
+     
+     function isValidPassword(password) {
+         // Check if the password is at least 8 characters long
+         if (password.length < 8) {
+             document.getElementById("notificationArea").innerHTML += "Password must be at least 8 characters long.<br>";
+             document.getElementById("notificationArea").classList.remove('d-none');
+             return false;
+         }
+     
+         // Check if the password is all numeric
+         if (/^\d+$/.test(password)) {
+             document.getElementById("notificationArea").innerHTML += "Password cannot be all numeric.<br>";
+             document.getElementById("notificationArea").classList.remove('d-none');
+             return false;
+         }
+         
+         // Check for common passwords
+         async function fetchCommonPasswords() {
+             const response = await fetch('https://github.com/danielmiessler/SecLists/blob/master/Passwords/Common-Credentials/10k-most-common.txt');
+             return await response.json();
+         }
+         
+         async function isPasswordCommon(password) {
+             const commonPasswords = await fetchCommonPasswords();
+             return commonPasswords.includes(password);
+         }
+         const commonPasswords = [
+             "password", "123456", "123456789", "12345678", "12345", "1234567",
+             "qwerty", "abc123", "password1", "iloveyou", "admin", "letmein",
+             "welcome", "monkey", "1234", "123", "1q2w3e4r", "qwertyuiop"
+         ];
+     
+         if (commonPasswords.includes(password.toLowerCase())) {
+             document.getElementById("notificationArea").innerHTML += "Password is too common.<br>";
+             document.getElementById("notificationArea").classList.remove('d-none');
+             return false;
+         }
+     
+         return true;
+     }
+ </script>
+
+{% comment %} For Generating password 8 characters {% endcomment %}
+<script>
+    function togglePasswordVisibility() {
+        const passwordInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eye-icon');
+        
+        // Toggle the type attribute
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        
+        // Toggle the eye icon
+        eyeIcon.classList.toggle('fa-eye');
+        eyeIcon.classList.toggle('fa-eye-slash');
+    }
+
+    function generatePassword() {
+        const length = 8; // Desired length of the password
+        //const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+        const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        let password = "";
+        
+        for (let i = 0; i < length; i++) {
+            const randomIndex = Math.floor(Math.random() * charset.length);
+            password += charset[randomIndex];
+        }
+        
+        document.getElementById('password').value = password; // Set the generated password in the input field
+    }
+</script>
+
+
+<script>
+    document.getElementById('contact_no').addEventListener('input', function (e) {
+        // Remove any non-numeric characters
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+</script>
+
+<script>
+    // Get today's date
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const day = String(today.getDate()).padStart(2, '0');
+
+    // Set the value of the date input to today's date
+    document.getElementById('birthdate').value = `${year}-${month}-${day}`;
+    document.getElementById('payment_date').value = `${year}-${month}-${day}`;
+</script>
+
+{% comment %} Show or Hide password {% endcomment %}
+<script>
+    function togglePasswordVisibility() {
+        const passwordInput = document.getElementById('password');
+        const eyeIcon = document.getElementById('eye-icon');
+
+        // Toggle the type attribute
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.classList.remove('fa-eye'); // Corrected class name
+            eyeIcon.classList.add('fa-eye-slash'); // Corrected class name
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.classList.remove('fa-eye-slash'); // Corrected class name
+            eyeIcon.classList.add('fa-eye'); // Corrected class name
+        }
+    }
+</script>
+<script>
+    document.getElementById("contact_no").addEventListener("input", function() {
+        const contactNo = this.value;
+        const errorMessage = document.getElementById("contactError");
+
+        // Clear previous error message
+        if (errorMessage) {
+            errorMessage.textContent = '';
+        }
+
+        // Check if the input starts with "09" and is 11 digits long
+        if (contactNo.length > 0 && !/^09[0-9]{9}$/.test(contactNo)) {
+            if (!errorMessage) {
+                const errorDiv = document.createElement("div");
+                errorDiv.id = "contactError";
+                errorDiv.className = "text-danger";
+                this.parentNode.appendChild(errorDiv);
+            }
+            errorMessage.textContent = "Contact number must start with '09' and be 11 digits long.";
+        }
+    });
+</script>
+
+{% comment %} username generator {% endcomment %}
+<script>
+    function generateUsername() {
+        const firstName = document.getElementById('first_name').value.trim();
+        const lastName = document.getElementById('last_name').value.trim();
+        
+        // Check if both fields are filled
+        if (firstName && lastName) {
+            // Generate a random number to append for uniqueness
+            const randomNum = Math.floor(Math.random() * 1000); // Random number between 0 and 999
+
+            // Create a username by combining parts of the names and the random number
+            const username = `${firstName.toLowerCase().charAt(0)}${lastName.toLowerCase()}${randomNum}`;
+            
+            // Set the generated username in the input field
+            document.getElementById('username').value = username;
+        } else {
+            // Clear the username field if either input is empty
+            document.getElementById('username').value = '';
+        }
+    }
+</script>
+
+{% endblock  %}
+

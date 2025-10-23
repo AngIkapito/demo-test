@@ -1,0 +1,309 @@
+{% load static %}
+<!-- Sidebar -->
+<ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+
+    {% if user.user_type == '1' %}
+    <!-- Sidebar - Brand -->
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url "hoo_home" %}">
+        <div class="sidebar-brand-icon">
+            {% comment "" %}<i class="fas fa-laugh-wink"></i>{% endcomment %}
+            
+            <img class="img-fluid" src="{% static "img/android-chrome-512x512.png" %}"
+            alt="trackapsitelogo">
+        
+        </div>
+        <div class="sidebar-brand-text mx-1" >TracKaPSITE</div> 
+    </a>
+
+    {% elif user.user_type == '2' %}
+     <!-- Sidebar - Brand -->
+     <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url "officer_home" %}">
+        <div class="sidebar-brand-icon">
+            {% comment "" %}<i class="fas fa-laugh-wink"></i>{% endcomment %}
+            
+            <img class="img-fluid" src="{% static "img/android-chrome-512x512.png" %}"
+            alt="trackapsitelogo">
+        
+        </div>
+        <div class="sidebar-brand-text mx-1" >TracKaPSITE</div> 
+    </a>
+
+    {% elif user.user_type == '3' %}
+    <!-- Sidebar - Brand -->
+    <a class="sidebar-brand d-flex align-items-center justify-content-center" href="{% url "member_home" %}">
+        <div class="sidebar-brand-icon">
+            {% comment "" %}<i class="fas fa-laugh-wink"></i>{% endcomment %}
+            
+            <img class="img-fluid" src="{% static "img/android-chrome-512x512.png" %}"
+            alt="trackapsitelogo">
+        
+        </div>
+        <div class="sidebar-brand-text mx-1" >TracKaPSITE</div> 
+    </a>
+    {% endif %}
+    <!-- Divider -->
+    <hr class="sidebar-divider my-0">
+
+  <!-- If magllogin ang President/Hoo, Ito mga LALABAS -->
+    {% if user.user_type == '1' %}
+<!-- Nav Item - Dashboard -->
+<li class="nav-item active">
+    <a class="nav-link" href="{% url "hoo_home" %}">
+        <i class="fas fa-fw fa-tachometer-alt"></i>
+        <span>Dashboard</span></a>
+</li>
+    <!-- Membership Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+            aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fas fa-users"></i>
+            <span>Membership</span>
+        </a>
+        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "add_member" %}">Add Member</a>
+                <a class="collapse-item" href="{% url "membership_registration" %}">Membership Registration</a>
+                <a class="collapse-item" href="">Membership Records</a>
+                <a class="collapse-item" href="{% url "viewall_member" %}">Members List</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- EVENTS Nav Item - Utilities Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseEvent"
+            aria-expanded="true" aria-controls="collapseEvent">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Events</span>
+        </a>
+        <div id="collapseEvent" class="collapse" aria-labelledby="headingEvent"
+            data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "viewall_event" %}">Events List</a>
+                <a class="collapse-item" href="">Competition List</a>
+                {% comment %} <h6 class="collapse-header">Events</h6> {% endcomment %}
+            </div>
+        </div>
+    </li>
+<!-- Forms Nav Item - Utilities Collapse Menu -->
+{% comment %} <li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseForms"
+        aria-expanded="true" aria-controls="collapseForms">
+        <i class="fas fa-file-alt"></i>
+        <span>Forms</span>
+    </a>
+    <div id="collapseForms" class="collapse" aria-labelledby="headingForms"
+        data-parent="#accordionSidebar">
+        <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="">Create Form</a>
+            <a class="collapse-item" href="">View Forms</a>
+        </div>
+    </div>
+</li> {% endcomment %}
+
+<!-- School year Nav Item - Utilities Collapse Menu -->
+{% comment %} <li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseCycle"
+        aria-expanded="true" aria-controls="collapseCycle">
+        <i class="fas fa-calendar"></i>
+        <span>Cycles</span>
+    </a>
+    <div id="collapseCycle" class="collapse" aria-labelledby="headingCycle"
+        data-parent="#accordionSidebar">
+        <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="{% url "add_schoolyear" %}">Add Cycle</a>
+            <a class="collapse-item" href="{% url "view_schoolyear" %}">Cycle List</a>
+        </div>
+    </div>
+</li> {% endcomment %}
+<!-- Settings Nav Item - Pages Collapse Menu -->
+<li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseSettings"
+        aria-expanded="true" aria-controls="collapseSettings">
+        <i class="fas fa-cog"></i>
+        <span>Settings</span>
+    </a>
+    <div id="collapseSettings" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+        <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="{% url "view_schoolyear" %}">Cycles</a>
+            <a class="collapse-item" href="{% url "view_region" %}">Regions / Chapters</a>
+            <a class="collapse-item" href="{% url "view_officertype" %}">Officer Types</a>
+            <a class="collapse-item" href="{% url "view_organization" %}">Organizations / Schools</a>
+            <a class="collapse-item" href="{% url "view_membershiptype" %}">Membership Types</a>
+            <a class="collapse-item" href="{% url "view_membertype" %}">Member Types</a>
+        </div>
+    </div>
+</li>
+ <!-- Divider -->
+ <hr class="sidebar-divider my-0">
+
+    {% comment %} <!-- USER Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUser"
+            aria-expanded="true" aria-controls="collapsePages">
+            <i class="fas fa-user-shield"></i>
+            <span>Users</span>
+        </a>
+        <div id="collapseUser" class="collapse" aria-labelledby="headingPages" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="">Add User</a>
+                <a class="collapse-item" href="">Users List</a>
+            </div>
+        </div>
+    </li> {% endcomment %}
+    
+    
+    <!-- Membership Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseSite"
+            aria-expanded="true" aria-controls="collapseSite">
+            <i class="fas fa-users"></i>
+            <span>Site Management</span>
+        </a>
+        <div id="collapseSite" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="">Home</a>
+                <a class="collapse-item" href="{% url "view_announcement" %}">Announcements</a>
+                <a class="collapse-item" href="">Events</a>
+                <a class="collapse-item" href="">About Us</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- Nav Item - Logout -->
+    <li class="nav-item">
+        <a class="nav-link" href="" data-toggle="modal" data-target="#logoutModal">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span></a>
+    </li>
+
+    <!-- Sidebar Toggler (Sidebar) -->
+    <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+
+<!-- If magllogin officer, Ito mga LALABAS -->
+    {% elif user.user_type == '2' %}
+
+    <!-- Nav Item - Dashboard -->
+    <li class="nav-item active">
+        <a class="nav-link" href="{% url "officer_home" %}">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <span>Dashboard</span></a>
+    </li>
+    <!-- Membership Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+            aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fas fa-users"></i>
+            <span>Membership</span>
+        </a>
+        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="">View Membership</a>
+                <a class="collapse-item" href="">Members List</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- EVENTS Nav Item - Utilities Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities"
+            aria-expanded="true" aria-controls="collapseUtilities">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Events</span>
+        </a>
+        <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
+            data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="">Add Event</a>
+                <a class="collapse-item" href="{% url "member_event_reg" %}">Event Registration</a>
+                <a class="collapse-item" href="{% url "viewall_event2" %}">Events List</a>
+                <a class="collapse-item" href="">Events Attended</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- USER Nav Item - Pages Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapsePages"
+            aria-expanded="true" aria-controls="collapsePages">
+            <i class="fas fa-user-shield"></i>
+            <span>Users</span>
+        </a>
+        <div id="collapsePages" class="collapse" aria-labelledby="headingPages" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="">Users List</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- Nav Item - Charts -->
+    <li class="nav-item">
+        <a class="nav-link" href="" data-toggle="modal" data-target="#logoutModal">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span></a>
+    </li>
+
+    <!-- Sidebar Toggler (Sidebar) -->
+    <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+
+    <!-- If magllogin ang Member, Ito mga LALABAS -->
+    {% elif user.user_type == '3' %}
+
+    <!-- Nav Item - Dashboard -->
+    <li class="nav-item active">
+        <a class="nav-link" href="{% url "member_home" %}">
+            <i class="fas fa-fw fa-tachometer-alt"></i>
+            <span>Dashboard</span></a>
+    </li>
+
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
+            aria-expanded="true" aria-controls="collapseTwo">
+            <i class="fas fa-users"></i>
+            <span>Membership</span>
+        </a>
+        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                {% comment %}<a class="collapse-item" href="buttons.html">Add Member</a>{% endcomment %}
+                <a class="collapse-item" href="">View Membership</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- EVENTS Nav Item - Utilities Collapse Menu -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseUtilities"
+            aria-expanded="true" aria-controls="collapseUtilities">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Events</span>
+        </a>
+        <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
+            data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                {% comment %}<a class="collapse-item" href="utilities-animation.html">Add Event</a>{% endcomment %}
+                <a class="collapse-item" href="">Events List</a>
+                <a class="collapse-item" href="">Competitions List</a>
+            </div>
+        </div>
+    </li>
+
+    <!-- Nav Item - Charts -->
+    <li class="nav-item">
+        <a class="nav-link" href="" data-toggle="modal" data-target="#logoutModal">
+            <i class="fas fa-sign-out-alt"></i>
+            <span>Logout</span></a>
+    </li>
+
+    <!-- Sidebar Toggler (Sidebar) -->
+    <div class="text-center d-none d-md-inline">
+        <button class="rounded-circle border-0" id="sidebarToggle"></button>
+    </div>
+
+    {% endif %}
+
+</ul>
+<!-- End of Sidebar -->

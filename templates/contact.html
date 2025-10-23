@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+      <h2>Contact Us</h2>
+      <p>Use the form below to send us an inquiry. Alternatively, you may also email PSITE Central Luzon / Region 3 directly at <a href="mailto:psite.region3@gmail.com">psite.region3@gmail.com</a>.</p>
+      
+      <h3>Social Media</h3>
+      <p>Follow PSITE Central Luzon on Facebook and YouTube to get the latest updates within our diverse community.</p>
+      <ul>
+          <li><a href="https://www.facebook.com/psiteregion3" target="_blank">Official Facebook Page</a></li>
+          <li><a href="https://www.facebook.com/groups/742526482436870" target="_blank">Official Facebook Group</a></li>
+          <li><a href="https://www.youtube.com/@psitecentralluzon899" target="_blank">Official YouTube Channel</a></li>
+      </ul>
+
+      <h3>FAQs</h3>
+      <p>We may have the answer you were looking for. Browse through our list of frequently asked questions below to know more.</p>
+      <ul>
+          <li><strong>Who can join PSITE?</strong> Any Filipino educators or academic institutions under the Computer Science, Information Technology, Information Systems, Multimedia Education, and related programs may join through their respective PSITE Regional Chapters.</li>
+          <li><strong>How do I join PSITE?</strong> PSITE Membership is managed by each Regional Chapter. You may access their respective Membership Registration Form online.</li>
+          <li><strong>What are the Membership Types?</strong> There are 3 types of PSITE Membership: Institutional, Individual, and Enterprise.</li>
+          <li><strong>How much is the membership?</strong> Institutional: PHP 3,000.00, Individual: PHP 500.00, Enterprise: PHP 5,000.00.</li>
+          <li><strong>How will I get a Membership Certificate?</strong> The Membership Certificate is issued by your Regional Chapter.</li>
+      </ul>
+
+      
+      <div class="card container-fluid">
+        <div class="card-body">
+        <h3>Contact Form</h3>
+        
+      <form>
+          <div class="mb-3">
+              <label for="fullName" class="form-label">Full Name*</label>
+              <input type="text" class="form-control" id="fullName" required>
+          </div>
+          <div class="mb-3">
+              <label for="institution" class="form-label">Institution*</label>
+              <input type="text" class="form-control" id="institution" required>
+          </div>
+          <div class="mb-3">
+              <label for="email" class="form-label">Email*</label>
+              <input type="email" class="form-control" id="email" required>
+          </div>
+          <div class="mb-3">
+              <label for="type" class="form-label">Type*</label>
+              <select class="form-control" id="type" required>
+                <option value="" disabled selected>Please choose an option</option>
+                <option value="Feedback">Feedback</option>
+                <option value="Membership">Membership</option>
+                <option value="ICITE">ICITE</option>
+                <option value="NATCON">NATCON</option>
+                <option value="Sponsorship">Sponsorship</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="subject" class="form-label">Subject*</label>
+            <input type="text" class="form-control" id="subject" required>
+        </div>
+        <div class="mb-3">
+            <label for="message" class="form-label">Message*</label>
+            <textarea class="form-control" id="message" rows="4" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Send Message</button>
+    </form>
+  </div>
+</div>
+</div>
+
+  <!-- STOP -->
+  {% endblock content %} 

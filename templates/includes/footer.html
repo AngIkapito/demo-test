@@ -1,0 +1,23 @@
+ <!-- Footer -->
+
+<!-- End of Main Content -->
+ <footer class="sticky-footer bg-white">
+    <div class="container my-auto">
+        <div class="copyright text-center my-auto">
+            <span>Copyright &copy; {% now "Y" %} <a href="https://www.facebook.com/senseijoshopisyal">Joshua Tiongco</a> {{ current_year }} </span>
+        </div>
+    </div>
+</footer>
+
+<!--For the Toast Message Notif-->
+<script>
+    $(document).ready(function() {
+        // Show all toasts
+        $('.toast').toast({
+            autohide: true,
+            delay: 10000 // 10 seconds
+        }).toast('show');
+    });
+</script>
+
+<!-- End of Footer -->

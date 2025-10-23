@@ -1,0 +1,59 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+    <div class="row">
+        <div class="col-sm-12">
+           <div class="card">
+              <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+   <div class="d-sm-flex align-items-center justify-content-between mb-4">
+      <a href="{% url 'view_membertype' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+      <div class="text-center flex-grow-1">
+          <h1 class="h3 mb-0 text-gray-800">Add MemberType</h1>
+      </div>
+  </div>
+
+ </div>
+<!-- Page Heading -->
+
+<form method="post" action="{% url 'add_membertype' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+       {% include 'includes/messages.html' %}
+
+       <div class="col-sm-11">
+         <label for="membertype_name">MemberType</label>
+         <input type="text" class="form-control text-uppercase" id="membertype_name"  name="membertype_name"
+             placeholder="Enter MemberType"/>
+       </div><br>
+
+       <div class="col-sm-11">
+         <label for="membertype_info">MemberType Information</label>
+         <input type="text" class="form-control text-uppercase" id="membertype_info"  name="membertype_info"
+             placeholder="Enter MemberType Information" />
+      </div>
+
+       <div class="col-sm">
+         <br>
+          <button type="submit" class="btn btn-primary">Add MemberType</button>
+       </div>
+
+   <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</form>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<!-- /.container-fluid -->
+</div>
+
+{% endblock  %}
+

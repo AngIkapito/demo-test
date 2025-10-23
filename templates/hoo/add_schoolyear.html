@@ -1,0 +1,65 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+    <div class="row">
+        <div class="col-sm-12">
+           <div class="card">
+              <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+   <div class="d-sm-flex align-items-center justify-content-between mb-4">
+      <a href="{% url 'view_schoolyear' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+      <div class="text-center flex-grow-1">
+          <h1 class="h3 mb-0 text-gray-800">Add Cycle</h1>
+      </div>
+  </div>
+
+ </div>
+<!-- Page Heading -->
+
+<form method="post" action="{% url 'add_schoolyear' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+       
+
+       {% include 'includes/messages.html' %}
+
+
+       <div class="col-sm-11">
+          {% comment %} <div class="form-group"> {% endcomment %}
+             <label>Start of Cycle</label>
+             <input type="date" class="form-control" name="sy_start" required>
+          {% comment %} </div> {% endcomment %}
+       </div>
+
+       <div class="col-sm-11">
+        {% comment %} <div class="form-group"> {% endcomment %}
+           <label>End of Cycle</label>
+           <input type="date" class="form-control" name="sy_end" required>
+        {% comment %} </div> {% endcomment %}
+      </div>
+
+       <div class="col-sm">
+         <br>
+          <button type="submit" class="btn btn-primary">Add Cycle</button>
+       </div>
+   
+
+   <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</form>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<!-- /.container-fluid -->
+</div>
+
+{% endblock  %}
+

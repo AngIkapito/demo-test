@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <title>TracKaPSITE | Dashboard</title>
+
+    {% load static %}
+
+    <link rel="icon" href=" {%static "img/favicon.ico" %} ">
+    <!-- Custom fonts for this template-->
+    <link href=" {%static "vendor/fontawesome-free/css/all.min.css" %} " rel="stylesheet" type="text/css">
+    <link
+        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet">
+    {% comment %} <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css"> {% endcomment %}
+    {% comment %} <script src={%static 'vendor/jquery/jquery-3.6.0.min.js' %}></script> {% endcomment %}
+    {% comment %} <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script> {% endcomment %}
+ 
+    <!-- Custom styles for this page -->
+    <link rel="stylesheet" href="{%static "vendor/datatables/dataTables.bootstrap4.min.css" %}" type="text/css">
+
+    <!-- Custom styles for this template-->
+    <link href="{% static 'css/sb-admin-2.min.css' %}" rel="stylesheet">
+
+   
+    <style>
+        #tag_container {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .tag {
+            display: inline-block;
+            background-color: #e0e0e0;
+            border-radius: 3px;
+            padding: 5px 10px;
+            margin: 5px;
+        }
+        
+        .remove-tag {
+            background: none;
+            border: none;
+            color: red;
+            cursor: pointer;
+            margin-left: 5px;
+            font-weight: bold; /* Make the close button bold */
+        }
+    
+        .toast {
+            margin-bottom: 1rem; /* Space between toasts */
+        }
+        /* Basic styles for the suggestion box */
+        .suggestions {
+            border: 1px solid #ccc;
+            max-height: 150px;
+            overflow-y: auto;
+            position: absolute;
+            z-index: 1000;
+            background: white;
+        }
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+        }
+        .suggestion-item:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+
+<body id="page-top">
+
+    <!-- Page Wrapper -->
+    <div id="wrapper">
+        
+
+        

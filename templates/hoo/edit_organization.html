@@ -1,0 +1,142 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_organization' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit Organization</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_organization' %}" >
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="organization_id" name="organization_id" value="{{organization.0.id}}" hidden required/>
+         
+            <div class="col-sm-11">
+               <label for="organization_initials">Initials</label>
+               <input type="text" class="form-control text-uppercase" id="organization_initials"  name="organization_initials"
+                   placeholder="Enter Organization Initials" value="{{organization.0.initials}}"/>
+             </div><br>
+      
+             <div class="col-sm-11">
+              <label for="organization_name">Organization</label>
+              <input type="text" class="form-control text-uppercase" id="organization_name"  name="organization_name"
+                  placeholder="Enter Organization Name"value="{{organization.0.name}}"/>
+            </div><br>
+      
+            <div class="col-sm-11">
+              <label for="organization_type">Type</label>
+              <select class="form-control" id="organization_type" name="organization_type" required>
+               {% comment %} {% if organization.0.type %}
+                     <option value="{{ organization.0.type }}" selected>{{ organization.0.type }}</option>  <!-- Current salutation as default -->
+               {% else %}
+                     <option value="" disabled selected>SELECT TYPE</option>  <!-- Default option if no salutation -->
+               {% endif %} {% endcomment %}
+
+               {% comment %} <select class="form-control" id="organization_type" name="organization_type" required> {% endcomment %}
+                  {% if organization %}
+                      <option value="{{ organization.0.type }}" selected>{{ organization.0.type }}</option>  <!-- Current type as default -->
+                  {% else %}
+                      <option value="" disabled selected>SELECT TYPE</option>  <!-- Default option if no type -->
+                  {% endif %}
+              
+                  {% if organization %}
+                      {% if organization.0.type == "ACADEME" %}
+                          <option value="INDUSTRY">INDUSTRY</option>
+                      {% elif organization.0.type == "INDUSTRY" %}
+                          <option value="ACADEME">ACADEME</option>
+                      {% endif %}
+                  {% endif %}
+              </select>
+
+            </select>
+          </div>
+      
+          <div class="col-sm-11">
+              <label for="organization_logo">Logo</label>
+              <input type="file" class="form-control" id="organization_logo" name="organization_logo" accept="image/*" onchange="previewImage(event)" value="{{organization.0.logo}}"/>
+              <br>
+              <img id="logo_preview" src="" alt="Logo Preview" style="display: none; width: 2in; height: 2in; border: 1px solid #ccc;" />
+          </div>
+      
+          <div class="col-sm-11">
+              <label for="organization_telno">Telephone Number</label>
+              <input type="tel" class="form-control" id="organization_telno" name="organization_telno" 
+              placeholder="123-456-7890" required 
+              oninput="formatTelInput(this)" value="{{organization.0.telephone}}"/>
+          </div>
+
+
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update Organization</button>
+      </div>
+         </div>
+      </div>
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+
+<script>
+   function previewImage(event) {
+       const file = event.target.files[0];
+       const preview = document.getElementById('logo_preview');
+   
+       if (file) {
+           const reader = new FileReader();
+           reader.onload = function(e) {
+               preview.src = e.target.result;
+               preview.style.display = 'block'; // Show the image preview
+           }
+           reader.readAsDataURL(file);
+       } else {
+           preview.src = '';
+           preview.style.display = 'none'; // Hide the image preview if no file is selected
+       }
+   }
+   </script>
+
+   <script>
+       function formatTelInput(input) {
+           // Remove all non-digit characters
+           const value = input.value.replace(/[^0-9]/g, '');
+           
+           // Format the value with dashes
+           let formattedValue = '';
+           if (value.length > 0) {
+               formattedValue += value.substring(0, 3); // First 3 digits
+           }
+           if (value.length > 3) {
+               formattedValue += '-' + value.substring(3, 6); // Next 3 digits
+           }
+           if (value.length > 6) {
+               formattedValue += '-' + value.substring(6, 10); // Last 4 digits
+           }
+           
+           // Set the formatted value back to the input
+           input.value = formattedValue;
+       }
+       </script>
+{% endblock  %}
+

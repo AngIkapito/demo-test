@@ -1,0 +1,59 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+    <div class="row">
+        <div class="col-sm-12">
+           <div class="card">
+              <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+   <div class="d-sm-flex align-items-center justify-content-between mb-4">
+      <a href="{% url 'view_region' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+      <div class="text-center flex-grow-1">
+          <h1 class="h3 mb-0 text-gray-800">Add Region/Chapter</h1>
+      </div>
+  </div>
+
+ </div>
+<!-- Page Heading -->
+
+<form method="post" action="{% url 'add_region' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+       {% include 'includes/messages.html' %}
+
+       <div class="col-sm-11">
+         <label for="region_name">Region/Chapter Name</label>
+         <input type="text" class="form-control" id="region_name"  name="region_name"
+             placeholder="Enter Region/Chapter Name"style="text-transform: uppercase;"/>
+       </div><br>
+
+       <div class="col-sm-11">
+         <label for="region_info">Region/Chapter</label>
+         <input type="text" class="form-control" id="region_info"  name="region_info"
+             placeholder="Enter Region/Chapter Information" style="text-transform: uppercase;"/>
+      </div>
+
+       <div class="col-sm">
+         <br>
+          <button type="submit" class="btn btn-primary">Add Region/Chapter</button>
+       </div>
+
+   <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</form>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<!-- /.container-fluid -->
+</div>
+
+{% endblock  %}
+

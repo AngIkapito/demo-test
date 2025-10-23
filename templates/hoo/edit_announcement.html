@@ -1,0 +1,139 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<!-- Begin Page Content -->
+<div class="row">
+   <div class="col-sm-12">
+      <div class="card">
+         <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+ <a href="{% url 'view_announcement' %}" class="btn btn-secondary" title="Go Back">
+     <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+ </a>
+ <div class="text-center flex-grow-1">
+     <h1 class="h3 mb-0 text-gray-800">Edit Announcement</h1>
+ </div>
+</div>
+
+<form method="post" action="{% url 'update_announcement' %}" enctype="multipart/form-data">
+   {% csrf_token %}
+      {% include 'includes/messages.html' %}
+      <div class="col-sm-11">
+         <div class="form-group">
+            <input type="text" class="form-control" id="announcement_id" name="announcement_id" value="{{announcement.0.id}}" hidden required/>
+            
+            <div class="col-sm-11">
+               <label for="announcement_title">Title</label>
+               <input type="text" class="form-control  text-uppercase" id="announcement_title"  name="announcement_title"
+                   placeholder="Enter Announcement Title" value="{{announcement.0.title}}" />
+             </div><br>
+      
+             <div class="col-sm-11">
+               <label for="announcement_description">Description</label>
+               <input type="text" class="form-control  text-uppercase" id="announcement_description"  name="announcement_description"
+                   placeholder="Enter Announcement Description" value="{{announcement.0.description}}" />
+             </div><br> 
+             
+             <div class="col-sm-11">
+               <label for="announcement_banner">Banner</label>
+               <input type="file" class="form-control" id="announcement_banner" name="announcement_banner" accept="image/*" onchange="previewImage(event)" />
+           </div>
+
+           <div class="col-sm-11">
+               <img id="image_preview" src="{{announcement.0.banner.url}}" alt="Image Preview" style="width: 192px; height: 192px; object-fit: cover; margin-top: 10px;border: 2px solid gray; border-radius: 4px;" />
+           </div><br>
+
+           <div class="col-sm-11">
+        <label for="announcement_tags">Tags (comma-separated):</label>
+        <input type="text" id="announcement_tags" name="announcement_tags" 
+               value="{% for tag in announcement.0.tags.all %}{{ tag }},&nbsp;{% endfor %}"/>  
+           </div>
+
+             <div class="col-sm-11">
+               <label for="announcement_status">Publish it Now?</label>
+               <select class="form-control" id="announcement_status" name="announcement_status">
+                  {% if announcement %}
+                      <option value="1" {% if announcement.status %}selected{% endif %}>YES</option>
+                      <option value="0" {% if not announcement.status %}selected{% endif %}>NO</option>
+                  {% else %}
+                      <option value="" disabled selected>SELECT STATUS</option>
+                  {% endif %}
+              </select>
+           </div><br>
+
+        </div>
+        <div class="col-12">
+         <button type="submit" class="btn btn-primary">Update Announcement</button>
+      </div>
+         </div>
+      </div>
+</form>
+
+<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+    </div>
+</div>
+</div>
+</div></div>
+
+<!-- /.container-fluid -->
+</div>
+<script>
+   function previewImage(event) {
+       const imagePreview = document.getElementById('image_preview');
+       const file = event.target.files[0]; // Get the selected file
+
+       if (file) {
+           const reader = new FileReader(); // Create a FileReader object
+
+           reader.onload = function(e) {
+               imagePreview.src = e.target.result; // Set the src of the img element to the file's data URL
+               imagePreview.style.display = 'block'; // Show the image
+           };
+
+           reader.readAsDataURL(file); // Read the file as a data URL
+       } else {
+           imagePreview.src = '#'; // Reset the src if no file is selected
+           imagePreview.style.display = 'none'; // Hide the image
+       }
+   }
+</script>
+
+<script>
+    function addTag(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // Prevent form submission
+    
+            const input = document.getElementById('announcement_tags');
+            const tagValue = input.value.trim();
+    
+            if (tagValue) {
+                // Create a new tag element
+                const tagContainer = document.getElementById('tag_container');
+                const tagElement = document.createElement('span');
+                tagElement.className = 'tag';
+                tagElement.textContent = tagValue;
+    
+                // Create a remove button for the tag
+                const removeButton = document.createElement('span');
+                removeButton.className = 'remove-tag';
+                removeButton.textContent = 'x';
+                removeButton.onclick = function() {
+                    tagContainer.removeChild(tagElement);
+                };
+    
+                tagElement.appendChild(removeButton);
+                tagContainer.appendChild(tagElement);
+    
+                // Clear the input field
+                input.value = '';
+            }
+        }
+    }</script>
+
+
+{% endblock  %}
+

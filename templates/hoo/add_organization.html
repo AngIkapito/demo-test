@@ -1,0 +1,123 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<!-- Begin Page Content -->
+
+    <div class="row">
+        <div class="col-sm-12">
+           <div class="card">
+              <div class="card-body">
+
+<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
+<div class="col-sm-12">
+   <div class="d-sm-flex align-items-center justify-content-between mb-4">
+      <a href="{% url 'view_organization' %}" class="btn btn-secondary" title="Go Back">
+          <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+      </a>
+      <div class="text-center flex-grow-1">
+          <h1 class="h3 mb-0 text-gray-800">Add Organization</h1>
+      </div>
+  </div>
+
+ </div>
+<!-- Page Heading -->
+
+<form method="post" action="{% url 'add_organization' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+       {% include 'includes/messages.html' %}
+
+
+    <div class="col-sm-11">
+        <label for="organization_logo">Logo</label>
+        <input type="file" class="form-control" id="organization_logo" name="organization_logo" accept="image/*" onchange="previewImage(event)" />
+    
+        <img id="logo_preview" src="" alt="Logo Preview" style="width: 192px; height: 192px; object-fit: cover; margin-top: 10px;border: 2px solid gray; border-radius: 4px;" />
+    </div>
+<br>
+       <div class="col-sm-11">
+         <label for="organization_initials">Initials</label>
+         <input type="text" class="form-control text-uppercase" id="organization_initials"  name="organization_initials"
+             placeholder="Enter Organization Initials"/>
+       </div><br>
+
+       <div class="col-sm-11">
+        <label for="organization_name">Organization</label>
+        <input type="text" class="form-control text-uppercase" id="organization_name"  name="organization_name"
+            placeholder="Enter Organization Name"/>
+      </div><br>
+
+      <div class="col-sm-11">
+        <label for="organization_type">Type</label>
+        <select class="form-control" id="organization_type" name="organization_type" required>
+            <option value="" disabled selected>Select Organization Type</option>
+            <option value="ACADEME">ACADEME</option>
+            <option value="INDUSTRY">INDUSTRY</option>
+        </select>
+    </div>
+
+    <div class="col-sm-11">
+        <label for="organization_telno">Telephone Number</label>
+        <input type="tel" class="form-control" id="organization_telno" name="organization_telno" 
+               placeholder="123-456-7890" required 
+               oninput="formatTelInput(this)" />
+    </div>
+    
+
+       <div class="col-sm">
+         <br>
+          <button type="submit" class="btn btn-primary">Add Organization</button>
+       </div>
+
+   <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
+</form>
+</div>
+</div>
+</div>
+</div>
+
+</div>
+<!-- /.container-fluid -->
+</div>
+<script>
+    function previewImage(event) {
+        const file = event.target.files[0];
+        const preview = document.getElementById('logo_preview');
+    
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.src = e.target.result;
+                preview.style.display = 'block'; // Show the image preview
+            }
+            reader.readAsDataURL(file);
+        } else {
+            preview.src = '';
+            preview.style.display = 'none'; // Hide the image preview if no file is selected
+        }
+    }
+    </script>
+
+    <script>
+        function formatTelInput(input) {
+            // Remove all non-digit characters
+            const value = input.value.replace(/[^0-9]/g, '');
+            
+            // Format the value with dashes
+            let formattedValue = '';
+            if (value.length > 0) {
+                formattedValue += value.substring(0, 3); // First 3 digits
+            }
+            if (value.length > 3) {
+                formattedValue += '-' + value.substring(3, 6); // Next 3 digits
+            }
+            if (value.length > 6) {
+                formattedValue += '-' + value.substring(6, 10); // Last 4 digits
+            }
+            
+            // Set the formatted value back to the input
+            input.value = formattedValue;
+        }
+        </script>
+{% endblock  %}
+
