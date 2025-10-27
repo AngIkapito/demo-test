@@ -2,6 +2,7 @@ from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
+from django.contrib.auth.hashers import check_password
 from django.contrib import messages
 from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
 from django.utils.safestring import mark_safe
@@ -105,6 +106,58 @@ def PROFILE_UPDATE(request):
     
     return render(request, 'hoo/profile.html')  # use your correct template
 
+
+
+
+def PROFILE_PASSWORD_PAGE(request):
+    user = CustomUser.objects.get(id = request.user.id)
+    
+    context = {
+        "user":user,
+
+    }
+    return render(request, 'hoo/change_password.html', context)
+
+
+
+@login_required(login_url='/')
+def CHANGE_PASSWORD(request):
+    if request.method == "POST":
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+        repeat_new_password = request.POST.get('repeat_new_password')
+        user = CustomUser.objects.get(id=request.user.id)
+
+        # Check current password
+        if not check_password(current_password, user.password):
+            messages.error(request, "Current password is incorrect.")
+            return redirect('change_password')
+
+        # Check new password requirements
+        errors = []
+        if len(new_password) < 8:
+            errors.append("Password must be at least 8 characters long.")
+        if not any(c.isupper() for c in new_password):
+            errors.append("Password must contain at least one capital letter.")
+        if not any(c.isdigit() for c in new_password):
+            errors.append("Password must contain at least one number.")
+        if not any(c in '!@#$%^&*(),.?":{}|<>' for c in new_password):
+            errors.append("Password must contain at least one special character.")
+        if new_password != repeat_new_password:
+            errors.append("Passwords do not match.")
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect('change_password')
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        messages.success(request, "Your password has been changed successfully.")
+        return redirect('login')
+
+    return render(request, 'change_password.html')
 
 
 # For Schoolyear 

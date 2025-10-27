@@ -27,14 +27,18 @@ urlpatterns = [
     # Profile Update
     path('profile', views.PROFILE, name='profile'),
     path('profile/update',views.PROFILE_UPDATE, name='profile_update'),
+    path('change_password', views.PROFILE_PASSWORD_PAGE, name='change_password_page'),
+    path('change_password/update', views.CHANGE_PASSWORD, name='change_password'),
     
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
     path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),
     path('hoo/profile/update',hoo_views.PROFILE_UPDATE, name='profile_update_hoo'),
-    
-    
+    #path('hoo/change_password', hoo_views.PROFILE_PASSWORD_PAGE, name='change_password_page_hoo'),
+    #path('hoo/change_password/update', hoo_views.CHANGE_PASSWORD, name='change_password_hoo'),
+
+
     #add Member
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
     path('hoo/Member/ViewAll', hoo_views.VIEWALL_MEMBER, name='viewall_member'),
@@ -130,5 +134,6 @@ urlpatterns = [
     
     path('member/basic_information', member_views.basic_information, name='basic_information'),
     #path('member/registration_member', member_views.REGISTRATION_MEMBER, name='registration_member'),
+    
     
 ]+ static(settings.MEDIA_URL,document_root = settings.MEDIA_ROOT)

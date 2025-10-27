@@ -29,26 +29,108 @@
                 <div class="col-lg-12">
                     <a href="{% url 'login' %}" class="btn btn-secondary" title="Go Back">
                         <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
-                    
                     <div class="p-5">
                         <div class="text-center">
-                            <h1 class="h4 text-gray-900 mb-4"> New Member Registration</h1>
+                            <h1 class="h4 text-gray-900 mb-4">New Member Registration</h1>
+                            {% for sy in school_year %}
+                                {% if sy.id == active_school_year_id and sy.status == 1 %}
+                                    <div class="form-group">
+                                        <label>School Year:</label>
+                                        <span><b>{{ sy.sy_start }} - {{ sy.sy_end }}</b></span>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
                         </div>
-
                         <form class="user" method="post" action="{% url 'registration_new' %}" enctype="multipart/form-data" onsubmit="return validateForm()">
                             {% csrf_token %}
                             {% include 'includes/messages.html' %}
-
-                            <fieldset>
-                                <div class="form-group">
-                                    <fieldset>
-                                        <legend>Member Information</legend>
-                                        <input type="hidden" class="form-control text-uppercase" id="membertype_id"
-                                            name="membertype_id" value="1" required/> 
-                                        
-                                        <input type="hidden" class="form-control text-uppercase" id="school_year_id"
-                                            name="school_year_id" value="{{active_school_year_id}}" required/>
-
+                            <input type="hidden" class="form-control text-uppercase" id="membertype_id" name="membertype_id" value="1" required/> 
+                            <input type="hidden" class="form-control text-uppercase" id="school_year_id" name="school_year_id" value="{{active_school_year_id}}" required/>
+                            <!-- Personal Information -->
+                            <fieldset class="border rounded p-3 mb-4">
+                                <legend class="w-auto px-2" style="font-size:1.1rem;">Personal Information</legend>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="salutation_id">Salutation</label>
+                                        <select class="form-control" id="salutation_id" name="salutation_id" required>
+                                            <option value="" disabled selected>SELECT SALUTATION</option>
+                                            {% for salutation in salutations %}
+                                                <option value="{{ salutation.id }}">{{ salutation.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="position">Position</label>
+                                        <input type="text" class="form-control text-uppercase" id="position" placeholder="Position" name="position" required/>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-4">
+                                        <label for="first_name">First Name</label>
+                                        <input type="text" class="form-control text-uppercase" id="first_name" placeholder="First Name" name="first_name" required/>
+                                    </div>
+                                    <div class="form-group col-md-4">
+                                        <label for="last_name">Last Name</label>
+                                        <input type="text" class="form-control text-uppercase" id="last_name" placeholder="Last Name" name="last_name" required/>
+                                    </div>
+                                    <div class="form-group col-md-4">
+                                        <label for="middle_name">Middle Name</label>
+                                        <input type="text" style="text-transform: uppercase;" class="form-control" id="middle_name" placeholder="Middle Name" name="middle_name"/>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="birthdate">Birthdate</label>
+                                        <input type="date" class="form-control" id="birthdate" name="birthdate" required/>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="email">Email Address</label>
+                                        <input type="email" class="form-control text-lowercase" id="email" placeholder="Email Address" name="email" required/>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="contact_no">Contact Number</label>
+                                        <input type="tel" class="form-control" id="contact_no" placeholder="eg. 09123456789" name="contact_no" maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number."/>                        
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="facebook_profile_link">Facebook Profile Link:</label>
+                                        <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" required />
+                                    </div>
+                                </div>
+                                <!-- Removed extra position row, now beside salutation above -->
+                            </fieldset>
+                            <!-- Account Information -->
+                            <fieldset class="border rounded p-3 mb-4">
+                                <legend class="w-auto px-2" style="font-size:1.1rem;">Account Information</legend>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="membershiptype_id">Membership Type
+                                            <i class="fas fa-info-circle" data-toggle="tooltip" title="Select your membership type. Each type has different benefits and pricing."></i>
+                                        </label>
+                                        <select class="form-control" id="membershiptype_id" name="membershiptype_id" required>
+                                            <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>
+                                            {% for membershiptype in membershiptypes %}
+                                                <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{membershiptype.price}} PESOS</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="organization_id">School/Organization</label>
+                                        <select class="form-control" id="organization_id" name="organization_id" required>
+                                            <option value="" disabled selected>SELECT SCHOOL / ORGANIZATION</option>
+                                            {% for organization in organizations %}
+                                                <option value="{{ organization.id }}">{{ organization.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="username">Username (Auto-generated)</label>
+                                        <input type="text" class="form-control" id="username" name="username" required placeholder="Username will be auto-generated or make a custom"/>
+                                    </div>
+                                    <div class="form-group col-md-6">
                                         <label for="officertype_id" style="display:none;">PSITE CL Officer?</label>
                                         <select class="form-control" id="officertype_id" name="officertype_id" required style="display:none;">
                                             <option value="1" selected>MEMBER ONLY</option>
@@ -58,118 +140,35 @@
                                                 {% endif %}
                                             {% endfor %}
                                         </select>
-
-                                        <div class="form-group">
-                                            <label for="membershiptype_id">Membership Type
-                                                <i class="fas fa-info-circle" 
-                                                data-toggle="tooltip" 
-                                                title="Select your membership type. Each type has different benefits and pricing."></i>
-                                            </label>
-                                            <select class="form-control" id="membershiptype_id" name="membershiptype_id" required>
-                                                <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>
-                                                {% for membershiptype in membershiptypes %}
-                                                    <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{membershiptype.price}} PESOS</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="organization_id">School/Organization</label>
-                                            <select class="form-control" id="organization_id" name="organization_id" required>
-                                                <option value="" disabled selected>SELECT SCHOOL / ORGANIZATION</option>
-                                                {% for organization in organizations %}
-                                                    <option value="{{ organization.id }}">{{ organization.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="position">Position</label>
-                                            <input type="text" class="form-control text-uppercase" id="position"
-                                                placeholder="Position" name="position" required/>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="salutation_id">Salutation</label>
-                                            <select class="form-control" id="salutation_id" name="salutation_id" required>
-                                                <option value="" disabled selected>SELECT SALUTATION</option>
-                                                {% for salutation in salutations %}
-                                                    <option value="{{ salutation.id }}">{{ salutation.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="first_name">First Name</label>
-                                            <input type="text" class="form-control text-uppercase" id="first_name"
-                                                placeholder="First Name" name="first_name" required/>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="last_name">Last Name</label>
-                                            <input type="text" class="form-control text-uppercase" id="last_name"
-                                                placeholder="Last Name" name="last_name" required/>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="middle_name">Middle Name</label>
-                                            <input type="text" style="text-transform: uppercase;" class="form-control" id="middle_name"
-                                                placeholder="Middle Name" name="middle_name"/>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="email">Email Address</label>
-                                            <input type="email" class="form-control text-lowercase" id="email"
-                                                placeholder="Email Address" name="email" required/>
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="contact_no">Contact Number</label>
-                                            <input type="tel" class="form-control" id="contact_no"
-                                                placeholder="eg. 09123456789" name="contact_no" 
-                                                maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number."/>                        
-                                        </div>
-
-                                        <div class="form-group">
-                                            <label for="birthdate">Birthdate</label>
-                                            <input type="date" class="form-control" id="birthdate" name="birthdate" required/>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="facebook_profile_link">Facebook Profile Link:</label>
-                                            <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" required />
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="proof_of_payment">Proof of Payment:</label>
-                                            <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf, .jpg, .jpeg, .png">
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="payment_date">Payment Date:</label>
-                                            <input type="date" class="form-control" id="payment_date" name="payment_date" required/>
-                                        </div>
-
-                                        <!-- NEW Username Field -->
-                                        <div class="form-group">
-                                            <label for="username">Username (Auto-generated)</label>
-                                            <input type="text" class="form-control" id="username" name="username" required placeholder="Username will be auto-generated or make a custom"/>
-                                        </div>
-
-                                    </fieldset>
-
-                                    <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
-                                    <div class="col-sm mb-3">
-                                        <div class="form-group">
-                                            <label>
-                                                <input type="checkbox" id="termsCheckbox" name="terms_accepted" value="true" required>
-                                                I accept the terms of membership.
-                                            </label>
-                                        </div>
-                                        <div class="agreement">
-                                            If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
-                                        </div>
                                     </div>
-
-                                    <button id="registerButton" class="btn btn-primary btn-block" type="submit" onclick="return validateForm()">Register</button>
-                                    <hr>
                                 </div>
                             </fieldset>
+                            <!-- Payment Information -->
+                            <fieldset class="border rounded p-3 mb-4">
+                                <legend class="w-auto px-2" style="font-size:1.1rem;">Payment Information</legend>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="proof_of_payment">Proof of Payment:</label>
+                                        <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf, .jpg, .jpeg, .png">
+                                    </div>
+                                    <div class="form-group col-md-6">
+                                        <label for="payment_date">Payment Date:</label>
+                                        <input type="date" class="form-control" id="payment_date" name="payment_date" required/>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
+                            <div class="form-group mb-3">
+                                <div class="custom-control custom-checkbox">
+                                    <input type="checkbox" class="custom-control-input" id="termsCheckbox" name="terms_accepted" value="true" required>
+                                    <label class="custom-control-label" for="termsCheckbox">I accept the terms of membership.</label>
+                                </div>
+                                <div class="agreement mt-2 text-muted" style="font-size:0.95rem;">
+                                    If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
+                                </div>
+                            </div>
+                            <button id="registerButton" class="btn btn-primary btn-block py-2 font-weight-bold" type="submit" onclick="return validateForm()">Register</button>
+                            <hr>
                         </form>
                     </div>
                 </div>

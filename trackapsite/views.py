@@ -2,6 +2,7 @@ from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.hashers import check_password
 from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization
 from django.utils.safestring import mark_safe
 from django.urls import path, include, reverse
@@ -13,6 +14,9 @@ from django.conf import settings
 import random
 import string
 # Create your views here.
+
+
+
 
 def BASE(request):
     current_year = datetime.now().year
@@ -159,7 +163,7 @@ def PROFILE_UPDATE(request):
         last_name = request.POST.get('last_name')
         email = request.POST.get('email')
         username = request.POST.get('username')
-        change_password = request.POST.get('change_password')  # renamed field
+    # change_password = request.POST.get('change_password')  # removed password change functionality
 
         try:
             customuser = CustomUser.objects.get(id=request.user.id)
@@ -167,9 +171,7 @@ def PROFILE_UPDATE(request):
             customuser.first_name = first_name
             customuser.last_name = last_name
 
-            # If change password field is filled, update password
-            if change_password and change_password.strip() != "":
-                customuser.set_password(change_password)
+            # Password change functionality removed
 
             if profile_pic and profile_pic != "":
                 customuser.profile_pic = profile_pic
@@ -181,6 +183,57 @@ def PROFILE_UPDATE(request):
             print("Error updating profile:", e)  # for debugging
             messages.error(request, 'Failed to update your profile')
     
+    return render(request, 'login.html')
+
+
+
+
+def PROFILE_PASSWORD_PAGE(request):
+    user = CustomUser.objects.get(id = request.user.id)
+    
+    context = {
+        "user":user,
+
+    }
+    return render(request, 'change_password.html', context)
+
+@login_required(login_url='/')
+def CHANGE_PASSWORD(request):
+    if request.method == "POST":
+        current_password = request.POST.get('current_password')
+        new_password = request.POST.get('new_password')
+        repeat_new_password = request.POST.get('repeat_new_password')
+        user = CustomUser.objects.get(id=request.user.id)
+
+        # Check current password
+        if not check_password(current_password, user.password):
+            messages.error(request, "Current password is incorrect.")
+            return redirect('change_password')
+
+        # Check new password requirements
+        errors = []
+        if len(new_password) < 8:
+            errors.append("Password must be at least 8 characters long.")
+        if not any(c.isupper() for c in new_password):
+            errors.append("Password must contain at least one capital letter.")
+        if not any(c.isdigit() for c in new_password):
+            errors.append("Password must contain at least one number.")
+        if not any(c in '!@#$%^&*(),.?":{}|<>' for c in new_password):
+            errors.append("Password must contain at least one special character.")
+        if new_password != repeat_new_password:
+            errors.append("Passwords do not match.")
+
+        if errors:
+            for error in errors:
+                messages.error(request, error)
+            return redirect('change_password')
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        messages.success(request, "Your password has been changed successfully.")
+        return redirect('login')
+
     return render(request, 'login.html')
 
 
