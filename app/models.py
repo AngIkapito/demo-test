@@ -8,9 +8,9 @@ from taggit.managers import TaggableManager
 class CustomUser(AbstractUser):
     # User information
     USER = (
-        (1, 'hoo'),
-        (2, 'officer'),
-        (3, 'member'),
+        ('1', 'hoo'),
+        ('2', 'officer'),
+        ('3', 'member'),
     )
     user_type = models.CharField(choices=USER, max_length=25)
     profile_pic = models.ImageField(upload_to='profile_pic/')

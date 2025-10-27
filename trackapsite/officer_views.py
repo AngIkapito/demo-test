@@ -9,9 +9,37 @@ from django.utils import timezone
 from django.http import JsonResponse
 import datetime
 
+
 @login_required(login_url='/')
 def home(request):
-    return render(request,'officer/home.html')
+    # Get the logged-in user
+    user = request.user
+    membership_expiry = None
+    membership_status = None
+    # Find the Member object for this user
+    try:
+        member = Member.objects.get(admin=user)
+        # Get the latest approved membership for this member
+        membership = (
+            Membership.objects.filter(member=member, status='Approved')
+            .select_related('school_year')
+            .order_by('-school_year__sy_end')
+            .first()
+        )
+        if membership and membership.school_year:
+            membership_expiry = membership.school_year.sy_end
+            membership_status = membership.school_year.status
+    except Member.DoesNotExist:
+        pass
+    except Exception:
+        pass
+
+    context = {
+        'user': user,
+        'membership_expiry': membership_expiry,
+        'membership_sy_status': membership_status,
+    }
+    return render(request, 'officer/home.html', context)
 
 
 
