@@ -21,7 +21,8 @@
                    <th>Lastname</th>
                    <th>School</th>
                    <th>Position</th>
-                   <th>MembershipType</th>
+                             <th>MembershipType</th>
+                             <th>Type</th>
                    <th>Price</th>
                    <th>Proof of Payment</th>
                    <th>Status</th>
@@ -34,7 +35,8 @@
                   <th>Lastname</th>
                   <th>School</th>
                   <th>Position</th>
-                  <th>MembershipType</th>
+                        <th>MembershipType</th>
+                        <th>Type</th>
                   <th>Price</th>
                   <th>Proof of Payment</th>
                   <th>Status</th>
@@ -49,6 +51,15 @@
                         <td>{{ m.organization.name }}</td>
                         <td>{{ m.position|upper }}</td>
                         <td>{{ m.membershiptype.name|upper }}</td>
+                        <td>
+                            {% if m.latest_membertype_id == 1 %}
+                                <span class="badge badge-primary">New</span>
+                            {% elif m.latest_membertype_id == 2 %}
+                                <span class="badge badge-info">Renew</span>
+                            {% else %}
+                                <span class="badge badge-secondary">N/A</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if m.membershiptype.price %}
                                 {{ m.membershiptype.price }}
@@ -135,7 +146,7 @@
                     </div>
                 {% empty %}
                 <tr>
-                    <td colspan="9">No members found.</td>
+                    <td colspan="10">No members found.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -147,12 +158,12 @@
 
 <script>
    $(document).ready(function() {
-       $('#dataTable').DataTable({
+           $('#dataTable').DataTable({
            "order": [[ 4, "desc" ]],
            "paging": true,
            "searching": true,
            "columnDefs": [
-               { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8] }
+               { "orderable": true, "targets": [0,1,2,3,4,5,6,7,8,9] }
            ]
        });
    });

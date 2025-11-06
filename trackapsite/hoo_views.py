@@ -893,39 +893,76 @@ def MEMBERSHIP_APPROVAL(request):
         user = member.admin
 
         # Get related Membership
-        membership = get_object_or_404(Membership, member_id=member.id)
+        # A member may have multiple Membership records (new + renew). Select the most
+        # recent one to act upon. Prefer pending records if present; otherwise fall back
+        # to the latest by id.
+        membership_qs = Membership.objects.filter(member_id=member.id).order_by('-id')
+        # Prefer a PENDING membership if one exists
+        membership = membership_qs.filter(status__iexact='PENDING').first()
+        if not membership:
+            # Fall back to the latest membership record for this member
+            membership = membership_qs.first()
+
+        if not membership:
+            messages.error(request, f"No membership record found for {user.first_name} {user.last_name}.")
+            return redirect("membership_approval")
 
         if action == "approve":
+            # Approve the membership record
             membership.status = "APPROVED"
             membership.save()
 
-            # ✅ Generate new password
-            password = get_random_string(length=10)
-            user.set_password(password)
-
-            # ✅ Activate the user
+            # Activate the user account
             user.is_active = 1
             user.save()
 
-            # ✅ Send approval email with username and password
-            send_mail(
-                subject="Membership Approved",
-                message=(
-                    f"Dear {user.first_name} {user.last_name},\n\n"
-                    f"Your membership has been approved.\n"
-                    f"Here are your login credentials:\n\n"
-                    f"Username: {user.username}\n"
-                    f"Password: {password}\n\n"
-                    f"Please login and change your password as soon as possible."
-                ),
-                from_email="yourgmail@gmail.com",  # Replace with your EMAIL_HOST_USER
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
+            # If this is a NEW membership (membertype != 2) generate credentials and email them.
+            # For RENEWALS (membertype_id == 2) do NOT create a new password — just notify the user.
+            if getattr(membership, 'membertype_id', None) != 2:
+                # ✅ Generate new password for NEW registrations
+                password = get_random_string(length=10)
+                user.set_password(password)
+                user.save()
 
-            messages.success(
-                request, f"Membership for {user.first_name} {user.last_name} approved, user activated, and email with credentials sent."
-            )
+                # ✅ Send approval email with username and password
+                send_mail(
+                    subject="Membership Approved",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"Your membership has been approved.\n"
+                        f"Here are your login credentials:\n\n"
+                        f"Username: {user.username}\n"
+                        f"Password: {password}\n\n"
+                        f"Please login and change your password as soon as possible."
+                    ),
+                    from_email="yourgmail@gmail.com",  # Replace with your EMAIL_HOST_USER
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+
+                messages.success(
+                    request,
+                    f"Membership for {user.first_name} {user.last_name} approved, user activated, and email with credentials sent."
+                )
+            else:
+                # Renewal: do not generate a new password. Send a simple approval notification.
+                send_mail(
+                    subject="Membership Renewal Approved",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"Your membership renewal has been approved.\n"
+                        f"No changes were made to your login credentials.\n\n"
+                        f"Thank you."
+                    ),
+                    from_email="yourgmail@gmail.com",  # Replace with your EMAIL_HOST_USER
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+
+                messages.success(
+                    request,
+                    f"Membership renewal for {user.first_name} {user.last_name} approved; user retains existing credentials."
+                )
 
         elif action == "decline":
             membership.status = "DECLINED"
@@ -940,17 +977,32 @@ def MEMBERSHIP_APPROVAL(request):
         return redirect("membership_approval")
 
     # --- GET logic ---
-    members = Member.objects.select_related('admin', 'organization', 'membershiptype')
-    memberships = Membership.objects.only('member_id', 'status', 'proof_of_payment')
+    # Only consider memberships that are either NEW (membertype_id=1) or RENEW (membertype_id=2)
+    memberships = (
+        Membership.objects.filter(membertype_id__in=[1, 2])
+        .order_by('-id')
+        .only('member_id', 'status', 'proof_of_payment', 'membertype_id')
+    )
 
-    # Map status and proof_of_payment to member_id
-    membership_status_map = {m.member_id: m.status for m in memberships}
-    membership_payment_map = {m.member_id: m.proof_of_payment for m in memberships}
+    # Build maps using the latest membership per member (ordered by -id above)
+    membership_status_map = {}
+    membership_payment_map = {}
+    membership_type_map = {}
+    for m in memberships:
+        if m.member_id not in membership_status_map:
+            membership_status_map[m.member_id] = m.status
+            membership_payment_map[m.member_id] = m.proof_of_payment
+            membership_type_map[m.member_id] = getattr(m, 'membertype_id', None)
 
-    # Add dynamic attributes for display
+    # Get only members who have a relevant membership (new or renew)
+    member_ids = list(membership_status_map.keys())
+    members = Member.objects.select_related('admin', 'organization', 'membershiptype').filter(id__in=member_ids)
+
+    # Add dynamic attributes for display using the maps
     for member in members:
         member.status = membership_status_map.get(member.id, 'PENDING')
         member.proof_of_payment = membership_payment_map.get(member.id, None)
+        member.latest_membertype_id = membership_type_map.get(member.id)
 
     context = {
         'schoolyear': School_Year.objects.all(),

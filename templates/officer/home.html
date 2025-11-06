@@ -111,32 +111,47 @@
     var syStatus = "{{ membership_sy_status }}";
     var msg = '';
     var showRenew = false;
-    if (expiry && syStatus == '1') {
+
+    // If we have an expiry date, always show it in the card and modal.
+    if (expiry) {
       var today = new Date();
       var expiryDate = new Date(expiry);
       var diff = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+
       if (diff < 0) {
+        // Already expired
         msg = '<span class="text-danger fw-bold">Expired on ' + expiry + '</span>';
         showRenew = true;
       } else if (diff <= 30) {
+        // Expiring soon
         msg = '<span class="text-warning fw-bold">Expiring in ' + diff + ' day' + (diff !== 1 ? 's' : '') + ' (' + expiry + ')</span>';
         showRenew = true;
       } else {
+        // Future expiry
         msg = '<span class="text-success fw-bold">Active until ' + expiry + '</span>';
+      }
+
+      // If school_year.status is not active (not '1'), mark this as a previous subscription
+      if (syStatus && String(syStatus) !== '1') {
+        msg += ' <small class="text-muted">(previous subscription)</small>';
       }
     } else {
       msg = '<span class="text-secondary">No active subscription found.</span>';
     }
+
     // For card
-    document.getElementById('membership-expiry-message').innerHTML = msg;
+    var cardEl = document.getElementById('membership-expiry-message');
+    if (cardEl) cardEl.innerHTML = msg;
     // For modal
-    document.getElementById('membership-expiry-message-modal').innerHTML = msg;
+    var modalEl = document.getElementById('membership-expiry-message-modal');
+    if (modalEl) modalEl.innerHTML = msg;
+
     var renewBtn = document.getElementById('renew-btn-modal');
     var closeBtn = document.getElementById('modal-close-btn');
     if (renewBtn) {
       renewBtn.style.display = showRenew ? 'inline-block' : 'none';
       if (showRenew) {
-        // Hide close button until renewed
+        // Hide close button until renewed (if desired behavior)
         if (closeBtn) closeBtn.style.display = 'none';
         renewBtn.addEventListener('click', function() {
           if (closeBtn) closeBtn.style.display = '';
@@ -145,8 +160,9 @@
         if (closeBtn) closeBtn.style.display = '';
       }
     }
-    // Open modal automatically
-    if (window.bootstrap && bootstrap.Modal) {
+
+    // Open modal automatically only when renewal/expiry action is needed
+    if (showRenew && window.bootstrap && bootstrap.Modal) {
       var modal = new bootstrap.Modal(document.getElementById('subscriptionStatusModal'), {
         backdrop: 'static',
         keyboard: false

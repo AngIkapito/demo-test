@@ -394,6 +394,7 @@ def REGISTRATION_NEW(request):
 
     return render(request, 'registration_new.html', context)
 
+@login_required(login_url='/')
 def REGISTRATION_RENEW(request):
     salutations = Salutation.objects.all()
     membershiptypes = MembershipType.objects.all()
@@ -402,9 +403,53 @@ def REGISTRATION_RENEW(request):
     organizations = Organization.objects.all()
     memberships = Membership.objects.all()
     school_year = School_Year.objects.all()
+    # latest_school_year kept for backward compatibility
     latest_school_year = School_Year.objects.latest('sy_start')
+    # Get active school year id (if any)
+    active_school_year = School_Year.objects.filter(status=1).first()
+    active_school_year_id = active_school_year.id if active_school_year else None
+    # Get the current member (if exists) for the logged-in user so the form can be pre-filled
+    member = None
+    latest_membership = None
+    try:
+        member = Member.objects.filter(admin=request.user).first()
+        if member:
+            latest_membership = Membership.objects.filter(member=member).order_by('-id').first()
+    except Exception:
+        member = None
+        latest_membership = None
     
     if request.method == "POST":
+        # If the logged-in user already has a Member record, treat this POST as a renewal.
+        # Only payment-related fields will be accepted/updated for renewal.
+        proof_of_payment = request.FILES.get('proof_of_payment')
+        payment_date = request.POST.get('payment_date')
+        # For renewals, always use the active school year (status=1)
+        school_year_id = active_school_year_id
+
+        if member:
+            # Create a new Membership for renewal. As requested, set membertype_id = 2 for renewals.
+            try:
+                renewal = Membership(
+                    member=member,
+                    membertype_id=2,
+                    school_year_id=school_year_id,
+                    payment_date=payment_date,
+                    proof_of_payment=proof_of_payment,
+                )
+                renewal.save()
+                home_link = reverse('login')
+                registration_message = (
+                    f"{request.user.first_name} {request.user.last_name}, your renewal has been submitted.\n"
+                    f"A staff member will verify your payment. <a href=\"{home_link}\">Go to Homepage</a>."
+                )
+                messages.success(request, mark_safe(registration_message))
+                return redirect('login')
+            except Exception as e:
+                messages.error(request, f'Failed to submit renewal: {e}')
+                return redirect('registration_renew')
+
+        # If no existing member, fall back to creating a new user/member (original behavior)
         first_name = request.POST.get('first_name').upper()
         last_name = request.POST.get('last_name').upper()
         email = request.POST.get('email').strip().lower()
@@ -422,8 +467,8 @@ def REGISTRATION_RENEW(request):
         birthdate = request.POST.get('birthdate')
         facebook_profile_link = request.POST.get('facebook_profile_link')
         
-        proof_of_payment = request.FILES.get('proof_of_payment')
-        payment_date = request.POST.get('payment_date')
+        proof_of_payment = proof_of_payment
+        payment_date = payment_date
         
         terms_accepted = request.POST.get('terms_accepted') == 'true'
         password = request.POST.get('password')
@@ -495,9 +540,12 @@ def REGISTRATION_RENEW(request):
         'memberships': memberships,
         'school_year': school_year,
         'latest_school_year': latest_school_year,
+        'active_school_year_id': active_school_year_id,
+        'member': member,
+        'latest_membership': latest_membership,
     }
     
-    return render(request, 'registration_new.html', context)
+    return render(request, 'registration_renew.html', context)
 
 
 
