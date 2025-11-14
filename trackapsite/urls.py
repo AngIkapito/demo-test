@@ -124,6 +124,7 @@ urlpatterns = [
     path('officer/profile/update',officer_views.PROFILE_UPDATE, name='profile_update_officer'),
      
     path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
+    path('officer/MembershipApproval', officer_views.MEMBERSHIP_APPROVAL, name='membership_approval_officer'),
     
     #officer event List
     path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),

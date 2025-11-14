@@ -4,13 +4,38 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
 from django.urls import reverse
-from app.models import CustomUser
+from app.models import CustomUser, Member, Membership
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 #from django.http import JsonResponse
 
 @login_required(login_url='/')
 def home(request):
-    return render(request,'member/home.html')
+    user = request.user
+    membership_expiry = None
+    membership_status = None
+    try:
+        member = Member.objects.get(admin=user)
+        membership = (
+            Membership.objects.filter(member=member, status='Approved')
+            .select_related('school_year')
+            .order_by('-school_year__sy_end')
+            .first()
+        )
+        if membership and membership.school_year:
+            membership_expiry = membership.school_year.sy_end
+            membership_status = membership.school_year.status
+    except Member.DoesNotExist:
+        pass
+    except Exception:
+        pass
+
+    context = {
+        'user': user,
+        'membership_expiry': membership_expiry,
+        'membership_sy_status': membership_status,
+    }
+    return render(request,'member/home.html', context)
 
 
 @login_required(login_url='/')
