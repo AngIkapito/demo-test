@@ -70,6 +70,11 @@ class MemberType(models.Model):
     def __str__(self):
         return self.name
 
+class Tags(models.Model):
+    name = models.CharField(max_length=50)
+    
+    def __str__(self):
+        return self.name
 class MembershipType(models.Model):
     name = models.CharField(max_length=100)
     info = models.CharField(max_length=100)
@@ -178,7 +183,8 @@ class Event(models.Model):
     qr_code = models.ImageField(upload_to='qr_codes/', blank=True, null=True)
     evaluation_link = models.URLField(blank=True, null=True)
     school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE, null=True, blank=True)
-
+    is_closed = models.BooleanField(default=False)
+    tags = models.ForeignKey(Tags, on_delete=models.SET_NULL, null=True, blank=True)
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),

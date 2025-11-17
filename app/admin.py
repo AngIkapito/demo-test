@@ -25,6 +25,7 @@ admin.site.register(School_Year)
 admin.site.register(MemberType)
 admin.site.register(MembershipType)
 admin.site.register(Region)
+admin.site.register(Tags)
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):

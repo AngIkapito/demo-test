@@ -219,7 +219,7 @@
             data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="">Add Event</a>
-                <a class="collapse-item" href="{% url "member_event_reg" %}">Event Registration</a>
+                <a class="collapse-item" href="{% url "member_event_reg_officer" %}">Event Registration</a>
                 <a class="collapse-item" href="{% url "viewall_event2" %}">Events List</a>
                 <a class="collapse-item" href="">Events Attended</a>
             </div>
@@ -287,7 +287,7 @@
             data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 {% comment %}<a class="collapse-item" href="utilities-animation.html">Add Event</a>{% endcomment %}
-                <a class="collapse-item" href="">Events List</a>
+                <a class="collapse-item" href="{% url "member_event_reg_member" %}">Events Registration</a>
                 <a class="collapse-item" href="">Competitions List</a>
             </div>
         </div>

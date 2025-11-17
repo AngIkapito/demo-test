@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Tags
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse, Http404
@@ -1062,6 +1062,8 @@ def ADD_EVENT(request):
 
         banner = request.FILES.get('banner')
         qr_code = request.FILES.get('qr_code')
+        # Selected tag id from form (optional)
+        tag_id = request.POST.get('tag')
 
         # ✅ Get active school year
         try:
@@ -1074,13 +1076,23 @@ def ADD_EVENT(request):
         Event.objects.filter(status='active').update(status='inactive')
 
         # ✅ Create and save new event
+        # ensure numeric fields are cast
+        try:
+            max_attendees_val = int(max_attendees) if max_attendees not in (None, '') else 0
+        except Exception:
+            max_attendees_val = 0
+        try:
+            registration_fee_val = float(registration_fee) if registration_fee not in (None, '') else 0.0
+        except Exception:
+            registration_fee_val = 0.0
+
         event = Event(
             title=title,
             theme=theme,
             date=date,
             location=location,
-            max_attendees=max_attendees,
-            registration_fee=registration_fee,
+            max_attendees=max_attendees_val,
+            registration_fee=registration_fee_val,
             chair_id=chair_id,
             co_chair_id=co_chair_id,
             registration_link=registration_link,
@@ -1092,7 +1104,8 @@ def ADD_EVENT(request):
             updated_at=timezone.now(),
             school_year=active_schoolyear,
             status='active',
-            available_slots=max_attendees
+            available_slots=max_attendees_val,
+            tags_id=tag_id if tag_id not in (None, '') else None
         )
         event.save()
 
@@ -1106,6 +1119,7 @@ def ADD_EVENT(request):
     members = Member.objects.all()
     officertypes = OfficerType.objects.all()
     custom_users = CustomUser.objects.filter(user_type__in=[1, 2], is_superuser=0)
+    tags = Tags.objects.all()
 
     # ✅ Map officertype names to each custom user
     for user in custom_users:
@@ -1123,7 +1137,8 @@ def ADD_EVENT(request):
         'members': members,
         'custom_users': custom_users,
         'officertypes': officertypes,
-        'active_schoolyear': active_schoolyear
+        'active_schoolyear': active_schoolyear,
+        'tags': tags
     })
 
 

@@ -48,8 +48,11 @@
     
                                     <!-- Debug message -->
                                     {% include "includes/messages.html" %}
-                                    <form action="{% url 'doLogin' %}" method="POST">
+                                                                        <form action="{% url 'doLogin' %}" method="POST">
                                         {% csrf_token %}
+                                                                                {% if next %}
+                                                                                    <input type="hidden" name="next" value="{{ next }}" />
+                                                                                {% endif %}
                                         
                                         <div class="form-group">
                                             <label for="email">Email or Username</label>
@@ -70,7 +73,7 @@
     
                                         <div class="form-group">
                                             <div class="custom-control custom-checkbox small">
-                                                <input type="checkbox" class="custom-control-input" id="customCheck">
+                                                <input type="checkbox" class="custom-control-input" id="customCheck" name="remember_me">
                                                 <label class="custom-control-label" for="customCheck">Remember Me</label>
                                             </div>
                                         </div>

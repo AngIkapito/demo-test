@@ -123,7 +123,7 @@ urlpatterns = [
     path('officer/profile', officer_views.PROFILE, name='profile_officer'),
     path('officer/profile/update',officer_views.PROFILE_UPDATE, name='profile_update_officer'),
      
-    path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg'),
+    path('officer/Event/Register', officer_views.MEMBER_EVENT_REG, name='member_event_reg_officer'),
     path('officer/MembershipApproval', officer_views.MEMBERSHIP_APPROVAL, name='membership_approval_officer'),
     
     #officer event List
@@ -132,6 +132,7 @@ urlpatterns = [
     path('member/home', member_views.home, name='member_home'),
     path('member/profile', member_views.PROFILE, name='profile_member'),
     path('member/profile/update',member_views.PROFILE_UPDATE, name='profile_update_member'),
+    path('member/Event/Register', member_views.MEMBER_EVENT_REG, name='member_event_reg_member'),
     
     path('member/basic_information', member_views.basic_information, name='basic_information'),
     #path('member/registration_member', member_views.REGISTRATION_MEMBER, name='registration_member'),

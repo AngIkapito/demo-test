@@ -89,6 +89,16 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="tag">Tag <span class="text-danger">*</span>:</label>
+                        <select class="form-control" id="tag" name="tag" required>
+                            <option value="" disabled selected>-- Select Tag --</option>
+                            {% for tag in tags %}
+                                <option value="{{ tag.id }}">{{ tag.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
                         <label for="evaluation_link">Evaluation Link:</label>
                         <input type="url" class="form-control" id="evaluation_link" name="evaluation_link"/>
                     </div>

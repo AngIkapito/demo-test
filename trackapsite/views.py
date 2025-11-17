@@ -3,12 +3,12 @@ from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password
-from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization
+from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags
 from django.utils.safestring import mark_safe
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import path, include, reverse
 from django.utils.crypto import get_random_string
 from datetime import datetime
-from taggit.models import Tag
 from django.core.mail import send_mail, BadHeaderError
 from django.conf import settings
 import random
@@ -33,26 +33,33 @@ def CONTACT(request):
 
 def ANNOUNCEMENT(request):
     announcements = Announcement.objects.prefetch_related('tags').all()
-    tags = Tag.objects.all()
+    tags = Tags.objects.all()
+    # Active events to show on announcements page (most recent first)
+    active_events = Event.objects.filter(status='active').order_by('-date')
+    # Collect tags used by active events (Event.tags is a FK to Tags)
+    active_tag_ids = [tid for tid in active_events.values_list('tags_id', flat=True) if tid]
+    event_tags = Tags.objects.filter(id__in=active_tag_ids) if active_tag_ids else Tags.objects.none()
     query = request.GET.get('tags')
-    
+
     if query:
-        results = Tag.objects.filter(tags__name__icontains=query)  # Adjust based on your model's tag field
+        results = Tags.objects.filter(name__icontains=query)
     else:
-        results = Tag.objects.all()  # Show all items if no query
+        results = Tags.objects.all()
     
     # Get all announcements and order them by updated_at date, descending
     announcements = Announcement.objects.all().order_by('-updated_at')
     
-    # Get the latest announcement
+    # Get the latest announcement   
     latest_announcement = announcements.first()  # This will be the latest announcement
     
     context = {
-        'announcements': announcements, 
-        'tags': tags, 
-        'results': results, 
-        'latest_announcement': latest_announcement
-        }
+        'announcements': announcements,
+        'tags': tags,
+        'results': results,
+        'latest_announcement': latest_announcement,
+        'active_events': active_events,
+        'event_tags': event_tags,
+    }
     return render(request,'announcement.html', context)
 
 
@@ -60,7 +67,9 @@ def EVENT(request):
     return render(request,'event.html')
 
 def LOGIN(request):
-    return render(request,'login.html')
+    # Pass through any `next` parameter so the login form can redirect after authentication
+    next_url = request.GET.get('next', '')
+    return render(request,'login.html', {'next': next_url})
 
 def ERRORPAGE(request):
     return render(request,'error_page.html')
@@ -113,6 +122,8 @@ def doLogin(request):
         username = request.POST.get('email')
         password = request.POST.get('password')
         remember_me = request.POST.get('remember_me')  # Get the value of the checkbox
+        # support redirect after login
+        next_url = request.POST.get('next') or request.GET.get('next')
         user = authenticate(request=request, username=username, password=password)
 
         if user is not None:
@@ -126,6 +137,12 @@ def doLogin(request):
                 request.session.set_expiry(0)  # Session expires when the browser is closed
 
             # Redirect based on user type
+            # If a next_url was provided and is safe, redirect there first
+            if next_url:
+                # Validate the URL is safe for redirection
+                if url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+                    return redirect(next_url)
+
             if user_type == '1':
                 return redirect('hoo_home')
             elif user_type == '2':
@@ -140,8 +157,29 @@ def doLogin(request):
             return redirect('login')
             
 def doLogout(request):
-    logout(request)
-    return redirect('homepage')
+    # Log the user out (clears auth data) and ensure the session is fully flushed
+    try:
+        logout(request)
+    except Exception:
+        pass
+
+    # Flush session data server-side and clear session cookie client-side
+    try:
+        request.session.flush()
+    except Exception:
+        try:
+            request.session.clear()
+        except Exception:
+            pass
+
+    response = redirect('homepage')
+    try:
+        # Delete the session cookie so the browser no longer sends it
+        response.delete_cookie(settings.SESSION_COOKIE_NAME)
+    except Exception:
+        pass
+
+    return response
 
 
 @login_required(login_url='/')  

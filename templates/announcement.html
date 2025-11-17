@@ -1,176 +1,292 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- DITO KA MAS START MAGLAGAY NG LAMAN NG BODY -->
 
-<h2>Announcements</h2>
+<div class="container py-5">
 
-<!--Start of Announcement Container-->
-<div class="announcement-container" style="width: 100%;">
-  {% for announcement in announcements %}
-  <div class="card announcement hover-card" style="margin: 10px;" 
-       data-tags="{{ announcement.tags.all|join:', ' }}" 
-       data-title="{{ announcement.title }}" 
-       data-description="{{ announcement.description }}" 
-       data-date="{{ announcement.updated_at|date:'F j, Y' }}" 
-       data-image="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" 
-       data-toggle="modal" 
-       data-target="#announcementModal">
-      <img src="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" class="card-img-top" alt="...">
-      <div class="card-body">
-          <h5 class="card-title"><b>{{ announcement.title }}</b></h5>
-          <p class="card-text">Info: <b>{{ announcement.description|truncatewords:3 }}</b>...</p>
-          <p class="card-text">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</b></p>
-          <p class="card-text">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
-          <a href="#" class="btn btn-primary" data-toggle="modal" data-target="#announcementModal">See more...</a>
-      </div>
+  <!-- Expose CSRF token for client-side scripts (useful for AJAX POSTs) -->
+  <input type="hidden" id="csrf-token" value="{{ csrf_token }}" />
+  <script>
+    // Provide a safe accessor for JS code to retrieve the CSRF token
+    window.getCsrfToken = function(){
+      var el = document.getElementById('csrf-token');
+      return el ? el.value : '';
+    };
+  </script>
+
+  <style>
+    /* Disable hover color/background changes for announcement cards */
+    .announcement, .announcement * {
+      transition: none !important;
+    }
+    .announcement:hover, .announcement:focus, .announcement:active {
+      background-color: inherit !important;
+      color: inherit !important;
+      box-shadow: none !important;
+    }
+    /* Ensure buttons inside cards keep their styles on hover as normal */
+    .announcement .btn:hover {
+      /* allow button hover as usual */
+    }
+    /* Disable active/focus color change for tag buttons and pills */
+    .mb-4 .btn:focus,
+    .mb-4 .btn:active,
+    .mb-4 .btn:visited {
+      background-color: transparent !important;
+      color: inherit !important;
+      box-shadow: none !important;
+    }
+    /* Banner sizing: smaller height and show full image using contain */
+    .featured-banner {
+      height: 140px;
+      width: 100%;
+      object-fit: contain;
+      background-color: #ffffff;
+      display: block;
+    }
+    .announcement-banner {
+      height: 140px;
+      width: 100%;
+      object-fit: contain;
+      background-color: #ffffff;
+      display: block;
+    }
+  </style>
+
+  <!-- Page header / Hero -->
+  <div class="row align-items-center mb-4">
+    <div class="col-md-8">
+      <h1 class="display-6">Announcements</h1>
+      <p class="text-muted">Latest news, events, and updates. Filter by tag to find related items quickly.</p>
+    </div>
+    <!-- header actions removed per request -->
   </div>
-{% endfor %}
-</div>
-<!--End of Announcement Container-->
 
-<!-- Error message element -->
-<div id="no-matches" style="display: none; margin-top: 20px; color: red;">
-    No announcements found for this tag.
-</div>
+  <!-- Tag filter pills -->
+  <div class="mb-4">
+    <div class="d-flex flex-wrap gap-2">
+      <button type="button" class="btn btn-sm btn-primary" id="show-all">All</button>
+      {% if event_tags and event_tags.exists %}
+        {% for tag in event_tags %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-tag="{{ tag.name }}">#{{ tag.name }}</button>
+        {% endfor %}
+      {% else %}
+        {% for tag in tags %}
+          <button type="button" class="btn btn-sm btn-outline-secondary" data-tag="{{ tag.name }}">#{{ tag.name }}</button>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </div>
 
+  <!-- Featured Active Event (if any) -->
+  {% if active_events and active_events.exists %}
+    <div class="mb-5">
+      <h3 class="h5 mb-3">Featured Event</h3>
+      <div class="row g-3">
+        {% for event in active_events %}
+          <div class="col-lg-6">
+            <article class="card shadow-sm active-event" data-tag="{{ event.tags.name|default:'' }}">
+              <div class="row g-0">
+                <div class="col-5 d-flex align-items-center">
+                  {% if event.banner %}
+                    <img src="{{ event.banner.url }}" class="img-fluid rounded featured-banner" alt="{{ event.title }} banner">
+                  {% else %}
+                    <img src="https://picsum.photos/600/400" class="img-fluid rounded featured-banner" alt="{{ event.title }} banner">
+                  {% endif %}
+                </div>
+                <div class="col-7">
+                  <div class="card-body d-flex flex-column h-100">
+                                  <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                      <h4 class="card-title mb-1">{{ event.title }}</h4>
+                                      <p class="mb-0 text-muted small">When: {{ event.date|date:"F j, Y g:i A" }} &middot; Where: {{ event.location }}</p>
+                                    </div>
+                      <div class="text-end">
+                        {% if event.status == 'active' %}
+                          <span class="badge bg-success">Active</span>
+                        {% elif event.status == 'inactive' %}
+                          <span class="badge bg-secondary">Inactive</span>
+                        {% elif event.status == 'full' %}
+                          <span class="badge bg-warning text-dark">Full</span>
+                        {% endif %}
 
-<div class="tag-buttons text-center" style="padding-top: 30px;" aria-label="Basic example">
-  <i>Tags:</i>
-  {% for tag in tags %}
-  <button type="button" class="btn btn-secondary" data-tag="{{ tag }}">#{{ tag }}</button>
-  {% endfor %}
-  <button type="button" class="btn btn-secondary" id="show-all">Show All</button>
-  </a>
-</div>
+                        {% if event.available_slots|default_if_none:0 > 0 %}
+                          <span class="badge bg-info text-dark ms-1">Available Seats: {{ event.available_slots|default_if_none:0 }}</span>
+                        {% else %}
+                          <span class="badge bg-danger ms-1">Available Seats: 0</span>
+                        {% endif %}
+                      </div>
+                    </div>
 
-<!-- Modal for the latest announcement -->
-<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="announcementModalLabel">{{ latest_announcement.title }}</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
+                    {% if event.theme %}
+                      <p class="mb-2"><strong>Theme:</strong> {{ event.theme }}</p>
+                    {% endif %}
+
+                    <div class="mt-auto d-flex justify-content-between align-items-center">
+                      <div class="small text-muted">Category: <strong>{{ event.tags.name|default:'—' }}</strong></div>
+                      {% if event.registration_link and not event.is_closed %}
+                        {% if request.user.is_authenticated %}
+                          {% if request.user.user_type == '3' %}
+                            <a href="{% url 'member_event_reg_member' %}" class="btn btn-sm btn-primary">Register Now</a>
+                          {% elif request.user.user_type == '2' %}
+                            <a href="{% url 'member_event_reg_officer' %}" class="btn btn-sm btn-primary">Register Now</a>
+                          {% else %}
+                            <a href="{% url 'member_event_reg_member' %}" class="btn btn-sm btn-primary">Register Now</a>
+                          {% endif %}
+                        {% else %}
+                          <!-- Unauthenticated: offer explicit choice to register as Member or Officer -->
+                          <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">Register Now</button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                              <li><a class="dropdown-item" href="{% url 'login' %}?next={% url 'member_event_reg_member' %}">Register as Member</a></li>
+                              <li><a class="dropdown-item" href="{% url 'login' %}?next={% url 'member_event_reg_officer' %}">Register as Officer</a></li>
+                            </ul>
+                          </div>
+                        {% endif %}
+                      {% else %}
+                        <button class="btn btn-sm btn-outline-secondary" disabled>Registration Closed</button>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        {% endfor %}
       </div>
-      <div class="modal-body">
-        <img id="modalImage" src="{{ latest_announcement.image.url }}" class="img-fluid" alt="...">
-        <h5 id="modalTitle">{{ latest_announcement.title }}</h5>
-        <p id="modalDescription">Info: <b>{{ latest_announcement.description }}</b></p>
-        <p id="modalDate">Date Published: <b>{{ latest_announcement.updated_at|date:"F j, Y" }}</b></p>
-        <p id="modalTags">Tags: {% for tag in latest_announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
+    </div>
+  {% endif %}
+
+  <!-- Announcement grid -->
+  <section>
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+      {% for announcement in announcements %}
+        <div class="col">
+          <div class="card h-100 announcement shadow-sm" style="overflow: hidden;" 
+               data-tags="{{ announcement.tags.all|join:', ' }}"
+               data-title="{{ announcement.title|escapejs }}"
+               data-description="{{ announcement.description|escapejs }}"
+               data-date="{{ announcement.updated_at|date:'F j, Y' }}"
+               data-image="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}">
+            {% if announcement.image %}
+              <img src="{{ announcement.image.url }}" class="card-img-top rounded-top announcement-banner" alt="{{ announcement.title }} image">
+            {% else %}
+              <img src="https://picsum.photos/1000/300" class="card-img-top rounded-top announcement-banner" alt="placeholder">
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+              <h5 class="card-title">{{ announcement.title }}</h5>
+              <p class="card-text text-muted small mb-2">Published on {{ announcement.updated_at|date:"F j, Y" }}</p>
+              <p class="card-text"><strong>Summary:</strong> {{ announcement.description|truncatewords:20 }}</p>
+              <div class="mt-auto d-flex justify-content-between align-items-center pt-3">
+                <div class="small text-muted">{% for tag in announcement.tags.all %}<span class="me-1">#{{ tag }}</span>{% endfor %}</div>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#announcementModal">View Details</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- No matches message -->
+  <div id="no-matches" class="alert alert-warning mt-4" style="display:none;">No results match the selected tag.</div>
+
+  <!-- Single modal for announcements -->
+  <div class="modal fade" id="announcementModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalTitle">Details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <img id="modalImage" src="https://picsum.photos/1000/300" class="img-fluid mb-3" alt="modal image">
+          <p id="modalDescription"></p>
+          <p class="text-muted small" id="modalDate"></p>
+          <p id="modalTags" class="small text-muted"></p>
+        </div>
       </div>
     </div>
   </div>
+
 </div>
 
-{% for announcement in announcements %}
-<!-- Modal for announcement card -->
-<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="announcementModalLabel">{{ announcement.title }}</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <img id="modalImage" src="{{ announcement.image.url }}" class="img-fluid" alt="...">
-        <h5 id="modalTitle">{{ announcement.title }}</h5>
-        <p id="modalDescription">Info: <b>{{ announcement.description|truncatewords:3 }}</p>
-        <p id="modalDate">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</p>
-        <p id="modalTags">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
-      </div>
-    </div>
-  </div>
-</div>
-{% endfor %}
-
-
-{% comment %} {% for announcement in announcements %}
-<!-- Modal for announcement card -->
-<div class="modal fade" id="announcementModal" tabindex="-1" role="dialog" aria-labelledby="announcementModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg" role="document">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="announcementModalLabel">{{ announcement.title }}</h5>
-        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-      <div class="modal-body">
-        <img id="modalImage" src="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}" class="img-fluid" alt="...">
-        <h5 id="modalTitle">{{ announcement.title }}</h5>
-        <p id="modalDescription">Info: <b>{{ announcement.description }}</p>
-        <p id="modalDate">Date Published: <b>{{ announcement.updated_at|date:"F j, Y" }}</p>
-        <p id="modalTags">Tags: {% for tag in announcement.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</p>
-      </div>
-    </div>
-  </div>
-</div>
-{% endfor %} {% endcomment %}
-
+<!-- Scripts: filtering + modal population + tag highlighting -->
 <script>
-  // JavaScript to filter announcements based on the clicked tag
-  document.querySelectorAll('.btn-secondary[data-tag]').forEach(button => {
-      button.addEventListener('click', function() {
-          const selectedTag = this.getAttribute('data-tag');
-          const announcements = document.querySelectorAll('.announcement');
-          let hasMatches = false; // Flag to check if there are any matches
+  (function(){
+    // helper: normalize tags array
+    function parseTags(raw){
+      if(!raw) return [];
+      return raw.split(',').map(t => t.trim()).filter(Boolean);
+    }
 
-          announcements.forEach(announcement => {
-              const tags = announcement.getAttribute('data-tags').split(', ');
-              if (tags.includes(selectedTag)) {
-                  announcement.style.display = 'block'; // Show announcement
-                  hasMatches = true; // Set flag to true if there's a match
-              } else {
-                  announcement.style.display = 'none'; // Hide announcement
-              }
-          });
+    const tagButtons = document.querySelectorAll('[data-tag]');
+    const showAllBtn = document.getElementById('show-all');
+    const announcements = document.querySelectorAll('.announcement');
+    const activeEventCards = document.querySelectorAll('.active-event');
+    const noMatches = document.getElementById('no-matches');
 
-          // Show or hide the no matches message
-          const noMatchesMessage = document.getElementById('no-matches');
-          if (hasMatches) {
-              noMatchesMessage.style.display = 'none'; // Hide message if there are matches
+    function clearTagHighlights(){
+      // no-op: visual highlighting on click removed per request
+    }
+
+    tagButtons.forEach(button => {
+      button.addEventListener('click', function(e){
+        const selected = this.getAttribute('data-tag');
+        // do not change button colors or classes on click (no visual highlighting)
+        clearTagHighlights();
+
+        let hasMatch = false;
+
+        announcements.forEach(card => {
+          const tags = parseTags(card.getAttribute('data-tags'));
+          if(tags.includes(selected)){
+            card.style.display = '';
+            hasMatch = true;
           } else {
-              noMatchesMessage.style.display = 'block'; // Show message if no matches
+            card.style.display = 'none';
           }
-      });
-  });
+        });
 
-  // JavaScript to show all announcements
-  document.getElementById('show-all').addEventListener('click', function() {
-      const announcements = document.querySelectorAll('.announcement');
-      announcements.forEach(announcement => {
-          announcement.style.display = 'block'; // Show all announcements
-      });
-      
-      document.getElementById('no-matches').style.display = 'none'; // Hide no matches message
-       // Scroll to the top after showing all
-       
-  });
-</script>
-<script>
-  $(document).ready(function() {
-    $('.announcement .btn-primary').on('click', function() {
-      var card = $(this).closest('.announcement'); // Get the closest card
-      var title = card.data('title');
-      var description = card.data('description');
-      var date = card.data('date');
-      var image = card.data('image');
-      var tags = card.data('tags');
+        activeEventCards.forEach(card => {
+          const tag = (card.getAttribute('data-tag') || '').trim();
+          if(tag && tag === selected){ card.style.display = ''; hasMatch = true; }
+          else card.style.display = 'none';
+        });
 
-      $('#modalTitle').text(title);
-      $('#modalDescription').text(description);
-      $('#modalDate').text('Date Published: ' + date);
-      $('#modalImage').attr('src', image);
-      
-      // Format tags
-      var tagsHtml = tags.split(', ').map(tag => `<i>#${tag}</i>`).join(' ');
-      $('#modalTags').html('Tags: ' + tagsHtml);
+        noMatches.style.display = hasMatch ? 'none' : '';
+      });
     });
-  });
+
+    if(showAllBtn){
+      showAllBtn.addEventListener('click', function(){
+        // keep button visuals unchanged; just reset filters
+        announcements.forEach(card => card.style.display = '');
+        activeEventCards.forEach(card => card.style.display = '');
+        noMatches.style.display = 'none';
+      });
+    }
+
+    // Modal population using Bootstrap 5 data API
+    document.querySelectorAll('.announcement button[data-bs-toggle="modal"]').forEach(btn => {
+      btn.addEventListener('click', function(){
+        const card = this.closest('.announcement');
+        if(!card) return;
+        const title = card.getAttribute('data-title') || '';
+        const desc = card.getAttribute('data-description') || '';
+        const date = card.getAttribute('data-date') || '';
+        const image = card.getAttribute('data-image') || '';
+        const tags = card.getAttribute('data-tags') || '';
+
+        document.getElementById('modalTitle').textContent = title;
+        document.getElementById('modalDescription').textContent = desc;
+        document.getElementById('modalDate').textContent = date ? 'Published on: ' + date : '';
+        document.getElementById('modalImage').setAttribute('src', image);
+        const tagsHtml = parseTags(tags).map(t => `<i>#${t}</i>`).join(' ');
+        document.getElementById('modalTags').innerHTML = tagsHtml ? 'Categories: ' + tagsHtml : '';
+      });
+    });
+
+  })();
 </script>
-<!-- STOP HERE! -->
+
 {% endblock %}
