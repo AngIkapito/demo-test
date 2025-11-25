@@ -48,12 +48,8 @@
     
                                     <!-- Debug message -->
                                     {% include "includes/messages.html" %}
-                                                                        <form action="{% url 'doLogin' %}" method="POST">
+                                        <form action="{% url 'doLogin' %}" method="POST">
                                         {% csrf_token %}
-                                                                                {% if next %}
-                                                                                    <input type="hidden" name="next" value="{{ next }}" />
-                                                                                {% endif %}
-                                        
                                         <div class="form-group">
                                             <label for="email">Email or Username</label>
                                             <input type="text" class="form-control" id="exampleInputEmail" placeholder="Enter Email or Username..." name="email" aria-describedby="emailHelp" required />

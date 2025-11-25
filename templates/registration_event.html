@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% load static %}
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    
+    <title>TracKaPSITE | Register for Event</title>
+
+    <!-- Custom fonts for this template-->
+    <link href="{% static 'vendor/fontawesome-free/css/all.min.css' %}" rel="stylesheet" type="text/css">
+    <link
+        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet">
+
+    <!-- Custom styles for this template-->
+    <link href="{% static 'css/sb-admin-2.css' %}" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+      .event-banner { max-height: 360px; object-fit: cover; }
+    </style>
+</head>
+
+<body class="bg-gradient-primary">
+
+    <div class="container" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+
+        <!-- Outer Row -->
+        <div class="row justify-content-center">
+
+            <div class="col-xl-10 col-lg-12 col-md-9">
+
+                <div class="card o-hidden border-0 shadow-lg my-5">
+                    <div class="card-body p-0">
+                        <!-- Nested Row within Card Body -->
+                        <div class="row">
+                            <!-- Left side with event banner -->
+                            <div class="col-lg-6 d-flex align-items-center justify-content-center bg-light">
+                                {% if event.banner %}
+                                  <img src="{{ event.banner.url }}" class="img-fluid event-banner" alt="{{ event.title }} banner">
+                                {% else %}
+                                  <img src="https://picsum.photos/600/400" class="img-fluid event-banner" alt="Event banner placeholder">
+                                {% endif %}
+                            </div>
+
+                            <!-- Right side with form and event details -->
+                            <div class="col-lg-6">
+                                <div class="p-5">
+                                    <div class="text-center mb-3">
+                                        <h2 class="h5 text-gray-900 mb-1">Register for this Event</h2>
+                                        <p class="mb-2 small text-muted">Please fill out the information below to complete your registration.</p>
+                                    </div>
+
+                                    <!-- Event summary -->
+                                    <div class="mb-3">
+                                      <h4 class="mb-1">{{ event.title }}</h4>
+                                      {% if event.theme %}<p class="mb-1 small"><strong>Theme:</strong> {{ event.theme }}</p>{% endif %}
+                                      <p class="mb-1 small text-muted"><i class="fas fa-clock me-1"></i> {{ event.date|date:"F j, Y g:i A" }}</p>
+                                      <p class="mb-1 small text-muted"><i class="fas fa-map-marker-alt me-1"></i> {{ event.location }}</p>
+                                      <p class="mb-0 small">
+                                        <span class="badge bg-info text-dark">Available Seats: {{ event.available_slots|default_if_none:0 }}</span>
+                                      </p>
+                                    </div>
+
+                                    <!-- Registration form -->
+                                                                         {% include "includes/messages.html" %}
+                                                                        {% if auth_error %}
+                                                                            <div class="alert alert-danger">{{ auth_error }}</div>
+                                                                        {% endif %}
+                                                                        {% if membership_error %}
+                                                                            <div class="alert alert-warning">{{ membership_error }}</div>
+                                                                        {% endif %}
+                                                                        <form class="user" method="post">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="event_id" value="{{ event.id }}">
+
+                                        <div class="form-group">
+                                             <label for="id_username">Username</label>
+                                            <input type="text" class="form-control" id="id_username" name="username" placeholder="Your username" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label for="id_password">Password</label>
+                                            <input type="password" class="form-control" id="id_password" name="password" placeholder="Your password" required>
+                                        </div>
+
+                                        <!-- Single-seat registration: seats removed (one registration = 1 seat) -->
+
+                                        <button type="submit" class="btn btn-primary btn-user btn-block">Register Now</button>
+                                        <a href="{% url 'homepage' %}" class="btn btn-secondary btn-user btn-block">Back to Homepage</a>
+                                    </form>
+
+                                    <hr>
+                                    <div class="text-center">
+                                        <a class="small" href="{% url 'login' %}">Already have an account? Login!</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Bootstrap core JavaScript-->
+    <script src="{% static 'vendor/jquery/jquery.min.js' %}"></script>
+    <script src="{% static 'vendor/bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+
+    <!-- Core plugin JavaScript-->
+    <script src="{% static 'vendor/jquery-easing/jquery.easing.min.js' %}"></script>
+
+    <!-- Custom scripts for all pages-->
+    <script src="{% static 'js/sb-admin-2.min.js' %}"></script>
+
+</body>
+
+</html>

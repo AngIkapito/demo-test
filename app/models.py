@@ -254,8 +254,8 @@ class Member_Event_Registration(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user_id = models.IntegerField()           # Stores only the user ID
-    event_id = models.IntegerField()          # Stores only the event ID
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, blank=True, null=True)           # Stores only the user ID
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, blank=True, null=True)          # Stores only the event ID
     date_created = models.DateTimeField(default=timezone.now)
     status = models.CharField(
         max_length=20,
@@ -264,9 +264,19 @@ class Member_Event_Registration(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"Registration of {self.user.username} for {self.event.title}" 
+
+
+class Event_Attendance(models.Model):
+    member_event_reg = models.ForeignKey(Member_Event_Registration, on_delete=models.CASCADE)
+    attendance_date = models.DateTimeField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    status = models.BooleanField(default=True)
 
     def __str__(self):
-        return f"User {self.user_id} - Event {self.event_id} ({self.status})"
-
+        return f"Attendance for Registration ID {self.member_event_reg.id} on {self.attendance_date}"
 
     

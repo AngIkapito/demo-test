@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password
-from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags
+from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration
 from django.utils.safestring import mark_safe
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import path, include, reverse
@@ -13,6 +13,8 @@ from django.core.mail import send_mail, BadHeaderError
 from django.conf import settings
 import random
 import string
+from django.db import transaction
+from django.db.models import F
 # Create your views here.
 
 
@@ -31,11 +33,107 @@ def ABOUT(request):
 def CONTACT(request):
     return render(request,'contact.html')
 
+def REG_EVENT(request):
+    """Render the registration page for a specific event.
+
+    Expects `event_id` as a GET query parameter (from announcement links) or
+    as a POST field when submitting the registration form.
+
+    On GET: loads the Event and passes it to the template.
+    On POST: validates requested seats against `event.available_slots` and
+    shows a message (no persistent registration model implemented here).
+    """
+    # accept event id from GET or POST
+    event_id = request.GET.get('event_id') or request.POST.get('event_id')
+    if not event_id:
+        messages.error(request, 'No event selected for registration.')
+        return redirect('announcement')
+
+    event = get_object_or_404(Event, id=event_id)
+
+    if request.method == 'POST':
+        # Authenticate provided username/password (unless already logged in)
+        if not request.user.is_authenticated:
+            username = (request.POST.get('username') or '').strip()
+            password = request.POST.get('password') or ''
+            user = authenticate(request=request, username=username, password=password)
+            if user is None:
+                # Render the registration page again with a specific inline error
+                auth_error = 'Invalid username or password. Please try again.'
+                return render(request, 'registration_event.html', {'event': event, 'auth_error': auth_error})
+        else:
+            user = request.user
+
+        # ---------- Membership active check ----------
+        # Ensure the user has a Member record and an active Membership for the current school year (status=1)
+        try:
+            member_obj = Member.objects.filter(admin_id=user.id).first()
+        except Exception:
+            member_obj = None
+
+        if not member_obj:
+            membership_error = 'No member profile found for this account. Please contact the administrator.'
+            return render(request, 'registration_event.html', {'event': event, 'membership_error': membership_error})
+
+        # Check for a Membership tied to this member with an active school year (status=1)
+        has_active_membership = Membership.objects.filter(member_id=member_obj.id, school_year__status=1).exists()
+        if not has_active_membership:
+            # Inform the user their membership is expired and ask them to renew
+            membership_error = 'Your membership has expired. Please renew your membership to register for events.'
+            return render(request, 'registration_event.html', {'event': event, 'membership_error': membership_error})
+        # ---------- end membership check ----------
+
+        # Single-seat registration (1 seat per submission). Decrement available_slots atomically.
+        try:
+            with transaction.atomic():
+                # Lock the event row for update to avoid race conditions
+                locked_event = Event.objects.select_for_update().get(id=event.id)
+                if (locked_event.available_slots or 0) < 1:
+                    messages.error(request, f'No available seats for "{locked_event.title}".')
+                    return redirect(reverse('registration_event') + f'?event_id={event.id}')
+
+                # Prevent duplicate registrations
+                existing = Member_Event_Registration.objects.filter(user_id=user.id, event_id=event.id, status='registered').exists()
+                if existing:
+                    messages.info(request, f'You are already registered for "{locked_event.title}".')
+                    return redirect('announcement')
+
+                # Decrement available_slots by 1
+                locked_event.available_slots = F('available_slots') - 1
+                locked_event.save()
+
+                # Create the registration record
+                reg = Member_Event_Registration.objects.create(
+                    user_id=user.id,
+                    event_id=event.id,
+                    status='registered'
+                )
+
+                # Refresh to get the updated numeric value
+                locked_event.refresh_from_db()
+                if locked_event.available_slots == 0:
+                    locked_event.status = 'full'
+                    locked_event.is_closed = True
+                    locked_event.save(update_fields=['status', 'is_closed'])
+
+        except Event.DoesNotExist:
+            messages.error(request, 'Event not found.')
+            return redirect('announcement')
+        except Exception as e:
+            messages.error(request, f'Failed to save registration: {e}')
+            return redirect(reverse('registration_event') + f'?event_id={event.id}')
+
+        messages.success(request, f'Registration submitted for "{event.title}" by {user.username}.')
+        return redirect('announcement')
+
+    return render(request, 'registration_event.html', {'event': event})
+
 def ANNOUNCEMENT(request):
     announcements = Announcement.objects.prefetch_related('tags').all()
     tags = Tags.objects.all()
     # Active events to show on announcements page (most recent first)
-    active_events = Event.objects.filter(status='active').order_by('-date')
+    # Include events that are 'active' or 'full' so full events still appear in featured list
+    active_events = Event.objects.filter(status__in=['active', 'full']).order_by('-date')
     # Collect tags used by active events (Event.tags is a FK to Tags)
     active_tag_ids = [tid for tid in active_events.values_list('tags_id', flat=True) if tid]
     event_tags = Tags.objects.filter(id__in=active_tag_ids) if active_tag_ids else Tags.objects.none()

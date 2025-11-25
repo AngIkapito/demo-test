@@ -4,9 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Tags
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Event_Attendance, Tags
 from django.utils.safestring import mark_safe
 from django.utils import timezone
+import json
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
 from django.core.mail import send_mail
@@ -50,6 +51,73 @@ def home(request):
         'available_slots': available_slots,
         'progress_percent': progress_percent,  # pass percentage
     }
+
+    # Serialize events for the client-side calendar (ISO date strings)
+    events_json = []
+    for ev in events:
+        # Serialize to date-only string (YYYY-MM-DD) to avoid timezone shifts
+        date_iso = None
+        if getattr(ev, 'date', None):
+            try:
+                d = ev.date
+                # If it's a datetime, convert to date first to avoid timezone conversion in the browser
+                if hasattr(d, 'date'):
+                    date_iso = d.date().isoformat()
+                else:
+                    date_iso = d.isoformat()
+            except Exception:
+                date_iso = str(ev.date)
+
+        # compute available slots for each event
+        try:
+            registered_count = Member_Event_Registration.objects.filter(event_id=ev.id, status='registered').count()
+            available_slots = max(getattr(ev, 'max_attendees', 0) - registered_count, 0)
+        except Exception:
+            registered_count = 0
+            available_slots = getattr(ev, 'max_attendees', 0) or 0
+
+        # banner url (if ImageField)
+        banner_url = None
+        try:
+            b = getattr(ev, 'banner', None)
+            if b:
+                # ImageField has .url
+                banner_url = getattr(b, 'url', str(b))
+        except Exception:
+            banner_url = None
+
+        # chair/co-chair names
+        chair_name = None
+        co_chair_name = None
+        try:
+            if getattr(ev, 'chair_id', None):
+                cu = CustomUser.objects.filter(id=ev.chair_id).first()
+                if cu:
+                    chair_name = f"{getattr(cu, 'first_name', '')} {getattr(cu, 'last_name', '')}".strip()
+            if getattr(ev, 'co_chair_id', None):
+                cu2 = CustomUser.objects.filter(id=ev.co_chair_id).first()
+                if cu2:
+                    co_chair_name = f"{getattr(cu2, 'first_name', '')} {getattr(cu2, 'last_name', '')}".strip()
+        except Exception:
+            chair_name = chair_name or None
+            co_chair_name = co_chair_name or None
+
+        events_json.append({
+            'id': ev.id,
+            'title': getattr(ev, 'title', '') or '',
+            'theme': getattr(ev, 'theme', '') or '',
+            'date': date_iso,
+            'banner_url': banner_url,
+            'chair_id': getattr(ev, 'chair_id', None),
+            'chair_name': chair_name,
+            'co_chair_id': getattr(ev, 'co_chair_id', None),
+            'co_chair_name': co_chair_name,
+            'max_attendees': getattr(ev, 'max_attendees', None),
+            'available_slots': available_slots,
+            'status': getattr(ev, 'status', None),
+        })
+
+    context['events_json'] = events_json
 
     return render(request, 'hoo/home.html', context)
 
@@ -1183,3 +1251,89 @@ def EDIT_EVENT(request, id):
 
     return redirect('viewall_event')
 
+@login_required(login_url='/')
+def ATTENDANCE_EVENT(request):
+    """Render attendance page for the currently active event.
+
+    Builds an `attendees` list with dictionaries containing:
+      - id: registration id
+      - first_name, last_name: from CustomUser
+      - school: from Member.organization.name (if any)
+      - present: latest Event_Attendance.status (boolean) or False
+
+    The template receives `attendees` and `event` in context.
+    """
+    # Get the active event (most recent by date)
+    active_event = Event.objects.filter(status__in=['active', 'full']).order_by('-date').first()
+
+    attendees = []
+    if active_event:
+        # Get registrations for the active event (registered status)
+        regs = Member_Event_Registration.objects.filter(event=active_event, status='registered').select_related('user')
+        for reg in regs:
+            user = reg.user
+            first = user.first_name if user else ''
+            last = user.last_name if user else ''
+
+            # Try to fetch Member (linked via admin OneToOneField)
+            school_name = ''
+            try:
+                member = Member.objects.get(admin=user)
+                if member and member.organization:
+                    school_name = member.organization.name
+            except Member.DoesNotExist:
+                school_name = ''
+
+            # Get latest attendance record for this registration, if any
+            attendance = Event_Attendance.objects.filter(member_event_reg=reg).order_by('-attendance_date').first()
+            # If there's no attendance record, show None so UI doesn't display status
+            present = attendance.status if attendance is not None else None
+
+            attendees.append({
+                'id': reg.id,
+                'first_name': first,
+                'last_name': last,
+                'school': school_name,
+                'present': present,
+            })
+
+    context = {
+        'attendees': attendees,
+        'event': active_event,
+    }
+    return render(request, 'hoo/attendance_event.html', context)
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def ATTENDANCE_TOGGLE(request):
+    """AJAX endpoint to record attendance.
+
+    Expects JSON payload: { id: <member_event_registration_id>, present: <true|false> }
+    Inserts a new Event_Attendance with member_event_reg set and status (boolean).
+    Returns JSON { success: True, status: 1|0 } on success.
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        payload = json.loads(request.body)
+        reg_id = int(payload.get('id'))
+        present = bool(payload.get('present'))
+    except Exception:
+        return JsonResponse({'error': 'Bad payload'}, status=400)
+
+    try:
+        reg = Member_Event_Registration.objects.get(id=reg_id)
+    except Member_Event_Registration.DoesNotExist:
+        return JsonResponse({'error': 'Registration not found'}, status=404)
+
+    # Create attendance record (keep history). Use timezone.now() for attendance_date.
+    attendance = Event_Attendance(
+        member_event_reg=reg,
+        attendance_date=timezone.now(),
+        status=present
+    )
+    attendance.save()
+
+    return JsonResponse({'success': True, 'status': 1 if present else 0})

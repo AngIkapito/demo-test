@@ -18,6 +18,7 @@ urlpatterns = [
     path('registration_renew/', views.REGISTRATION_RENEW, name='registration_renew'),
     path('error/', views.ERRORPAGE, name='error_page'),  # Define the error page URL
     path('forgot_password/', views.FORGOT_PASSWORD, name='forgot_password'),
+    path('registration_event/', views.REG_EVENT, name='registration_event'),
 
     #Login
     path('login', views.LOGIN,name='login'),
@@ -111,6 +112,8 @@ urlpatterns = [
     path('hoo/Event/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
+    path('hoo/Event/Attendance', hoo_views.ATTENDANCE_EVENT, name='attendance_event'),
+    path('hoo/attendance/toggle/', hoo_views.ATTENDANCE_TOGGLE, name='attendance_toggle'),
     
     #Membership Registration
     path('hoo/MembershipRegistration/View', hoo_views.MEMBERSHIP_REGISTRATION, name='membership_registration'),
