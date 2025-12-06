@@ -34,7 +34,11 @@
 
                 <p class="mt-2 mb-0">
                   <strong>Available slots:</strong>
-                  <span class="badge badge-info">{{ event.available_slots|default_if_none:event.max_attendees }}</span>
+                  {% if event %}
+                    <span class="badge badge-info">{{ event.available_slots|default_if_none:event.max_attendees }}</span>
+                  {% else %}
+                    <span class="badge badge-secondary">N/A</span>
+                  {% endif %}
                 </p>
               </div>
             </div>

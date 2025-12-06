@@ -11,6 +11,7 @@ class CustomUser(AbstractUser):
         ('1', 'hoo'),
         ('2', 'officer'),
         ('3', 'member'),
+        ('4', 'institution'),
     )
     user_type = models.CharField(choices=USER, max_length=25)
     profile_pic = models.ImageField(upload_to='profile_pic/')
@@ -185,10 +186,10 @@ class Event(models.Model):
     school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE, null=True, blank=True)
     is_closed = models.BooleanField(default=False)
     tags = models.ForeignKey(Tags, on_delete=models.SET_NULL, null=True, blank=True)
+    is_full = models.BooleanField(default=False)
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
-        ('full', 'Full'),
     ]
     status = models.CharField(
         max_length=8,
@@ -264,19 +265,54 @@ class Member_Event_Registration(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_present = models.BooleanField(default=False)
     
     def __str__(self):
         return f"Registration of {self.user.username} for {self.event.title}" 
 
+    
+ 
+class Participation_Type(models.Model): #Competitor or Coach
+    name = models.CharField(max_length=100)
+    
+    def __str__(self):
+        return self.name
 
-class Event_Attendance(models.Model):
-    member_event_reg = models.ForeignKey(Member_Event_Registration, on_delete=models.CASCADE)
-    attendance_date = models.DateTimeField(default=timezone.now)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    status = models.BooleanField(default=True)
+class Paritcipant_Type(models.Model): #Student or Faculty
+    name = models.CharField(max_length=100)
 
     def __str__(self):
-        return f"Attendance for Registration ID {self.member_event_reg.id} on {self.attendance_date}"
+        return self.name
+ 
+class Competition(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    
+    def __str__(self):
+        return self.name
+      
+class Bulk_Event_Reg(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    registered_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    registration_date = models.DateTimeField(auto_now_add=True)
+    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=150)
+    middle_name = models.CharField(max_length=150, blank=True, null=True)
+    email = models.EmailField(max_length=150)
+    contact_no = models.CharField(max_length=13)
+    competition = models.ForeignKey(Competition, on_delete=models.CASCADE, blank=True, null=True)
+    participant_type = models.ForeignKey(Paritcipant_Type, on_delete=models.CASCADE, blank=True, null=True)
+    participation_type = models.ForeignKey(Participation_Type, on_delete=models.CASCADE, blank=True, null=True)
+    tshirt_size = models.CharField(max_length=10, blank=True, null=True)
+    date_added = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} - {self.event.title}"
+    
+    
+
+    
 
     

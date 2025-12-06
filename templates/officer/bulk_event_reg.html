@@ -1,0 +1,485 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="card shadow mb-4">
+  <div class="card-body">
+    <div class="p-5">
+        {% include 'includes/messages.html' %}
+
+        {% if event and event.is_closed %}
+          <div class="alert alert-warning" role="alert">
+            This event is full/closed. Registration is disabled.
+          </div>
+        {% endif %}
+
+      <div class="text-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">Member Event Registration</h1>
+      </div>
+
+      {% comment %} banner / hero area {% endcomment %}
+
+      <div class="row">
+        <div class="col-md-5">
+          <div class="card mb-3">
+            <div class="card-body">
+              <form method="post" id="bulk_event_registration" class="user">
+                {% csrf_token %}
+                <div class="row">
+                  <div class="col-12 mb-2">
+                    <h5 class="mb-3">Add Registration</h5>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="last_name">Last Name</label>
+                      <input type="text" name="last_name" id="last_name" class="form-control" placeholder="Last name" required />
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="first_name">First Name</label>
+                      <input type="text" name="first_name" id="first_name" class="form-control" placeholder="First name" required />
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="middle_name">Middle Name</label>
+                      <input type="text" name="middle_name" id="middle_name" class="form-control" placeholder="Middle name" />
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="email">Email</label>
+                      <input type="email" name="email" id="email" class="form-control" placeholder="Email address" required />
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="contact_no">Contact No.</label>
+                      <input type="text" name="contact_no" id="contact_no" class="form-control" placeholder="Contact number" />
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="tshirt_size">T-shirt Size</label>
+                      <select name="tshirt_size" id="tshirt_size" class="form-control">
+                        <option value="">Choose size</option>
+                        <option value="XS">XS</option>
+                        <option value="S">S</option>
+                        <option value="M">M</option>
+                        <option value="L">L</option>
+                        <option value="XL">XL</option>
+                        <option value="XXL">XXL</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="event">Event</label>
+                      {% if events %}
+                        <select name="event" id="event" class="form-control">
+                          <option value="">Select event</option>
+                          {% for ev in events %}
+                            <option value="{{ ev.id }}" data-available="{{ ev.available_slots|default:ev.max_attendees }}">{{ ev.title }} — {{ ev.date|date:'F j, Y' }}</option>
+                          {% endfor %}
+                        </select>
+                      {% else %}
+                        <input type="text" name="event" id="event" class="form-control" placeholder="Event (enter or provide events in context)" />
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="competition">Competition</label>
+                      {% if competitions %}
+                        <select name="competition" id="competition" class="form-control">
+                          <option value="">Select competition</option>
+                          {% for comp in competitions %}
+                            <option value="{{ comp.id }}">{{ comp.name }}</option>
+                          {% endfor %}
+                        </select>
+                      {% else %}
+                        <select name="competition" id="competition" class="form-control">
+                          <option value="">No competitions available</option>
+                        </select>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="participant_type">Participant (student/faculty)</label>
+                      {% if participant_types %}
+                        <select name="participant_type" id="participant_type" class="form-control">
+                          <option value="">Select participant type</option>
+                          {% for pt in participant_types %}
+                            <option value="{{ pt.id }}">{{ pt.name }}</option>
+                          {% endfor %}
+                        </select>
+                      {% else %}
+                        <select name="participant_type" id="participant_type" class="form-control">
+                          <option value="">No participant types</option>
+                        </select>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="col-md-12">
+                    <div class="form-group">
+                      <label for="participation_type">Participation (competitor/coach)</label>
+                      {% if participation_types %}
+                        <select name="participation_type" id="participation_type" class="form-control">
+                          <option value="">Select participation</option>
+                          {% for p in participation_types %}
+                            <option value="{{ p.id }}">{{ p.name }}</option>
+                          {% endfor %}
+                        </select>
+                      {% else %}
+                        <select name="participation_type" id="participation_type" class="form-control">
+                          <option value="">No participation types</option>
+                        </select>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="col-12 mt-3 d-flex justify-content-end">
+                    <input type="hidden" name="bulk_data" id="bulk_data" />
+                    <button type="button" id="add_row_btn" class="btn btn-secondary me-2">Add to Table</button>
+                    <!-- hidden submit used to trigger form submit handler when clicking the table button;
+                      add `formnovalidate` so programmatic bulk submit bypasses HTML5 required constraints -->
+                    <button type="submit" id="submit_all_btn_hidden" style="display:none" formnovalidate></button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-md-7">
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="mb-0">Registrations</h5>
+                <div>
+                  <button type="button" id="submit_all_btn_table" class="btn btn-primary btn-sm">Submit All</button>
+                </div>
+              </div>
+              <div class="mb-2">Available slots: <span id="available_slots">—</span></div>
+              <div class="table-responsive">
+                <table class="table table-bordered table-sm" id="bulk_reg_table">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Last Name</th>
+                      <th>First Name</th>
+                      <th>Middle Name</th>
+                      <th>Email</th>
+                      <th>Contact No.</th>
+                      <th>T-shirt Size</th>
+                      <th>Event</th>
+                      <th>Competition</th>
+                      <th>Participant Type</th>
+                      <th>Participation</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <!-- rows are appended here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function(){
+          const addBtn = document.getElementById('add_row_btn');
+          const tableBody = document.querySelector('#bulk_reg_table tbody');
+          const form = document.getElementById('bulk_event_registration');
+
+          function getSelectText(selectId) {
+            const el = document.getElementById(selectId);
+            if (!el) return '';
+            if (el.tagName.toLowerCase() === 'select') {
+              return el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : '';
+            }
+            return el.value || '';
+          }
+
+          // Available slots display and helpers
+          (function(){
+            const availableSpan = document.getElementById('available_slots');
+            const eventSelect = document.getElementById('event');
+            if (!availableSpan) return;
+
+            function updateAvailableFromSelect(){
+              if (!eventSelect) {
+                availableSpan.textContent = '—';
+                return;
+              }
+              if (eventSelect.tagName.toLowerCase() === 'select'){
+                const opt = eventSelect.options[eventSelect.selectedIndex];
+                const avail = opt ? opt.dataset.available : null;
+                availableSpan.textContent = (avail !== undefined && avail !== null && avail !== '') ? avail : '—';
+              } else {
+                availableSpan.textContent = '—';
+              }
+            }
+
+            if (eventSelect){
+              eventSelect.addEventListener('change', updateAvailableFromSelect);
+            }
+            // initial
+            updateAvailableFromSelect();
+
+            // expose helper for other handlers
+            window.__bulkEvent_availableSpan = availableSpan;
+            window.__bulkEvent_eventSelect = eventSelect;
+          })();
+
+          // Auto-select participation "Coach" when participant_type is Faculty
+          (function(){
+            const participantEl = document.getElementById('participant_type');
+            const participationEl = document.getElementById('participation_type');
+            if (!participantEl || !participationEl) return;
+
+            function maybeSelectCoach() {
+              const sel = participantEl.options[participantEl.selectedIndex];
+              const text = sel ? sel.text.toLowerCase() : '';
+              if (text.includes('faculty')) {
+                // find option in participation that mentions 'coach'
+                for (let i = 0; i < participationEl.options.length; i++) {
+                  const o = participationEl.options[i];
+                  if ((o.text || '').toLowerCase().includes('coach')) {
+                    participationEl.selectedIndex = i;
+                    return;
+                  }
+                }
+              }
+            }
+
+            // run on change and on initial load
+            participantEl.addEventListener('change', maybeSelectCoach);
+            // initial check in case a value is pre-selected
+            maybeSelectCoach();
+          })();
+
+          addBtn && addBtn.addEventListener('click', function(e){
+            const last_name = document.getElementById('last_name').value.trim();
+            const first_name = document.getElementById('first_name').value.trim();
+            const middle_name = document.getElementById('middle_name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const contact_no = document.getElementById('contact_no').value.trim();
+            const tshirt_size = document.getElementById('tshirt_size').value;
+
+            // event may be select or input
+            const eventEl = document.getElementById('event');
+            const eventVal = eventEl ? (eventEl.tagName.toLowerCase()==='select' ? eventEl.value : eventEl.value) : '';
+            const eventText = getSelectText('event');
+
+            const competitionEl = document.getElementById('competition');
+            const competitionVal = competitionEl ? competitionEl.value : '';
+            const competitionText = getSelectText('competition');
+
+            const participant_type = document.getElementById('participant_type') ? document.getElementById('participant_type').value : '';
+            const participant_type_text = getSelectText('participant_type');
+            const participation_type = document.getElementById('participation_type') ? document.getElementById('participation_type').value : '';
+            const participation_type_text = getSelectText('participation_type');
+
+            if (!last_name || !first_name || !email) {
+              alert('Please fill required fields: Last name, First name, Email.');
+              return;
+            }
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${last_name}</td>
+              <td>${first_name}</td>
+              <td>${middle_name}</td>
+              <td>${email}</td>
+              <td>${contact_no}</td>
+              <td>${tshirt_size}</td>
+              <td data-val="${eventVal}">${eventText}</td>
+              <td data-val="${competitionVal}">${competitionText}</td>
+              <td data-val="${participant_type}">${participant_type_text}</td>
+              <td data-val="${participation_type}">${participation_type_text}</td>
+              <td><button type="button" class="btn btn-sm btn-danger btn-remove">Remove</button></td>
+            `;
+
+            tableBody.appendChild(row);
+
+            // clear inputs except tshirt and selects
+            document.getElementById('last_name').value = '';
+            document.getElementById('first_name').value = '';
+            document.getElementById('middle_name').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('contact_no').value = '';
+            // decrement visible available slots if applicable
+            try{
+              const availEl = window.__bulkEvent_availableSpan;
+              const eventSel = window.__bulkEvent_eventSelect;
+              if (availEl && eventSel){
+                let n = parseInt(availEl.textContent);
+                if (!isNaN(n)){
+                  n = Math.max(0, n - 1);
+                  availEl.textContent = n;
+                }
+              }
+            }catch(e){/* ignore */}
+          });
+
+          // When event select changes, fetch competitions for that event
+          (function(){
+            const eventEl = document.getElementById('event');
+            const competitionEl = document.getElementById('competition');
+            if (!eventEl || !competitionEl) return;
+
+            async function fetchComps(eventId){
+              // clear existing options
+              competitionEl.innerHTML = '<option value="">Loading...</option>';
+              try{
+                const res = await fetch(`/officer/event/${eventId}/competitions/`);
+                if (!res.ok) throw new Error('Network response not ok');
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'Failed to load');
+
+                // populate
+                competitionEl.innerHTML = '<option value="">Select competition</option>';
+                data.competitions.forEach(function(c){
+                  const opt = document.createElement('option');
+                  opt.value = c.id;
+                  opt.textContent = c.name;
+                  competitionEl.appendChild(opt);
+                });
+              }catch(err){
+                competitionEl.innerHTML = '<option value="">No competitions available</option>';
+                console.error('Failed to fetch competitions', err);
+              }
+            }
+
+            eventEl.addEventListener('change', function(){
+              const val = eventEl.value;
+              if (val) fetchComps(val);
+              else {
+                competitionEl.innerHTML = '<option value="">Select competition</option>';
+              }
+            });
+          })();
+
+          // remove row handler
+          tableBody && tableBody.addEventListener('click', function(ev){
+            if (ev.target && ev.target.classList.contains('btn-remove')) {
+              const tr = ev.target.closest('tr');
+              if (!tr) return;
+              // if the removed row belongs to the currently selected event, increment available slots
+              try{
+                const availEl = window.__bulkEvent_availableSpan;
+                const eventSel = window.__bulkEvent_eventSelect;
+                const eventCell = tr.children[6];
+                const rowEventId = eventCell ? eventCell.getAttribute('data-val') : null;
+                const selectedEventId = eventSel && eventSel.value ? String(eventSel.value) : null;
+                if (availEl && selectedEventId && rowEventId && rowEventId === selectedEventId){
+                  let n = parseInt(availEl.textContent);
+                  if (isNaN(n)) n = null;
+                  if (n !== null){
+                    n = n + 1;
+                    availEl.textContent = n;
+                  }
+                }
+              }catch(e){/* ignore */}
+              tr && tr.remove();
+            }
+          });
+
+          // on submit, collect rows into hidden field as JSON
+          form && form.addEventListener('submit', function(ev){
+            const rows = [];
+            document.querySelectorAll('#bulk_reg_table tbody tr').forEach(function(r){
+              const cells = r.children;
+              rows.push({
+                last_name: cells[0].textContent.trim(),
+                first_name: cells[1].textContent.trim(),
+                middle_name: cells[2].textContent.trim(),
+                email: cells[3].textContent.trim(),
+                contact_no: cells[4].textContent.trim(),
+                tshirt_size: cells[5].textContent.trim(),
+                event: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
+                competition: cells[7].getAttribute('data-val') || cells[7].textContent.trim(),
+                participant_type: cells[8].getAttribute('data-val') || cells[8].textContent.trim(),
+                participation_type: cells[9].getAttribute('data-val') || cells[9].textContent.trim(),
+              });
+            });
+
+            if (rows.length === 0) {
+              // if no rows added, allow a single-entry submit using form fields
+              // leave bulk_data empty and let backend handle individual fields
+              return;
+            }
+
+            document.getElementById('bulk_data').value = JSON.stringify(rows);
+            // allow submit to proceed
+          });
+
+          // Wire the table-level Submit All button to prepare bulk_data from table rows and submit the form
+          (function(){
+            const tableSubmit = document.getElementById('submit_all_btn_table');
+            if (!tableSubmit) return;
+
+            tableSubmit.addEventListener('click', function(ev){
+              // collect rows from the registrations table
+              const rows = [];
+              document.querySelectorAll('#bulk_reg_table tbody tr').forEach(function(r){
+                const cells = r.children;
+                rows.push({
+                  last_name: cells[0].textContent.trim(),
+                  first_name: cells[1].textContent.trim(),
+                  middle_name: cells[2].textContent.trim(),
+                  email: cells[3].textContent.trim(),
+                  contact_no: cells[4].textContent.trim(),
+                  tshirt_size: cells[5].textContent.trim(),
+                  event: cells[6].getAttribute('data-val') || cells[6].textContent.trim(),
+                  competition: cells[7].getAttribute('data-val') || cells[7].textContent.trim(),
+                  participant_type: cells[8].getAttribute('data-val') || cells[8].textContent.trim(),
+                  participation_type: cells[9].getAttribute('data-val') || cells[9].textContent.trim(),
+                });
+              });
+
+              if (rows.length === 0) {
+                alert('No rows in the registrations table. Add entries first.');
+                return;
+              }
+
+              // set bulk_data hidden field and submit the form programmatically
+              try{
+                const bulkField = document.getElementById('bulk_data');
+                if (!bulkField) {
+                  alert('Form field for bulk data not found.');
+                  return;
+                }
+                bulkField.value = JSON.stringify(rows);
+                // submit the form (this bypasses the form's submit event handler)
+                // use request by creating a temporary submit button to preserve any before-submit handlers
+                const hidden = document.getElementById('submit_all_btn_hidden');
+                if (hidden) {
+                  hidden.click();
+                } else {
+                  form.submit();
+                }
+              }catch(e){
+                console.error('Failed to submit bulk rows', e);
+                alert('Failed to submit bulk rows. See console for details.');
+              }
+            });
+          })();
+        })();
+      </script>
+{% endblock %}

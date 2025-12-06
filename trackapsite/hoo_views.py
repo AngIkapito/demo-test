@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Event_Attendance, Tags
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Tags
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 import json
@@ -1255,11 +1255,11 @@ def EDIT_EVENT(request, id):
 def ATTENDANCE_EVENT(request):
     """Render attendance page for the currently active event.
 
-    Builds an `attendees` list with dictionaries containing:
-      - id: registration id
-      - first_name, last_name: from CustomUser
-      - school: from Member.organization.name (if any)
-      - present: latest Event_Attendance.status (boolean) or False
+        Builds an `attendees` list with dictionaries containing:
+            - id: registration id
+            - first_name, last_name: from CustomUser
+            - school: from Member.organization.name (if any)
+            - present: current `Member_Event_Registration.is_present` (True/False) or None
 
     The template receives `attendees` and `event` in context.
     """
@@ -1284,10 +1284,13 @@ def ATTENDANCE_EVENT(request):
             except Member.DoesNotExist:
                 school_name = ''
 
-            # Get latest attendance record for this registration, if any
-            attendance = Event_Attendance.objects.filter(member_event_reg=reg).order_by('-attendance_date').first()
-            # If there's no attendance record, show None so UI doesn't display status
-            present = attendance.status if attendance is not None else None
+            # Use the registration's `is_present` flag as the current attendance status
+            # `is_present` is expected to be 1 (present), 0 (absent), or maybe None
+            present = None
+            try:
+                present = True if getattr(reg, 'is_present', None) == 1 else (False if getattr(reg, 'is_present', None) == 0 else None)
+            except Exception:
+                present = None
 
             attendees.append({
                 'id': reg.id,
@@ -1307,33 +1310,35 @@ def ATTENDANCE_EVENT(request):
 @login_required(login_url='/')
 @require_http_methods(["POST"])
 def ATTENDANCE_TOGGLE(request):
-    """AJAX endpoint to record attendance.
+    """AJAX endpoint to toggle attendance for a registration.
 
     Expects JSON payload: { id: <member_event_registration_id>, present: <true|false> }
-    Inserts a new Event_Attendance with member_event_reg set and status (boolean).
-    Returns JSON { success: True, status: 1|0 } on success.
+    Updates Member_Event_Registration.is_present to 1 when present is truthy, otherwise 0.
+    Returns JSON { success: True, is_present: 1|0 } on success.
     """
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'error': 'Invalid request'}, status=400)
 
     try:
-        payload = json.loads(request.body)
-        reg_id = int(payload.get('id'))
-        present = bool(payload.get('present'))
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+        reg_id = payload.get('id')
+        present = payload.get('present')
     except Exception:
         return JsonResponse({'error': 'Bad payload'}, status=400)
 
+    if reg_id is None:
+        return JsonResponse({'error': 'missing_id'}, status=400)
+
     try:
-        reg = Member_Event_Registration.objects.get(id=reg_id)
-    except Member_Event_Registration.DoesNotExist:
+        reg = Member_Event_Registration.objects.get(id=int(reg_id))
+    except (Member_Event_Registration.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Registration not found'}, status=404)
 
-    # Create attendance record (keep history). Use timezone.now() for attendance_date.
-    attendance = Event_Attendance(
-        member_event_reg=reg,
-        attendance_date=timezone.now(),
-        status=present
-    )
-    attendance.save()
+    # Update the registration's is_present flag (1 = present, 0 = absent)
+    try:
+        reg.is_present = 1 if bool(present) else 0
+        reg.save()
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
 
-    return JsonResponse({'success': True, 'status': 1 if present else 0})
+    return JsonResponse({'success': True, 'id': reg.id, 'is_present': reg.is_present})

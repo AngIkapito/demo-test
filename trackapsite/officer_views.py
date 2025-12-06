@@ -3,7 +3,7 @@ from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Competition, Paritcipant_Type, Participation_Type, Bulk_Event_Reg
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -11,6 +11,8 @@ import datetime
 from django.views.decorators.http import require_http_methods
 from django.core.mail import send_mail
 from django.utils.crypto import get_random_string
+import json
+from django.db import transaction
 
 
 @login_required(login_url='/')
@@ -146,13 +148,19 @@ def MEMBER_EVENT_REG(request):
 
         if available_slots <= 0:
             # mark the event as closed (1) when no slots remain; do NOT change status
-            if getattr(event, 'is_closed', 0) != 1:
+            # set both `is_closed` and `is_full` when no slots remain
+            if getattr(event, 'is_closed', 0) != 1 or not getattr(event, 'is_full', False):
                 try:
                     event.is_closed = 1
-                    event.save(update_fields=['is_closed'])
+                    event.is_full = True
+                    event.save(update_fields=['is_closed', 'is_full'])
                 except Exception:
-                    # silent fallback if `is_closed` doesn't exist
-                    pass
+                    # silent fallback if fields don't exist
+                    try:
+                        event.is_closed = 1
+                        event.save(update_fields=['is_closed'])
+                    except Exception:
+                        pass
             messages.error(request, "Registration closed. The event is full.")
             return redirect('member_event_reg_officer')
 
@@ -176,10 +184,14 @@ def MEMBER_EVENT_REG(request):
 
             # ✅ Update event.available_slots and is_closed flag (do NOT change status)
             event.available_slots = new_available_slots
-            # set is_closed flag when no slots remain
+            # set is_closed and is_full flags when no slots remain
             if new_available_slots <= 0:
                 try:
                     event.is_closed = 1
+                except Exception:
+                    pass
+                try:
+                    event.is_full = True
                 except Exception:
                     pass
             else:
@@ -187,11 +199,18 @@ def MEMBER_EVENT_REG(request):
                     event.is_closed = 0
                 except Exception:
                     pass
+                try:
+                    event.is_full = False
+                except Exception:
+                    pass
             # try to save both fields; fall back to saving available_slots only
             try:
-                event.save(update_fields=['available_slots', 'is_closed'])
+                event.save(update_fields=['available_slots', 'is_closed', 'is_full'])
             except Exception:
-                event.save(update_fields=['available_slots'])
+                try:
+                    event.save(update_fields=['available_slots', 'is_closed'])
+                except Exception:
+                    event.save(update_fields=['available_slots'])
 
             messages.success(request, "Registration successful!")
             return redirect('member_event_reg_officer')
@@ -359,5 +378,311 @@ def MEMBERSHIP_APPROVAL(request):
 
     return render(request, 'officer/membership_approval.html', context)
 
+
+@login_required(login_url='/')
+def BULK_EVENT_REG(request):
+    # Provide data for the selects in the form
+    # Only include active events
+    events = Event.objects.filter(status='active').order_by('-date')
+    # Ensure event.date is a datetime object (some DB imports may have stored it as string)
+    try:
+        events = list(events)
+        def _parse_date_string(s):
+            if not s:
+                return s
+            if isinstance(s, datetime.datetime):
+                return s
+            try:
+                # ISO format
+                return datetime.datetime.fromisoformat(str(s))
+            except Exception:
+                # common fallback formats
+                for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                    try:
+                        return datetime.datetime.strptime(str(s), fmt)
+                    except Exception:
+                        continue
+            return s
+
+        for ev in events:
+            try:
+                if isinstance(ev.date, str):
+                    ev.date = _parse_date_string(ev.date)
+            except Exception:
+                # leave as-is; template will handle missing/invalid dates
+                pass
+    except Exception:
+        # if anything goes wrong, continue without transformation
+        pass
+    # Only competitions for active events
+    competitions = Competition.objects.filter(event__status='active')
+    participant_types = Paritcipant_Type.objects.all()
+    participation_types = Participation_Type.objects.all()
+
+    if request.method == 'POST':
+        user = request.user
+        bulk_data = request.POST.get('bulk_data', '').strip()
+        created = 0
+        errors = 0
+
+        def resolve_event(val):
+            if not val:
+                return None
+            try:
+                if str(val).isdigit():
+                    return Event.objects.filter(id=int(val)).first()
+            except Exception:
+                pass
+            return Event.objects.filter(title__icontains=str(val)).first()
+
+        def resolve_competition(val):
+            if not val:
+                return None
+            try:
+                if str(val).isdigit():
+                    return Competition.objects.filter(id=int(val)).first()
+            except Exception:
+                pass
+            return Competition.objects.filter(name__icontains=str(val)).first()
+
+        def resolve_participant_type(val):
+            if not val:
+                return None
+            try:
+                if str(val).isdigit():
+                    return Paritcipant_Type.objects.filter(id=int(val)).first()
+            except Exception:
+                pass
+            return Paritcipant_Type.objects.filter(name__icontains=str(val)).first()
+
+        def resolve_participation_type(val):
+            if not val:
+                return None
+            try:
+                if str(val).isdigit():
+                    return Participation_Type.objects.filter(id=int(val)).first()
+            except Exception:
+                pass
+            return Participation_Type.objects.filter(name__icontains=str(val)).first()
+
+        # If bulk_data provided, parse JSON and create multiple rows
+        if bulk_data:
+            try:
+                rows = json.loads(bulk_data)
+            except Exception:
+                messages.error(request, 'Invalid bulk data format.')
+                return redirect(request.path)
+            # Pre-validate: resolve events and count requested registrations per event
+            created_per_event = {}
+            resolved_rows = []
+            for r in rows:
+                try:
+                    event_obj = resolve_event(r.get('event'))
+                    if not event_obj:
+                        errors += 1
+                        continue
+
+                    # ensure competition belongs to the chosen event
+                    comp_obj = resolve_competition(r.get('competition'))
+                    if comp_obj and getattr(comp_obj, 'event_id', None) != getattr(event_obj, 'id', None):
+                        comp_obj = None
+
+                    pt_obj = resolve_participant_type(r.get('participant_type'))
+                    p_obj = resolve_participation_type(r.get('participation_type'))
+
+                    eid = getattr(event_obj, 'id', None)
+                    if eid:
+                        created_per_event[eid] = created_per_event.get(eid, 0) + 1
+
+                    resolved_rows.append((r, event_obj, comp_obj, pt_obj, p_obj))
+                except Exception:
+                    errors += 1
+
+            # Check capacity and is_full flag for each affected event before inserting
+            for eid, req_count in created_per_event.items():
+                try:
+                    ev = Event.objects.get(id=eid)
+                except Event.DoesNotExist:
+                    messages.error(request, f'Event (id={eid}) not found. Aborting bulk submit.')
+                    return redirect(request.path)
+
+                current = getattr(ev, 'available_slots', None)
+                if current is None:
+                    current = getattr(ev, 'max_attendees', 0) or 0
+
+                # Treat numeric string or None carefully
+                try:
+                    current_val = int(current)
+                except Exception:
+                    current_val = 0
+
+                is_full_flag = False
+                try:
+                    # some schemas store as int(0/1) others as bool
+                    is_full_flag = bool(getattr(ev, 'is_full', False) or getattr(ev, 'is_closed', False) == 1)
+                except Exception:
+                    is_full_flag = False
+
+                if is_full_flag or current_val <= 0 or current_val < req_count:
+                    messages.error(request, f'Not enough available slots for event "{getattr(ev, "title", "(unknown)")}". Requested {req_count}, available {current_val}.')
+                    return redirect(request.path)
+
+            # All pre-checks passed — create records and then perform atomic updates
+            for (r, event_obj, comp_obj, pt_obj, p_obj) in resolved_rows:
+                try:
+                    Bulk_Event_Reg.objects.create(
+                        event=event_obj,
+                        registered_by=user,
+                        last_name=(r.get('last_name') or '').strip(),
+                        first_name=(r.get('first_name') or '').strip(),
+                        middle_name=(r.get('middle_name') or '').strip() or None,
+                        email=(r.get('email') or '').strip(),
+                        contact_no=(r.get('contact_no') or '').strip(),
+                        competition=comp_obj,
+                        participant_type=pt_obj,
+                        participation_type=p_obj,
+                        tshirt_size=(r.get('tshirt_size') or '').strip() or None,
+                    )
+                    created += 1
+                except Exception:
+                    errors += 1
+
+            # Atomically update available_slots for each affected event
+            for eid, count in created_per_event.items():
+                try:
+                    with transaction.atomic():
+                        # lock the event row
+                        ev = Event.objects.select_for_update().get(id=eid)
+                        # compute current available (fallback to max_attendees if None)
+                        current = getattr(ev, 'available_slots', None)
+                        if current is None:
+                            current = getattr(ev, 'max_attendees', 0) or 0
+                        new_avail = max(int(current) - int(count), 0)
+                        ev.available_slots = new_avail
+                        try:
+                            ev.is_closed = 1 if new_avail <= 0 else 0
+                        except Exception:
+                            pass
+                        try:
+                            ev.is_full = True if new_avail <= 0 else False
+                        except Exception:
+                            pass
+                        ev.save(update_fields=['available_slots', 'is_closed', 'is_full'])
+                except Event.DoesNotExist:
+                    continue
+                except Exception:
+                    # don't block overall flow if an event update fails
+                    continue
+
+            messages.success(request, f'Bulk registration processed: {created} created, {errors} failed.')
+            return redirect(request.path)
+
+        # No bulk_data: fallback to single-entry submission using form fields
+        last_name = request.POST.get('last_name', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        middle_name = request.POST.get('middle_name', '').strip() or None
+        email = request.POST.get('email', '').strip()
+        contact_no = request.POST.get('contact_no', '').strip()
+        tshirt_size = request.POST.get('tshirt_size', '').strip() or None
+
+        # event may be select or text
+        event_val = request.POST.get('event', '').strip()
+        event_obj = resolve_event(event_val)
+        if not event_obj:
+            messages.error(request, 'Please select a valid event for registration.')
+            return redirect(request.path)
+
+        # Server-side check: ensure selected event has available slots and is not full
+        try:
+            ev_check = Event.objects.get(id=event_obj.id)
+            current = getattr(ev_check, 'available_slots', None)
+            if current is None:
+                current = getattr(ev_check, 'max_attendees', 0) or 0
+            try:
+                current_val = int(current)
+            except Exception:
+                current_val = 0
+            is_full_flag = False
+            try:
+                is_full_flag = bool(getattr(ev_check, 'is_full', False) or getattr(ev_check, 'is_closed', False) == 1)
+            except Exception:
+                is_full_flag = False
+
+            if is_full_flag or current_val <= 0:
+                messages.error(request, 'Registration failed: no available slots for the selected event.')
+                return redirect(request.path)
+        except Event.DoesNotExist:
+            messages.error(request, 'Selected event not found.')
+            return redirect(request.path)
+
+        comp_val = request.POST.get('competition', '').strip()
+        comp_obj = resolve_competition(comp_val)
+        # ensure competition belongs to chosen event
+        if comp_obj and event_obj and getattr(comp_obj, 'event_id', None) != getattr(event_obj, 'id', None):
+            comp_obj = None
+        pt_val = request.POST.get('participant_type', '').strip()
+        pt_obj = resolve_participant_type(pt_val)
+        p_val = request.POST.get('participation_type', '').strip()
+        p_obj = resolve_participation_type(p_val)
+
+        try:
+            Bulk_Event_Reg.objects.create(
+                event=event_obj,
+                registered_by=request.user,
+                last_name=last_name,
+                first_name=first_name,
+                middle_name=middle_name,
+                email=email,
+                contact_no=contact_no,
+                competition=comp_obj,
+                participant_type=pt_obj,
+                participation_type=p_obj,
+                tshirt_size=tshirt_size,
+            )
+            # Atomically decrement available_slots for this event by 1
+            try:
+                if event_obj:
+                    with transaction.atomic():
+                        ev = Event.objects.select_for_update().get(id=event_obj.id)
+                        current = getattr(ev, 'available_slots', None)
+                        if current is None:
+                            current = getattr(ev, 'max_attendees', 0) or 0
+                        new_avail = max(int(current) - 1, 0)
+                        ev.available_slots = new_avail
+                        try:
+                            ev.is_closed = 1 if new_avail <= 0 else 0
+                        except Exception:
+                            pass
+                        try:
+                            ev.is_full = True if new_avail <= 0 else False
+                        except Exception:
+                            pass
+                        ev.save(update_fields=['available_slots', 'is_closed', 'is_full'])
+            except Exception:
+                pass
+            messages.success(request, 'Registration added successfully.')
+            return redirect(request.path)
+        except Exception as e:
+            messages.error(request, f'Failed to save registration: {e}')
+            return redirect(request.path)
+
+    context = {
+        'events': events,
+        'competitions': competitions,
+        'participant_types': participant_types,
+        'participation_types': participation_types,
+    }
+    return render(request, 'officer/bulk_event_reg.html', context)
+
+
+@login_required(login_url='/')
+def  GET_COMPETITIONS_EVENT(request, event_id):
+    """Return competitions for a given event id as JSON."""
+    try:
+        comps = Competition.objects.filter(event_id=event_id).values('id', 'name')
+        data = list(comps)
+        return JsonResponse({'success': True, 'competitions': data})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 

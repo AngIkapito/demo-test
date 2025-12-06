@@ -134,14 +134,19 @@ def MEMBER_EVENT_REG(request):
         available_slots = getattr(event, 'available_slots', event.max_attendees)
 
         if available_slots <= 0:
-            # mark the event as closed (1) when no slots remain; do NOT change status
-            if getattr(event, 'is_closed', 0) != 1:
+            # set both `is_closed` and `is_full` when no slots remain
+            if getattr(event, 'is_closed', 0) != 1 or not getattr(event, 'is_full', False):
                 try:
                     event.is_closed = 1
-                    event.save(update_fields=['is_closed'])
+                    event.is_full = True
+                    event.save(update_fields=['is_closed', 'is_full'])
                 except Exception:
-                    # silent fallback if `is_closed` doesn't exist
-                    pass
+                    # silent fallback if fields don't exist
+                    try:
+                        event.is_closed = 1
+                        event.save(update_fields=['is_closed'])
+                    except Exception:
+                        pass
             messages.error(request, "Registration closed. The event is full.")
             return redirect('member_event_reg_member')
 
@@ -165,10 +170,14 @@ def MEMBER_EVENT_REG(request):
 
             # ✅ Update event.available_slots and is_closed flag (do NOT change status)
             event.available_slots = new_available_slots
-            # set is_closed flag when no slots remain
+            # set is_closed and is_full flags when no slots remain
             if new_available_slots <= 0:
                 try:
                     event.is_closed = 1
+                except Exception:
+                    pass
+                try:
+                    event.is_full = True
                 except Exception:
                     pass
             else:
@@ -176,11 +185,18 @@ def MEMBER_EVENT_REG(request):
                     event.is_closed = 0
                 except Exception:
                     pass
-            # try to save both fields; fall back to saving available_slots only
+                try:
+                    event.is_full = False
+                except Exception:
+                    pass
+            # try to save all fields; fall back to smaller sets
             try:
-                event.save(update_fields=['available_slots', 'is_closed'])
+                event.save(update_fields=['available_slots', 'is_closed', 'is_full'])
             except Exception:
-                event.save(update_fields=['available_slots'])
+                try:
+                    event.save(update_fields=['available_slots', 'is_closed'])
+                except Exception:
+                    event.save(update_fields=['available_slots'])
 
             messages.success(request, "Registration successful!")
             return redirect('member_event_reg_member')

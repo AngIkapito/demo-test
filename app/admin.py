@@ -26,6 +26,12 @@ admin.site.register(MemberType)
 admin.site.register(MembershipType)
 admin.site.register(Region)
 admin.site.register(Tags)
+admin.site.register(Paritcipant_Type)
+admin.site.register(Participation_Type)
+admin.site.register(Competition)
+admin.site.register(Event)
+admin.site.register(Bulk_Event_Reg)
+admin.site.register(Member_Event_Registration)
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
