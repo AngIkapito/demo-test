@@ -272,26 +272,6 @@ class Member_Event_Registration(models.Model):
 
     
  
-class Participation_Type(models.Model): #Competitor or Coach
-    name = models.CharField(max_length=100)
-    
-    def __str__(self):
-        return self.name
-
-class Paritcipant_Type(models.Model): #Student or Faculty
-    name = models.CharField(max_length=100)
-
-    def __str__(self):
-        return self.name
- 
-class Competition(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    name = models.CharField(max_length=200)
-    description = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    
-    def __str__(self):
-        return self.name
       
 class Bulk_Event_Reg(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
@@ -299,14 +279,15 @@ class Bulk_Event_Reg(models.Model):
     registration_date = models.DateTimeField(auto_now_add=True)
     last_name = models.CharField(max_length=150)
     first_name = models.CharField(max_length=150)
-    middle_name = models.CharField(max_length=150, blank=True, null=True)
-    email = models.EmailField(max_length=150)
-    contact_no = models.CharField(max_length=13)
-    competition = models.ForeignKey(Competition, on_delete=models.CASCADE, blank=True, null=True)
-    participant_type = models.ForeignKey(Paritcipant_Type, on_delete=models.CASCADE, blank=True, null=True)
-    participation_type = models.ForeignKey(Participation_Type, on_delete=models.CASCADE, blank=True, null=True)
+    middle = models.CharField(max_length=150, blank=True, null=True)
+    contact_number = models.CharField(max_length=13)
+    email = models.EmailField(max_length=150, blank=True, null=True)
+    attending_as = models.CharField(max_length=100, blank=True, null=True)
+    is_competitor = models.BooleanField(default=False)
+    if_competitor = models.CharField(max_length=100, blank=True, null=True)
+    is_coach = models.BooleanField(default=False)
+    if_coach = models.CharField(max_length=100, blank=True, null=True)
     tshirt_size = models.CharField(max_length=10, blank=True, null=True)
-    date_added = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.event.title}"
