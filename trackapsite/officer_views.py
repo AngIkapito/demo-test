@@ -16,6 +16,7 @@ from django.db import transaction
 from django.conf import settings
 import os
 import pandas as pd
+from openpyxl import load_workbook
 
 @login_required(login_url='/')
 def home(request):
@@ -383,7 +384,11 @@ def MEMBERSHIP_APPROVAL(request):
 
 def BULK_EVENT_REG(request):
     """Render the bulk event registration page."""
-    return render(request, 'officer/bulk_event_reg.html')
+    # Fetch the currently active event (latest by date if multiple)
+    active_event = Event.objects.filter(status='active').order_by('-date').first()
+    return render(request, 'officer/bulk_event_reg.html', {
+        'event': active_event
+    })
 
 @login_required(login_url='/')
 
@@ -434,43 +439,146 @@ def UPLOAD_BULK_EVENT_REG(request):
         preview_rows = []
         try:
             ext = os.path.splitext(dest_path)[1].lower()
-            if ext == '.csv':
-                df = pd.read_csv(dest_path, header=14)
-            else:
-                df = pd.read_excel(dest_path, header=14)
-
-            # Normalize column names
-            df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
             wanted = [
                 'last_name','first_name','middle','contact_number','email',
                 'attending_as','is_competitor','if_competitor','is_coach','if_coach','tshirt_size'
             ]
-            # Some files might use 'if _compeitor' typo; align it
-            if 'if_compeitor' in df.columns:
-                df = df.rename(columns={'if_compeitor':'if_competitor'})
-            if 'if_compeitor' in df.columns:
-                df = df.rename(columns={'if_compeitor':'if_competitor'})
-            if 'if_compeitor' in df.columns:
-                df = df.rename(columns={'if_compeitor':'if_competitor'})
 
-            # Select available columns
-            cols = [c for c in wanted if c in df.columns]
-            df = df[cols]
+            if ext == '.csv':
+                df = pd.read_csv(dest_path, header=14)
+                df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
+                # Fix common typos for 'if_competitor'
+                typo_variants = ['if_compeitor','if_comptetitor','if_competior','if _compeitor']
+                for tv in typo_variants:
+                    if tv in df.columns:
+                        df = df.rename(columns={tv: 'if_competitor'})
 
-            # Build dicts (limit to a reasonable number for preview)
-            for _, row in df.head(200).iterrows():
-                item = {k: ('' if pd.isna(row.get(k)) else str(row.get(k))) for k in wanted}
-                preview_rows.append(item)
+                cols = [c for c in wanted if c in df.columns]
+                df = df[cols]
+                for _, row in df.head(1000).iterrows():
+                    item = {k: ('' if pd.isna(row.get(k)) else str(row.get(k))) for k in wanted}
+                    # only include rows with a non-empty last_name
+                    if str(item.get('last_name', '')).strip():
+                        preview_rows.append(item)
+            else:
+                # Use openpyxl to read Excel with data_only=True
+                wb = load_workbook(dest_path, data_only=True)
+                ws = wb.active
+                # Header row is 15 (1-based); collect headers and normalize
+                header_row_index = 15
+                headers = []
+                for cell in ws[header_row_index]:
+                    val = '' if cell.value is None else str(cell.value)
+                    headers.append(val.strip().lower().replace(' ', '_'))
+
+                # Fix common typos in headers list
+                headers = [
+                    ('if_competitor' if h in ['if_compeitor','if_comptetitor','if_competior','if _compeitor'] else h)
+                    for h in headers
+                ]
+
+                # Build mapping col_index -> header
+                header_map = {idx: h for idx, h in enumerate(headers)}
+
+                # Iterate rows after header (from 16 to max_row)
+                max_rows = min(ws.max_row, 14 + 1000)  # limit ~1000 data rows
+                for r in range(16, max_rows + 1):
+                    row_vals = {}
+                    for idx, cell in enumerate(ws[r]):
+                        h = header_map.get(idx)
+                        if h:
+                            val = cell.value
+                            row_vals[h] = '' if val is None else str(val)
+
+                    item = {k: row_vals.get(k, '') for k in wanted}
+                    # only include rows with a non-empty last_name
+                    if str(item.get('last_name', '')).strip():
+                        preview_rows.append(item)
         except Exception as e:
             messages.error(request, f'Failed to parse file for preview: {e}')
             preview_rows = []
 
-        messages.success(request, f'File uploaded: {filename}. Parsed {len(preview_rows)} rows for preview.')
+        messages.success(request, f'File uploaded: {filename}. Parsed {len(preview_rows)} rows with last_name for preview.')
         return render(request, 'officer/bulk_event_reg.html', {
-            'preview_rows': preview_rows
+            'preview_rows': preview_rows,
+            'event': Event.objects.filter(status='active').order_by('-date').first()
         })
 
     return render(request, 'officer/bulk_event_reg.html')
+
+def SAVE_BULK_EVENT_REG(request):
+    """Persist uploaded preview rows into Bulk_Event_Reg.
+
+    Expects POST with 'preview_json' containing the preview rows shown in the table.
+    Only rows with non-empty last_name should be processed (already filtered client-side).
+    """
+    if request.method != 'POST':
+        return redirect('bulk_event_reg_officer')
+
+    preview_json = request.POST.get('preview_json')
+    if not preview_json:
+        messages.error(request, 'No preview data to save.')
+        return redirect('bulk_event_reg_officer')
+
+    try:
+        # The template uses json_script; adapt to plain JSON if provided
+        # If it contains a <script> tag, extract inner text; otherwise treat as JSON
+        data_str = preview_json
+        # Attempt to load JSON
+        rows = json.loads(data_str)
+        if not isinstance(rows, list):
+            messages.error(request, 'Invalid preview data format.')
+            return redirect('bulk_event_reg_officer')
+    except Exception as e:
+        messages.error(request, f'Failed to parse preview data: {e}')
+        return redirect('bulk_event_reg_officer')
+
+    # Fetch active event to associate registrations
+    event = Event.objects.filter(status='active').order_by('-date').first()
+    if not event:
+        messages.error(request, 'No active event to associate registrations.')
+        return redirect('bulk_event_reg_officer')
+
+    saved = 0
+    skipped = 0
+
+    # Persist within a transaction for reliability
+    try:
+        with transaction.atomic():
+            def as_bool(val):
+                if val is None:
+                    return False
+                s = str(val).strip().lower()
+                return s in ['yes','true','1','y','t']
+
+            for r in rows:
+                try:
+                    # Only save fields that exist; map expected keys
+                    Bulk_Event_Reg.objects.create(
+                        event_id=event.id,
+                        registered_by_id=getattr(request.user, 'id', None),
+                        last_name=r.get('last_name', '') or '',
+                        first_name=r.get('first_name', '') or '',
+                        middle=r.get('middle', '') or '',
+                        contact_number=r.get('contact_number', '') or '',
+                        email=r.get('email', '') or '',
+                        attending_as=r.get('attending_as', '') or '',
+                        is_competitor=as_bool(r.get('is_competitor', False)),
+                        if_competitor=r.get('if_competitor', '') or '',
+                        is_coach=as_bool(r.get('is_coach', False)),
+                        if_coach=r.get('if_coach', '') or '',
+                        tshirt_size=r.get('tshirt_size', '') or '',
+                    )
+                    saved += 1
+                except Exception:
+                    skipped += 1
+                    continue
+    except Exception as e:
+        messages.error(request, f'Failed to save registrations: {e}')
+        return redirect('bulk_event_reg_officer')
+
+    messages.success(request, f'Saved {saved} registrations. Skipped {skipped}.')
+    return redirect('bulk_event_reg_officer')
 
 
     
