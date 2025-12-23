@@ -46,11 +46,19 @@
 
   <!-- If magllogin ang President/Hoo, Ito mga LALABAS -->
     {% if user.user_type == '1' %}
-<!-- Nav Item - Dashboard -->
-<li class="nav-item active">
-    <a class="nav-link" href="{% url "hoo_home" %}">
+<!-- Nav Item - Overview (Dashboard / Home / Event Analytics) -->
+<li class="nav-item">
+    <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseOverviewHoo"
+        aria-expanded="true" aria-controls="collapseOverviewHoo">
         <i class="fas fa-fw fa-tachometer-alt"></i>
-        <span>Dashboard</span></a>
+        <span>Dashboard</span>
+    </a>
+    <div id="collapseOverviewHoo" class="collapse" aria-labelledby="headingOverviewHoo" data-parent="#accordionSidebar">
+        <div class="bg-white py-2 collapse-inner rounded">
+            <a class="collapse-item" href="{% url "hoo_home" %}">Home</a>
+            <a class="collapse-item" href="{% url "hoo_event_analytics" %}">Event Analytics</a>
+        </div>
+    </div>
 </li>
     <!-- Membership Nav Item - Pages Collapse Menu -->
     <li class="nav-item">
@@ -187,11 +195,20 @@
 <!-- If magllogin officer, Ito mga LALABAS -->
     {% elif user.user_type == '2' %}
 
-    <!-- Nav Item - Dashboard -->
-    <li class="nav-item active">
-        <a class="nav-link" href="{% url "officer_home" %}">
+    <!-- Nav Item - Overview (Officer) -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseOverviewOfficer"
+            aria-expanded="true" aria-controls="collapseOverviewOfficer">
             <i class="fas fa-fw fa-tachometer-alt"></i>
-            <span>Dashboard</span></a>
+            <span>Overview</span>
+        </a>
+        <div id="collapseOverviewOfficer" class="collapse" aria-labelledby="headingOverviewOfficer" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "officer_home" %}">Dashboard</a>
+                <a class="collapse-item" href="{% url "officer_home" %}">Home</a>
+                <a class="collapse-item" href="{% url "hoo_event_analytics" %}">Event Analytics</a>
+            </div>
+        </div>
     </li>
     <!-- Membership Nav Item - Pages Collapse Menu -->
     <li class="nav-item">
@@ -256,11 +273,20 @@
     <!-- If magllogin ang Member, Ito mga LALABAS -->
     {% elif user.user_type == '3' %}
 
-    <!-- Nav Item - Dashboard -->
-    <li class="nav-item active">
-        <a class="nav-link" href="{% url "member_home" %}">
+    <!-- Nav Item - Overview (Member) -->
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseOverviewMember"
+            aria-expanded="true" aria-controls="collapseOverviewMember">
             <i class="fas fa-fw fa-tachometer-alt"></i>
-            <span>Dashboard</span></a>
+            <span>Overview</span>
+        </a>
+        <div id="collapseOverviewMember" class="collapse" aria-labelledby="headingOverviewMember" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "member_home" %}">Dashboard</a>
+                <a class="collapse-item" href="{% url "member_home" %}">Home</a>
+                <a class="collapse-item" href="{% url "hoo_event_analytics" %}">Event Analytics</a>
+            </div>
+        </div>
     </li>
 
     <li class="nav-item">

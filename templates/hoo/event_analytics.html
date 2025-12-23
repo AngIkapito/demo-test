@@ -1,0 +1,204 @@
+{% extends "includes/base.html" %}
+{% load static %}
+
+{% block content %}
+
+<div class="container-fluid py-4">
+	<!-- Header: title + controls -->
+	<div class="mb-4 d-flex justify-content-between align-items-center">
+		<div>
+			<h1 class="h3 mb-1 text-gray-800">Event Analytics</h1>
+			<p class="text-muted mb-0">Insights and realtime metrics for your events</p>
+		</div>
+
+		<div class="d-flex align-items-center gap-3">
+			<div class="me-2 text-end">
+				<label class="small text-muted mb-1">Cycle</label>
+				<select id="cycle_select" class="form-select form-select-sm">
+					{% for sy in school_years %}
+						<option value="{{ sy.id }}">{{ sy.sy_start|date:'Y' }} - {{ sy.sy_end|date:'Y' }}</option>
+					{% endfor %}
+				</select>
+			</div>
+
+			<div class="text-end">
+				<label class="small text-muted mb-1">Event</label>
+				<select id="event_select" class="form-select form-select-sm">
+					<option value="">-- Select Event --</option>
+				</select>
+			</div>
+		</div>
+	</div>
+
+	<!-- Main content: left panel (event) + right panel (analytics) -->
+	<div class="row gy-4">
+		<div class="col-lg-4">
+			<div class="card shadow-sm h-100">
+				<div class="card-body">
+					<div class="d-flex align-items-start justify-content-between">
+						<div>
+							<h6 class="text-muted">Active Event</h6>
+							{% if event %}
+								<h5 class="fw-bold text-primary mb-1" id="event_title_display">{{ event.title }}</h5>
+								{% if event.date %}
+									<div class="small text-muted mb-2" id="event_date_display">{{ event.date }}</div>
+								{% else %}
+									<div class="small text-muted mb-2" id="event_date_display"></div>
+								{% endif %}
+								<div class="mb-3"><span id="event_status_badge" class="badge {% if event.status == 'active' %}bg-success{% elif event.status == 'inactive' %}bg-danger{% else %}bg-secondary{% endif %}">{{ event.status|capfirst }}</span></div>
+							{% else %}
+								<div class="text-muted">No active event at the moment.</div>
+								<div class="mb-3"><span id="event_status_badge" class="badge bg-secondary"></span></div>
+							{% endif %}
+							<p class="mb-0 text-muted small">Use the controls in the header to switch cycles and events.</p>
+						</div>
+						<div class="ms-3">
+							<i class="fas fa-chart-line fa-2x text-gray-400"></i>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="col-lg-8">
+			<div class="row g-3">
+				<div class="col-md-6">
+					<div class="card shadow-sm h-100 border-start-primary">
+						<div class="card-body">
+							<div class="d-flex justify-content-between align-items-center">
+								<div>
+									<div class="small text-muted">Registered</div>
+									<div id="registered_count" class="h4 fw-bold">{{ registered_total|default:'0' }}</div>
+								</div>
+								<div><i class="fas fa-user-check fa-2x text-primary"></i></div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-6">
+					<div class="card shadow-sm h-100 border-start-success">
+						<div class="card-body">
+							<div class="d-flex justify-content-between align-items-center">
+								<div>
+									<div class="small text-muted">Attended</div>
+									<div id="attended_count" class="h4 fw-bold">{{ attended_total|default:'0' }}</div>
+								</div>
+								<div><i class="fas fa-users fa-2x text-success"></i></div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card shadow-sm mt-3">
+				<div class="card-body" style="min-height:320px;">
+					<div id="analytics_chart" style="height:100%;">
+						<!-- Chart placeholder: replace with ApexCharts or Chart.js init -->
+						<div class="d-flex h-100 align-items-center justify-content-center text-muted">Analytics chart will appear here.</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- client-side wiring for dropdowns -->
+	<script>
+	document.addEventListener('DOMContentLoaded', function(){
+		var eventsData = [];
+		try { eventsData = JSON.parse('{{ events_json|default:'[]'|escapejs }}'); } catch(e){ eventsData = []; }
+
+		var cycleSelect = document.getElementById('cycle_select');
+		var eventSelect = document.getElementById('event_select');
+		var titleEl = document.getElementById('event_title_display');
+		var dateEl = document.getElementById('event_date_display');
+
+		function clearEvents() {
+			eventSelect.innerHTML = '';
+			var placeholder = document.createElement('option');
+			placeholder.value = '';
+			placeholder.textContent = '-- Select Event --';
+			eventSelect.appendChild(placeholder);
+		}
+
+		function populateEventsForCycle(cycleId){
+			clearEvents();
+			eventsData.forEach(function(ev){
+					if(String(ev.school_year_id) === String(cycleId)){
+					var opt = document.createElement('option');
+					opt.value = ev.id;
+					opt.textContent = ev.title;
+						opt.dataset.date = ev.date || '';
+						opt.dataset.status = ev.status || '';
+					eventSelect.appendChild(opt);
+				}
+			});
+		}
+
+		if(cycleSelect){
+			cycleSelect.addEventListener('change', function(e){
+				populateEventsForCycle(e.target.value);
+				if(titleEl) titleEl.textContent = '';
+				if(dateEl) dateEl.textContent = '';
+			});
+			var initial = cycleSelect.value || (cycleSelect.options.length ? cycleSelect.options[0].value : null);
+			if(initial) populateEventsForCycle(initial);
+		}
+
+		if(eventSelect){
+				eventSelect.addEventListener('change', function(e){
+					var sel = e.target.selectedOptions[0];
+					if(sel && sel.value){
+						if(titleEl) titleEl.textContent = sel.textContent;
+						if(dateEl) dateEl.textContent = sel.dataset.date || '';
+
+						// update status badge
+						var badge = document.getElementById('event_status_badge');
+						if(badge){
+							var st = sel.dataset.status || '';
+							badge.textContent = st ? (st.charAt(0).toUpperCase() + st.slice(1)) : '';
+							var cls = 'badge ';
+							if(st === 'active') cls += 'bg-success';
+							else if(st === 'inactive') cls += 'bg-danger';
+							else if(st === 'cancelled' || st === '') cls += 'bg-secondary';
+							else cls += 'bg-info';
+							badge.className = cls;
+						}
+
+						// fetch counts for selected event
+						var eventId = sel.value;
+						fetch('/hoo/Event/Stats/' + eventId + '/')
+							.then(function(res){ return res.json(); })
+							.then(function(data){
+								if(data && typeof data.registered_total !== 'undefined'){
+									var regEl = document.getElementById('registered_count');
+									var attEl = document.getElementById('attended_count');
+									if(regEl) regEl.textContent = data.registered_total;
+									if(attEl) attEl.textContent = data.attended_total;
+								}
+							})
+							.catch(function(){
+								var regEl = document.getElementById('registered_count');
+								var attEl = document.getElementById('attended_count');
+								if(regEl) regEl.textContent = '0';
+								if(attEl) attEl.textContent = '0';
+							});
+					} else {
+						if(titleEl) titleEl.textContent = '';
+						if(dateEl) dateEl.textContent = '';
+						var regEl = document.getElementById('registered_count');
+						var attEl = document.getElementById('attended_count');
+						if(regEl) regEl.textContent = '0';
+						if(attEl) attEl.textContent = '0';
+
+						var badge = document.getElementById('event_status_badge');
+						if(badge){ badge.textContent = ''; badge.className = 'badge bg-secondary'; }
+					}
+				});
+		}
+	});
+	</script>
+
+</div>
+
+{% endblock %}
+

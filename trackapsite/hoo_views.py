@@ -14,8 +14,55 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.crypto import get_random_string
 import datetime
+import os
+from django.db import transaction
+from django.db.models import F
 
 # Create your views here.
+def COMPUTE_EVENT_PROGRESS(event):
+    """
+    Compute registration metrics for an event.
+
+    Returns a tuple: (registered_count, available_slots, progress_percent)
+
+    - Uses `event.max_attendees` as the maximum count and
+      `event.available_slots` as the remaining slots.
+    - Only computes a percentage when `event.status == 'active'` and
+      `max_attendees` is present and non-zero.
+    - Values are clamped to sensible integers (no negatives).
+    """
+    if not event:
+        return 0, 0, 0
+
+    # Only compute progress for active events
+    if getattr(event, 'status', None) != 'active':
+        avail = getattr(event, 'available_slots', 0) or 0
+        return 0, int(avail), 0
+
+    max_att = getattr(event, 'max_attendees', None)
+    avail = getattr(event, 'available_slots', None)
+
+    # If max_attendees is not provided or zero, can't compute percent
+    try:
+        if max_att is None or int(max_att) == 0:
+            return 0, int(avail) if avail is not None else 0, 0
+    except Exception:
+        return 0, int(avail) if avail is not None else 0, 0
+
+    # If available_slots missing, assume 0 (fully booked) to avoid None math
+    try:
+        avail_i = int(avail) if avail is not None else 0
+    except Exception:
+        avail_i = 0
+
+    try:
+        max_i = int(max_att)
+    except Exception:
+        return 0, avail_i, 0
+
+    registered = max(0, max_i - avail_i)
+    progress_percent = int(round((registered / max_i) * 100)) if max_i > 0 else 0
+    return registered, avail_i, progress_percent
 @login_required(login_url='/')
 def home(request):
     # Get all members and events
@@ -25,23 +72,11 @@ def home(request):
     # Fetch the latest active event for the progress bar
     event = Event.objects.filter(status='active').order_by('-date').first()
 
+    # Compute progress metrics using helper (based on max_attendees and available_slots)
     if event:
-        # Calculate the number of registered members for this event
-        registered_count = Member_Event_Registration.objects.filter(
-            event_id=event.id,
-            status='registered'
-        ).count()
-
-        # Calculate available slots
-        available_slots = max(event.max_attendees - registered_count, 0)
-
-        # Calculate percentage for progress bar
-        progress_percent = (registered_count / event.max_attendees) * 100 if event.max_attendees else 0
+        registered_count, available_slots, progress_percent = COMPUTE_EVENT_PROGRESS(event)
     else:
-        # No active event
-        registered_count = 0
-        available_slots = 0
-        progress_percent = 0
+        registered_count, available_slots, progress_percent = 0, 0, 0
 
     context = {
         'members': members,
@@ -69,12 +104,11 @@ def home(request):
                 date_iso = str(ev.date)
 
         # compute available slots for each event
+        # Do not calculate registration totals here; expose stored available_slots if present
         try:
-            registered_count = Member_Event_Registration.objects.filter(event_id=ev.id, status='registered').count()
-            available_slots = max(getattr(ev, 'max_attendees', 0) - registered_count, 0)
+            available_slots = getattr(ev, 'available_slots', None)
         except Exception:
-            registered_count = 0
-            available_slots = getattr(ev, 'max_attendees', 0) or 0
+            available_slots = None
 
         # banner url (if ImageField)
         banner_url = None
@@ -119,7 +153,106 @@ def home(request):
 
     context['events_json'] = events_json
 
+    # Build column chart data: categories = event titles; series = Registered / Attended counts
+    categories = []
+    registered_counts = []
+    attended_counts = []
+    for ev in events:
+        try:
+            ev_id = getattr(ev, 'id', None)
+            title = getattr(ev, 'title', '') or f"Event {ev_id}"
+            # Member registrations
+            mem_registered = Member_Event_Registration.objects.filter(event_id=ev_id, is_approved=True).count()
+            mem_attended = Member_Event_Registration.objects.filter(event_id=ev_id, is_present=True).count()
+            # Bulk registrations
+            bulk_registered = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_approved=True).count()
+            bulk_attended = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_present=True).count()
+
+            total_registered = mem_registered + bulk_registered
+            total_attended = mem_attended + bulk_attended
+
+        except Exception:
+            total_registered = 0
+            total_attended = 0
+            title = getattr(ev, 'title', '') or ''
+
+        categories.append(title)
+        registered_counts.append(total_registered)
+        attended_counts.append(total_attended)
+
+    # Series structure expected by ApexCharts
+    chart_series = [
+        {'name': 'Registered', 'data': registered_counts},
+        {'name': 'Attended', 'data': attended_counts},
+    ]
+
+    context['chart_series_json'] = json.dumps(chart_series)
+    context['chart_categories_json'] = json.dumps(categories)
+
     return render(request, 'hoo/home.html', context)
+
+
+@login_required(login_url='/')
+def EVENT_ANALYTICS(request):
+    """Simple placeholder view for Event Analytics page."""
+    # Pass the latest active event to the template for display
+    event = Event.objects.filter(status='active').order_by('-date').first()
+
+    # Provide school years and events JSON for client-side filtering
+    school_years = School_Year.objects.all().order_by('-sy_start')
+    events = Event.objects.all().order_by('-date')
+
+    events_json = []
+    for ev in events:
+        try:
+            sy_id = getattr(ev, 'school_year_id', None) or getattr(ev, 'school_year', None) and getattr(ev.school_year, 'id', None)
+        except Exception:
+            sy_id = None
+        events_json.append({
+            'id': ev.id,
+            'title': getattr(ev, 'title', '') or '',
+            'date': ev.date.isoformat() if getattr(ev, 'date', None) and hasattr(ev.date, 'isoformat') else (str(ev.date) if getattr(ev, 'date', None) else ''),
+            'status': getattr(ev, 'status', '') or '',
+            'school_year_id': sy_id,
+        })
+
+    # Compute registered / attended counts for the active event (sum of member + bulk approved)
+    registered_total = 0
+    attended_total = 0
+
+    context = {
+        'event': event,
+        'school_years': school_years,
+        'events_json': json.dumps(events_json),
+        'registered_total': registered_total,
+        'attended_total': attended_total,
+    }
+    return render(request, 'hoo/event_analytics.html', context)
+
+@login_required(login_url='/')
+def GET_EVENT_STATS(request, id):
+    """Return JSON with registered and attended totals (member + bulk) for event `id`."""
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET':
+        try:
+            ev_id = int(id)
+        except Exception:
+            return JsonResponse({'error': 'invalid id'}, status=400)
+
+        try:
+            mem_registered = Member_Event_Registration.objects.filter(event_id=ev_id, is_approved=True).count()
+            bulk_registered = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_approved=True).count()
+            registered_total = mem_registered + bulk_registered
+
+            mem_attended = Member_Event_Registration.objects.filter(event_id=ev_id, is_present=True).count()
+            bulk_attended = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_present=True).count()
+            attended_total = mem_attended + bulk_attended
+
+            return JsonResponse({'registered_total': registered_total, 'attended_total': attended_total})
+        except Exception:
+            return JsonResponse({'registered_total': 0, 'attended_total': 0})
+
+    raise Http404('Invalid request')
+
 
 
 #for the profile
@@ -1115,6 +1248,8 @@ def GET_EVENT_JSON(request, id):
     else:
         raise Http404("Invalid request")
 
+
+
 def ADD_EVENT(request):
     if request.method == 'POST':
         title = request.POST.get('title')
@@ -1176,6 +1311,28 @@ def ADD_EVENT(request):
             tags_id=tag_id if tag_id not in (None, '') else None
         )
         event.save()
+
+        # Handle optional bulk registration template upload
+        bulk_template = request.FILES.get('bulk_template')
+        if bulk_template:
+            try:
+                # Ensure directory exists under MEDIA_ROOT/bulk_template
+                dest_dir = os.path.join(settings.MEDIA_ROOT, 'bulk_template')
+                os.makedirs(dest_dir, exist_ok=True)
+                # Create a safe filename with timestamp to avoid collisions
+                timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+                filename = f"{timestamp}_{bulk_template.name}"
+                dest_path = os.path.join(dest_dir, filename)
+                # Write file to disk
+                with open(dest_path, 'wb+') as dst:
+                    for chunk in bulk_template.chunks():
+                        dst.write(chunk)
+                # Save relative path to event.template_path
+                event.template_path = os.path.join('bulk_template', filename).replace('\\', '/')
+                event.save()
+            except Exception as e:
+                # log but don't break the flow
+                print('Failed to save bulk_template:', e)
 
         messages.success(
             request,
@@ -1433,39 +1590,184 @@ def GET_BULK_BY_MEMBER(request, member_id):
     raise Http404("Invalid request")
 
 
+def APPROVE_BULK_EVENT_REG(bulk_id):
+    """Approve a single Bulk_Event_Reg entry and decrement the related Event.available_slots.
+
+    Returns (True, id) on success, (False, reason) on failure.
+    """
+    try:
+        bulk = Bulk_Event_Reg.objects.select_related('registered_by').get(id=bulk_id)
+    except Bulk_Event_Reg.DoesNotExist:
+        return False, 'not_found'
+
+    # determine related event id (support both event_id field or event relation)
+    event_id = getattr(bulk, 'event_id', None) or (getattr(bulk, 'event', None) and getattr(bulk.event, 'id', None))
+
+    try:
+        with transaction.atomic():
+            # if already approved, return success
+            if getattr(bulk, 'is_approved', False):
+                return True, bulk.id
+
+            bulk.is_approved = True
+            bulk.save()
+
+            if event_id:
+                Event.objects.filter(id=event_id).update(available_slots=F('available_slots') - 1)
+                # clamp non-negative
+                try:
+                    ev = Event.objects.get(id=event_id)
+                    if ev.available_slots is None or ev.available_slots < 0:
+                        ev.available_slots = 0
+                        ev.save()
+                except Exception:
+                    pass
+
+        return True, bulk.id
+    except Exception as e:
+        return False, str(e)
+
+
+def APPROVE_BULK_EVENT_REGS(bulk_ids):
+    """Approve multiple Bulk_Event_Reg ids. Returns dict with successes and failures."""
+    results = {'success': [], 'failed': {}}
+    for bid in bulk_ids:
+        ok, info = APPROVE_BULK_EVENT_REG(bid)
+        if ok:
+            results['success'].append(info)
+        else:
+            results['failed'][str(bid)] = info
+    return results
+
+
 @login_required(login_url='/')
 @require_http_methods(["POST"])
-def APPROVE_MEMBER_EVENT_REG(request, reg_id):
-    """Mark a Member_Event_Registration as approved (is_approved=True).
+def DECLINE_BULK_EVENT_REG(request, reg_id):
+    """Decline a single Bulk_Event_Reg entry (AJAX).
 
-    Expects POST (AJAX). Returns JSON {success: True, id: reg_id} on success.
+    Sets `is_approved=False` and returns JSON.
     """
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'error': 'Invalid request'}, status=400)
 
-    # Try Bulk_Event_Reg first
-    bulk = Bulk_Event_Reg.objects.filter(id=reg_id).first()
-    if bulk:
-        try:
-            bulk.is_approved = True
+    try:
+        bulk = Bulk_Event_Reg.objects.select_related('event').get(id=reg_id)
+    except Bulk_Event_Reg.DoesNotExist:
+        return JsonResponse({'error': 'not_found'}, status=404)
+
+    try:
+        with transaction.atomic():
+            was_approved = bool(getattr(bulk, 'is_approved', False))
+            bulk.is_approved = False
             bulk.save()
-        except Exception as e:
-            return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+            # If this registration was previously approved, restore an available slot
+            if was_approved:
+                event_id = getattr(bulk, 'event_id', None) or (getattr(bulk, 'event', None) and getattr(bulk.event, 'id', None))
+                if event_id:
+                    Event.objects.filter(id=event_id).update(available_slots=F('available_slots') + 1)
+                    # clamp to max_attendees if present and ensure no None
+                    try:
+                        ev = Event.objects.get(id=event_id)
+                        if ev.available_slots is None:
+                            ev.available_slots = 0
+                        if getattr(ev, 'max_attendees', None) is not None and ev.available_slots > ev.max_attendees:
+                            ev.available_slots = ev.max_attendees
+                        ev.save()
+                    except Exception:
+                        pass
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+    try:
+        messages.warning(request, f"Bulk registration for {bulk.first_name} {bulk.last_name} declined.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'id': bulk.id})
+
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def APPROVE_BULK_EVENT_REG_VIEW(request, reg_id):
+    """AJAX view wrapper to approve a single Bulk_Event_Reg entry.
+
+    Calls the helper `APPROVE_BULK_EVENT_REG` and returns JSON.
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    ok, info = APPROVE_BULK_EVENT_REG(reg_id)
+    if ok:
         try:
-            messages.success(request, f"Bulk registration for {bulk.first_name} {bulk.last_name} approved.")
+            messages.success(request, f"Bulk registration (id={info}) approved.")
         except Exception:
             pass
-        return JsonResponse({'success': True, 'id': bulk.id})
+        return JsonResponse({'success': True, 'id': info})
+    else:
+        return JsonResponse({'error': info}, status=400)
 
-    # Fallback to Member_Event_Registration
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def APPROVE_BULK_EVENT_REGS_VIEW(request):
+    """AJAX view to approve multiple Bulk_Event_Reg ids.
+
+    Expects JSON body: { "ids": [1,2,3] }
+    Returns the helper results as JSON.
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
     try:
-        reg = Member_Event_Registration.objects.get(id=reg_id)
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'error': 'bad_payload'}, status=400)
+
+    ids = payload.get('ids') if isinstance(payload, dict) else None
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({'error': 'missing_ids'}, status=400)
+
+    results = APPROVE_BULK_EVENT_REGS(ids)
+    # return both successes and failures so the client can react
+    return JsonResponse({'success': True, 'results': results})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def APPROVE_MEMBER_EVENT_REG(request, reg_id):
+
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    # Only operate on single Member_Event_Registration (no Bulk_Event_Reg handling)
+    try:
+        reg = Member_Event_Registration.objects.select_related('event', 'user').get(id=reg_id)
     except Member_Event_Registration.DoesNotExist:
         return JsonResponse({'error': 'not_found'}, status=404)
 
     try:
-        reg.is_approved = True
-        reg.save()
+        with transaction.atomic():
+            # mark approved
+            reg.is_approved = True
+            reg.save()
+
+            # decrement event available_slots by 1 if event exists
+            event = getattr(reg, 'event', None)
+            if event and getattr(event, 'id', None):
+                # use F() expression for atomic decrement
+                Event.objects.filter(id=event.id).update(available_slots=F('available_slots') - 1)
+
+                # ensure non-negative stored value
+                try:
+                    ev = Event.objects.get(id=event.id)
+                    if ev.available_slots is None or ev.available_slots < 0:
+                        ev.available_slots = 0
+                        ev.save()
+                except Exception:
+                    # ignore failure to re-read event
+                    pass
     except Exception as e:
         return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
 
@@ -1481,37 +1783,38 @@ def APPROVE_MEMBER_EVENT_REG(request, reg_id):
 
     return JsonResponse({'success': True, 'id': reg.id})
 
-
 @login_required(login_url='/')
 @require_http_methods(["POST"])
 def DECLINE_MEMBER_EVENT_REG(request, reg_id):
     """Mark a Member_Event_Registration as not approved (is_approved=False)."""
     if request.headers.get('x-requested-with') != 'XMLHttpRequest':
         return JsonResponse({'error': 'Invalid request'}, status=400)
-
-    # Try Bulk_Event_Reg first
-    bulk = Bulk_Event_Reg.objects.filter(id=reg_id).first()
-    if bulk:
-        try:
-            bulk.is_approved = False
-            bulk.save()
-        except Exception as e:
-            return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
-        try:
-            messages.warning(request, f"Bulk registration for {bulk.first_name} {bulk.last_name} declined.")
-        except Exception:
-            pass
-        return JsonResponse({'success': True, 'id': bulk.id})
-
-    # Fallback to Member_Event_Registration
+    # Only operate on Member_Event_Registration (no Bulk_Event_Reg handling here)
     try:
-        reg = Member_Event_Registration.objects.get(id=reg_id)
+        reg = Member_Event_Registration.objects.select_related('event').get(id=reg_id)
     except Member_Event_Registration.DoesNotExist:
         return JsonResponse({'error': 'not_found'}, status=404)
 
     try:
-        reg.is_approved = False
-        reg.save()
+        with transaction.atomic():
+            was_approved = bool(getattr(reg, 'is_approved', False))
+            reg.is_approved = False
+            reg.save()
+
+            # restore event slot if it was approved before
+            if was_approved:
+                event = getattr(reg, 'event', None)
+                if event and getattr(event, 'id', None):
+                    Event.objects.filter(id=event.id).update(available_slots=F('available_slots') + 1)
+                    try:
+                        ev = Event.objects.get(id=event.id)
+                        if ev.available_slots is None:
+                            ev.available_slots = 0
+                        if getattr(ev, 'max_attendees', None) is not None and ev.available_slots > ev.max_attendees:
+                            ev.available_slots = ev.max_attendees
+                        ev.save()
+                    except Exception:
+                        pass
     except Exception as e:
         return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
 

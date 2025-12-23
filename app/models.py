@@ -187,6 +187,7 @@ class Event(models.Model):
     is_closed = models.BooleanField(default=False)
     tags = models.ForeignKey(Tags, on_delete=models.SET_NULL, null=True, blank=True)
     is_full = models.BooleanField(default=False)
+    template_path = models.CharField(max_length=255, blank=True, null=True)
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),

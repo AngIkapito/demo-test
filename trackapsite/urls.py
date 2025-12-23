@@ -33,6 +33,7 @@ urlpatterns = [
     
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
+    path('hoo/event_analytics', hoo_views.EVENT_ANALYTICS, name='hoo_event_analytics'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
     path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),
     path('hoo/profile/update',hoo_views.PROFILE_UPDATE, name='profile_update_hoo'),
@@ -109,15 +110,21 @@ urlpatterns = [
     #July 15 2025 11:41pm
     path('hoo/Event/Add', hoo_views.ADD_EVENT, name='add_event'),
     path('hoo/Event/Get/<int:id>/', hoo_views.GET_EVENT_JSON, name='get_event_json'),
+    path('hoo/Event/Stats/<int:id>/', hoo_views.GET_EVENT_STATS, name='get_event_stats'),
     path('hoo/Event/Edit/<int:id>/', hoo_views.EDIT_EVENT, name='edit_event'),
     path('hoo/Event/Delete/<str:id>', hoo_views.DELETE_EVENT, name='delete_event'),
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     path('hoo/Event/Attendance', hoo_views.ATTENDANCE_EVENT, name='attendance_event'),
     path('hoo/attendance/toggle/', hoo_views.ATTENDANCE_TOGGLE, name='attendance_toggle'),
     path('hoo/BulkRegistrations/ViewAll', hoo_views.VIEWALL_BULK_REG, name='viewall_bulk_reg'),
-    path('hoo/BulkRegistrations/Get/<int:member_id>/', hoo_views.GET_BULK_BY_MEMBER, name='get_bulk_by_member'),
-    path('hoo/BulkRegistrations/Approve/<int:reg_id>/', hoo_views.APPROVE_MEMBER_EVENT_REG, name='approve_bulk_registration'),
-    path('hoo/BulkRegistrations/Decline/<int:reg_id>/', hoo_views.DECLINE_MEMBER_EVENT_REG, name='decline_bulk_registration'),
+    path('hoo/MemberRegistrations/Get/<int:member_id>/', hoo_views.GET_BULK_BY_MEMBER, name='get_bulk_by_member'),
+    path('hoo/MemberRegistrations/Approve/<int:reg_id>/', hoo_views.APPROVE_MEMBER_EVENT_REG, name='approve_bulk_registration'),
+    path('hoo/MemberRegistrations/Decline/<int:reg_id>/', hoo_views.DECLINE_MEMBER_EVENT_REG, name='decline_bulk_registration'),
+    path('hoo/MemberRegistrations/BulkDecline/<int:reg_id>/', hoo_views.DECLINE_BULK_EVENT_REG, name='decline_bulk_registration_bulk'),
+    # Bulk-approve endpoints (single and multiple)
+    path('hoo/MemberRegistrations/BulkApprove/<int:reg_id>/', hoo_views.APPROVE_BULK_EVENT_REG_VIEW, name='approve_bulk_registration_bulk'),
+    path('hoo/MemberRegistrations/BulkApproveMultiple/', hoo_views.APPROVE_BULK_EVENT_REGS_VIEW, name='approve_bulk_registration_multiple'),
+
     
     #Membership Registration
     path('hoo/MembershipRegistration/View', hoo_views.MEMBERSHIP_REGISTRATION, name='membership_registration'),

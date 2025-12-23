@@ -152,7 +152,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			if (this.disabled) return; // ignore clicks when disabled
 			const memberId = this.dataset.memberId;
 			if (!memberId) return;
-			fetch(`/hoo/BulkRegistrations/Get/${memberId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+			fetch(`/hoo/MemberRegistrations/Get/${memberId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
 				.then(r => r.json())
 				.then(data => {
 					const rows = data.bulk_regs || [];
@@ -218,25 +218,42 @@ document.addEventListener('DOMContentLoaded', function() {
 					if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', function() {
 						const ids = getSelectedIds();
 						if (!ids.length) { alert('No rows selected'); return; }
-						Promise.all(ids.map(id => fetch(`/hoo/BulkRegistrations/Approve/${id}/`, {
+						// Prefer sending a single request for multiple approvals
+						const btn = this;
+						btn.disabled = true;
+						fetch('/hoo/MemberRegistrations/BulkApproveMultiple/', {
 							method: 'POST',
 							headers: {
 								'Content-Type': 'application/json',
 								'X-CSRFToken': csrftoken,
 								'X-Requested-With': 'XMLHttpRequest'
 							},
-							body: JSON.stringify({})
-						}).then(r => r.json())))
-						.then(results => {
-							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some approvals failed'); window.location.reload(); }
+							body: JSON.stringify({ ids: ids })
 						})
-						.catch(err => { console.error(err); alert('Error during bulk approve'); });
+						.then(r => r.json())
+						.then(response => {
+							btn.disabled = false;
+							// Expecting a success flag or per-id result; reload to reflect server-side changes
+							if (response && (response.success === true || response.success)) {
+								window.location.reload();
+							} else if (response && response.success === false) {
+								alert('Some approvals failed');
+								window.location.reload();
+							} else {
+								// If backend returned detailed results, be conservative and reload
+								window.location.reload();
+							}
+						})
+						.catch(err => { btn.disabled = false; console.error(err); alert('Error during bulk approve'); });
 					});
 
 					if (bulkDeclineBtn) bulkDeclineBtn.addEventListener('click', function() {
 						const ids = getSelectedIds();
 						if (!ids.length) { alert('No rows selected'); return; }
-						Promise.all(ids.map(id => fetch(`/hoo/BulkRegistrations/Decline/${id}/`, {
+						const btn = this;
+						btn.disabled = true;
+						// Backend currently exposes singular BulkDecline per id; keep using parallel requests
+						Promise.all(ids.map(id => fetch(`/hoo/MemberRegistrations/BulkDecline/${id}/`, {
 							method: 'POST',
 							headers: {
 								'Content-Type': 'application/json',
@@ -246,9 +263,10 @@ document.addEventListener('DOMContentLoaded', function() {
 							body: JSON.stringify({})
 						}).then(r => r.json())))
 						.then(results => {
+							btn.disabled = false;
 							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some declines failed'); window.location.reload(); }
 						})
-						.catch(err => { console.error(err); alert('Error during bulk decline'); });
+						.catch(err => { btn.disabled = false; console.error(err); alert('Error during bulk decline'); });
 					});
 
 					// bulk present/absent
@@ -330,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			if (!regId) return;
 			const button = this;
 			const isApproveAction = button.innerText.trim().toLowerCase() === 'approve';
-			const url = isApproveAction ? `/hoo/BulkRegistrations/Approve/${regId}/` : `/hoo/BulkRegistrations/Decline/${regId}/`;
+			const url = isApproveAction ? `/hoo/MemberRegistrations/Approve/${regId}/` : `/hoo/MemberRegistrations/Decline/${regId}/`;
 
 			fetch(url, {
 				method: 'POST',

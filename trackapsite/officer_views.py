@@ -50,7 +50,6 @@ def home(request):
     return render(request, 'officer/home.html', context)
 
 
-
 @login_required(login_url='/')
 def PROFILE(request):
     user = CustomUser.objects.get(id = request.user.id)
@@ -585,6 +584,7 @@ def SAVE_BULK_EVENT_REG(request):
         messages.error(request, f'Failed to save registrations: {e}')
         return redirect('bulk_event_reg_officer')
 
+    # Do not modify event.available_slots when saving bulk registrations.
     messages.success(request, f'Saved {saved} registrations. Skipped {skipped}.')
     return redirect('bulk_event_reg_officer')
 
