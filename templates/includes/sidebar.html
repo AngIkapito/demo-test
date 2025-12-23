@@ -82,7 +82,7 @@
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="{% url "viewall_event" %}">Events List</a>
                 <a class="collapse-item" href="">Competition List</a>
-                <a class="collapse-item" href="{% url "attendance_event" %}">Attendance</a>
+                <a class="collapse-item" href="{% url "viewall_bulk_reg" %}">Event Approval/Attendance</a>
                 {% comment %} <h6 class="collapse-header">Events</h6> {% endcomment %}
             </div>
         </div>
@@ -290,6 +290,7 @@
                 {% comment %}<a class="collapse-item" href="utilities-animation.html">Add Event</a>{% endcomment %}
                 <a class="collapse-item" href="{% url "member_event_reg_member" %}">Events Registration</a>
                 <a class="collapse-item" href="">Competitions List</a>
+                <a class="collapse-item" href="{% url "bulk_event_reg_member" %}">Bulk Registration</a>
             </div>
         </div>
     </li>

@@ -4,10 +4,16 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
 from django.urls import reverse
-from app.models import CustomUser, Member, Membership, Member_Event_Registration, Event, Tags
+from app.models import CustomUser, Member, Membership, Member_Event_Registration, Event, Tags , Bulk_Event_Reg
 from django.utils import timezone
 from django.utils.safestring import mark_safe
 #from django.http import JsonResponse
+import json
+from django.db import transaction
+from django.conf import settings
+import os
+import pandas as pd
+from openpyxl import load_workbook
 
 @login_required(login_url='/')
 def home(request):
@@ -206,4 +212,213 @@ def MEMBER_EVENT_REG(request):
             return redirect('member_event_reg_member')
     context = {'event': event}
     return render(request, 'member/member_event_reg.html', context)
+
+
+
+
+def BULK_EVENT_REG(request):
+    """Render the bulk event registration page."""
+    # Fetch the currently active event (latest by date if multiple)
+    active_event = Event.objects.filter(status='active').order_by('-date').first()
+    return render(request, 'member/bulk_event_reg.html', {
+        'event': active_event
+    })
+
+@login_required(login_url='/')
+
+def UPLOAD_BULK_EVENT_REG(request):
+    """Render the bulk event registration page and handle file uploads.
+
+    POST behavior (from the template buttons):
+    - action=upload : save uploaded file to `MEDIA_ROOT/bulk_event/bulk_event_registration{ext}`
+    - action=view   : same as upload (keeps behavior simple); view logic can be expanded later
+    """
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        # Only perform file saving when action is explicitly 'upload'
+        if action != 'upload':
+            messages.info(request, 'No upload performed.')
+            return redirect('upload_bulk_event_reg_member')
+
+        uploaded = request.FILES.get('excel_file')
+        if not uploaded:
+            messages.warning(request, 'No file selected to upload.')
+            return redirect('upload_bulk_event_reg_member')
+
+        # ensure media bulk_event directory exists
+        media_dir = os.path.join(getattr(settings, 'MEDIA_ROOT', 'media'), 'bulk_event')
+        try:
+            os.makedirs(media_dir, exist_ok=True)
+        except Exception:
+            messages.error(request, 'Failed to create media directory.')
+            return redirect('upload_bulk_event_reg_member')
+
+        # save using the original uploaded filename (basename only)
+        original_name = os.path.basename(uploaded.name)
+        if not original_name:
+            # fallback name
+            original_name = 'uploaded_file.csv'
+        filename = original_name
+        dest_path = os.path.join(media_dir, filename)
+
+        try:
+            with open(dest_path, 'wb+') as dest:
+                for chunk in uploaded.chunks():
+                    dest.write(chunk)
+        except Exception as e:
+            messages.error(request, f'Failed to save uploaded file: {e}')
+            return redirect('upload_bulk_event_reg_member')
+
+        # Parse the uploaded file with pandas to build preview_rows
+        preview_rows = []
+        try:
+            ext = os.path.splitext(dest_path)[1].lower()
+            wanted = [
+                'last_name','first_name','middle','contact_number','email',
+                'attending_as','is_competitor','if_competitor','is_coach','if_coach','tshirt_size'
+            ]
+
+            if ext == '.csv':
+                df = pd.read_csv(dest_path, header=14)
+                df.columns = [str(c).strip().lower().replace(' ', '_') for c in df.columns]
+                # Fix common typos for 'if_competitor'
+                typo_variants = ['if_compeitor','if_comptetitor','if_competior','if _compeitor']
+                for tv in typo_variants:
+                    if tv in df.columns:
+                        df = df.rename(columns={tv: 'if_competitor'})
+
+                cols = [c for c in wanted if c in df.columns]
+                df = df[cols]
+                for _, row in df.head(1000).iterrows():
+                    item = {k: ('' if pd.isna(row.get(k)) else str(row.get(k))) for k in wanted}
+                    # only include rows with a non-empty last_name
+                    if str(item.get('last_name', '')).strip():
+                        preview_rows.append(item)
+            else:
+                # Use openpyxl to read Excel with data_only=True
+                wb = load_workbook(dest_path, data_only=True)
+                ws = wb.active
+                # Header row is 15 (1-based); collect headers and normalize
+                header_row_index = 15
+                headers = []
+                for cell in ws[header_row_index]:
+                    val = '' if cell.value is None else str(cell.value)
+                    headers.append(val.strip().lower().replace(' ', '_'))
+
+                # Fix common typos in headers list
+                headers = [
+                    ('if_competitor' if h in ['if_compeitor','if_comptetitor','if_competior','if _compeitor'] else h)
+                    for h in headers
+                ]
+
+                # Build mapping col_index -> header
+                header_map = {idx: h for idx, h in enumerate(headers)}
+
+                # Iterate rows after header (from 16 to max_row)
+                max_rows = min(ws.max_row, 14 + 1000)  # limit ~1000 data rows
+                for r in range(16, max_rows + 1):
+                    row_vals = {}
+                    for idx, cell in enumerate(ws[r]):
+                        h = header_map.get(idx)
+                        if h:
+                            val = cell.value
+                            row_vals[h] = '' if val is None else str(val)
+
+                    item = {k: row_vals.get(k, '') for k in wanted}
+                    # only include rows with a non-empty last_name
+                    if str(item.get('last_name', '')).strip():
+                        preview_rows.append(item)
+        except Exception as e:
+            messages.error(request, f'Failed to parse file for preview: {e}')
+            preview_rows = []
+
+        messages.success(request, f'File uploaded: {filename}. Parsed {len(preview_rows)} rows with last_name for preview.')
+        return render(request, 'officer/bulk_event_reg.html', {
+            'preview_rows': preview_rows,
+            'event': Event.objects.filter(status='active').order_by('-date').first()
+        })
+
+    return render(request, 'officer/bulk_event_reg.html')
+
+def SAVE_BULK_EVENT_REG(request):
+    """Persist uploaded preview rows into Bulk_Event_Reg.
+
+    Expects POST with 'preview_json' containing the preview rows shown in the table.
+    Only rows with non-empty last_name should be processed (already filtered client-side).
+    """
+    if request.method != 'POST':
+        return redirect('bulk_event_reg_member')
+
+    preview_json = request.POST.get('preview_json')
+    if not preview_json:
+        messages.error(request, 'No preview data to save.')
+        return redirect('bulk_event_reg_member')
+
+    try:
+        # The template uses json_script; adapt to plain JSON if provided
+        # If it contains a <script> tag, extract inner text; otherwise treat as JSON
+        data_str = preview_json
+        # Attempt to load JSON
+        rows = json.loads(data_str)
+        if not isinstance(rows, list):
+            messages.error(request, 'Invalid preview data format.')
+            return redirect('bulk_event_reg_member')
+    except Exception as e:
+        messages.error(request, f'Failed to parse preview data: {e}')
+        return redirect('bulk_event_reg_member')
+
+    # Fetch active event to associate registrations
+    event = Event.objects.filter(status='active').order_by('-date').first()
+    if not event:
+        messages.error(request, 'No active event to associate registrations.')
+        return redirect('bulk_event_reg_member')
+
+    saved = 0
+    skipped = 0
+
+    # Persist within a transaction for reliability
+    try:
+        with transaction.atomic():
+            def as_bool(val):
+                if val is None:
+                    return False
+                s = str(val).strip().lower()
+                return s in ['yes','true','1','y','t']
+
+            # Resolve Member.id for the current user (instead of CustomUser.id)
+            member_id = (
+                Member.objects.filter(admin_id=getattr(request.user, 'id', None))
+                .values_list('id', flat=True)
+                .first()
+            )
+
+            for r in rows:
+                try:
+                    # Only save fields that exist; map expected keys
+                    Bulk_Event_Reg.objects.create(
+                        event_id=event.id,
+                        # Store Member.id in registered_by (FK to Member)
+                        registered_by_id=member_id,
+                        last_name=r.get('last_name', '') or '',
+                        first_name=r.get('first_name', '') or '',
+                        middle=r.get('middle', '') or '',
+                        contact_number=r.get('contact_number', '') or '',
+                        email=r.get('email', '') or '',
+                        attending_as=r.get('attending_as', '') or '',
+                        is_competitor=as_bool(r.get('is_competitor', False)),
+                        if_competitor=r.get('if_competitor', '') or '',
+                        is_coach=as_bool(r.get('is_coach', False)),
+                        if_coach=r.get('if_coach', '') or '',
+                        tshirt_size=r.get('tshirt_size', '') or '',
+                    )
+                    saved += 1
+                except Exception:
+                    skipped += 1
+                    continue
+    except Exception as e:
+        messages.error(request, f'Failed to save registrations: {e}')
+        return redirect('bulk_event_reg_member')
+
+    messages.success(request, f'Saved {saved} registrations. Skipped {skipped}.')
+    return redirect('bulk_event_reg_member')
 

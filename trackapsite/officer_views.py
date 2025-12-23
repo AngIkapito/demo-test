@@ -551,12 +551,20 @@ def SAVE_BULK_EVENT_REG(request):
                 s = str(val).strip().lower()
                 return s in ['yes','true','1','y','t']
 
+            # Resolve Member.id for the current user (instead of CustomUser.id)
+            member_id = (
+                Member.objects.filter(admin_id=getattr(request.user, 'id', None))
+                .values_list('id', flat=True)
+                .first()
+            )
+
             for r in rows:
                 try:
                     # Only save fields that exist; map expected keys
                     Bulk_Event_Reg.objects.create(
                         event_id=event.id,
-                        registered_by_id=getattr(request.user, 'id', None),
+                        # Store Member.id, since registered_by FK points to Member
+                        registered_by_id=member_id,
                         last_name=r.get('last_name', '') or '',
                         first_name=r.get('first_name', '') or '',
                         middle=r.get('middle', '') or '',

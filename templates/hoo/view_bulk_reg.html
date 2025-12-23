@@ -1,0 +1,398 @@
+{% extends "includes/base.html" %}
+{% load static %}
+
+{% block content %}
+{% include 'includes/messages.html' %}
+
+<div class="card shadow mb-4">
+	<div class="card-body">
+		<div class="d-sm-flex align-items-center justify-content-between mb-4">
+			<a href="{% url 'hoo_home' %}" class="btn btn-secondary" title="Go Back">
+				<i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+			</a>
+			<h1 class="h3 mb-0 text-gray-800">Member Registration</h1>
+			<div></div>
+		</div>
+
+		<div class="table-responsive">
+			<table class="table table-bordered text-center text-uppercase" id="dataTable" width="100%" cellspacing="0">
+				<thead>
+					<tr>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>School</th>
+						<th>Attending As</th>
+						<th class="text-center">Approval Status</th>
+						<th class="text-center">Attendance Status</th>
+						<th class="text-center">Actions</th>
+					</tr>
+				</thead>
+				<tfoot>
+					<tr>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>School</th>
+						<th>Attending As</th>
+						<th class="text-center">Approval Status</th>
+						<th class="text-center">Attendance Status</th>
+						<th class="text-center">Actions</th>
+					</tr>
+				</tfoot>
+				<tbody>
+					{% for reg in bulk_regs %}
+					<tr>
+						<td>{{ reg.last_name }}</td>
+						<td>{{ reg.first_name }}</td>
+						<td>
+							{% if reg.registered_by and reg.registered_by.organization %}
+								{{ reg.registered_by.organization.name }}
+							{% else %}
+								N/A
+							{% endif %}
+						</td>
+						<td>{{ reg.attending_as|default:"" }}</td>
+						<td class="text-center align-middle">
+							{% if reg.is_approved %}
+								<span class="badge bg-success">Approved</span>
+							{% else %}
+								<span class="badge bg-danger">Declined</span>
+							{% endif %}
+						</td>
+						<td class="text-center align-middle">
+							{% if reg.is_present %}
+								<span class="badge bg-success">Present</span>
+							{% else %}
+								<span class="badge bg-danger">Absent</span>
+							{% endif %}
+						</td>
+						<td class="text-center">
+							{% if reg.registered_by %}
+								<div class="btn-group" role="group" aria-label="actions">
+									<button class="btn btn-sm btn-info view-bulk-btn" data-member-id="{{ reg.registered_by.id }}" title="View Bulk" {% if not reg.is_approved or not reg.is_present %}disabled{% endif %}>
+										<i class="fas fa-eye"></i>
+									</button>
+
+									{% if reg.is_approved %}
+										<button class="btn btn-sm btn-danger approve-btn" data-id="{{ reg.id }}" title="Decline">Decline</button>
+									{% else %}
+										<button class="btn btn-sm btn-success approve-btn" data-id="{{ reg.id }}" title="Approve">Approve</button>
+									{% endif %}
+
+									{% if reg.is_present %}
+										<button class="btn btn-sm btn-warning present-btn" data-id="{{ reg.id }}" title="Absent" {% if not reg.is_approved %}disabled{% endif %}>Absent</button>
+									{% else %}
+										<button class="btn btn-sm btn-primary present-btn" data-id="{{ reg.id }}" title="Present" {% if not reg.is_approved %}disabled{% endif %}>Present</button>
+									{% endif %}
+								</div>
+							{% else %}
+								-
+							{% endif %}
+						</td>
+					</tr>
+					{% empty %}
+					<tr>
+						<td colspan="7" class="text-center">No bulk registrations found.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+	</div>
+
+<script>
+   $(document).ready(function() {
+	   $('#dataTable').DataTable({
+		   "order": [[ 0, "asc" ]],
+		   "paging": true,
+		   "searching": true,
+		   "columnDefs": [
+			   { "orderable": true, "targets": [0, 1, 2, 3, 4, 5] },
+			   { "orderable": false, "targets": [6] }
+		   ]
+	   });
+   });
+</script>
+
+<!-- Inline details section (hidden until a member is selected) -->
+<div id="bulkDetailsSection" class="card shadow mb-4 d-none">
+	<div class="card-body">
+			<div class="d-sm-flex align-items-center justify-content-between mb-4">
+				<h3 class="h5 mb-0 text-gray-800">Bulk Registrations for <span id="bulkOwnerName"></span></h3>
+				<div>
+					<button class="btn btn-primary me-2" id="bulkSelectAllBtn">Select All</button>
+					<button class="btn btn-success me-2" id="bulkApproveBtn">Approve Selected</button>
+					<button class="btn btn-danger me-2" id="bulkDeclineBtn">Decline Selected</button>
+					<button class="btn btn-success me-2" id="bulkPresentBtn">Mark Present</button>
+					<button class="btn btn-danger me-2" id="bulkAbsentBtn">Mark Absent</button>
+					<button class="btn btn-secondary" id="closeBulkDetails">Back</button>
+				</div>
+			</div>
+		<div class="table-responsive">
+			<table class="table table-sm table-bordered text-center text-uppercase" id="bulkDetailsTable" width="100%" cellspacing="0">
+				<thead>
+					<tr>
+						<th class="text-center"></th>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>Attending As</th>
+					</tr>
+				</thead>
+				<tbody id="bulkDetailsTbody"></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	// View bulk-button handler (populate inline table)
+	document.querySelectorAll('.view-bulk-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			if (this.disabled) return; // ignore clicks when disabled
+			const memberId = this.dataset.memberId;
+			if (!memberId) return;
+			fetch(`/hoo/BulkRegistrations/Get/${memberId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+				.then(r => r.json())
+				.then(data => {
+					const rows = data.bulk_regs || [];
+					const ownerName = data.member_name || '';
+					document.getElementById('bulkOwnerName').innerText = ownerName;
+
+					const tbody = document.getElementById('bulkDetailsTbody');
+					tbody.innerHTML = '';
+					if (rows.length === 0) {
+						tbody.innerHTML = '<tr><td colspan="4" class="text-center">No bulk registrations found for this member.</td></tr>';
+					} else {
+						rows.forEach(r => {
+							const tr = document.createElement('tr');
+							// include checkbox in first column; value uses r.id when available
+							const rid = r.id !== undefined ? r.id : '';
+							tr.innerHTML = `<td><input type="checkbox" class="bulk-row-checkbox" value="${rid}"></td><td>${r.last_name}</td><td>${r.first_name}</td><td>${r.attending_as || ''}</td>`;
+							tbody.appendChild(tr);
+						});
+							// wire up individual checkbox change to update select-all-button state
+							const selectAllBtn = document.getElementById('bulkSelectAllBtn');
+							const checkboxes = tbody.querySelectorAll('.bulk-row-checkbox');
+							checkboxes.forEach(cb => cb.addEventListener('change', function() {
+								const all = tbody.querySelectorAll('.bulk-row-checkbox');
+								const checked = tbody.querySelectorAll('.bulk-row-checkbox:checked');
+								if (selectAllBtn) {
+									if (checked.length === all.length && all.length > 0) {
+										selectAllBtn.innerText = 'Unselect All';
+										selectAllBtn.dataset.all = 'true';
+									} else {
+										selectAllBtn.innerText = 'Select All';
+										selectAllBtn.dataset.all = 'false';
+									}
+								}
+							}));
+					}
+
+					// show the details section and scroll to it
+					document.getElementById('bulkDetailsSection').classList.remove('d-none');
+					document.getElementById('bulkDetailsSection').scrollIntoView({ behavior: 'smooth' });
+
+					// select-all button handler (toggles all row checkboxes)
+					const selectAllBtn = document.getElementById('bulkSelectAllBtn');
+					if (selectAllBtn) {
+						selectAllBtn.dataset.all = 'false';
+						selectAllBtn.innerText = 'Select All';
+						selectAllBtn.addEventListener('click', function() {
+							const all = document.querySelectorAll('#bulkDetailsTbody .bulk-row-checkbox');
+							const setTo = this.dataset.all !== 'true';
+							all.forEach(cb => cb.checked = setTo);
+							this.dataset.all = setTo ? 'true' : 'false';
+							this.innerText = setTo ? 'Unselect All' : 'Select All';
+						});
+					}
+
+					// helper: get selected ids
+					function getSelectedIds() {
+						return Array.from(document.querySelectorAll('#bulkDetailsTbody .bulk-row-checkbox:checked')).map(cb => cb.value).filter(Boolean);
+					}
+
+					// bulk approve/decline
+					const bulkApproveBtn = document.getElementById('bulkApproveBtn');
+					const bulkDeclineBtn = document.getElementById('bulkDeclineBtn');
+					if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', function() {
+						const ids = getSelectedIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(id => fetch(`/hoo/BulkRegistrations/Approve/${id}/`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-CSRFToken': csrftoken,
+								'X-Requested-With': 'XMLHttpRequest'
+							},
+							body: JSON.stringify({})
+						}).then(r => r.json())))
+						.then(results => {
+							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some approvals failed'); window.location.reload(); }
+						})
+						.catch(err => { console.error(err); alert('Error during bulk approve'); });
+					});
+
+					if (bulkDeclineBtn) bulkDeclineBtn.addEventListener('click', function() {
+						const ids = getSelectedIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(id => fetch(`/hoo/BulkRegistrations/Decline/${id}/`, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-CSRFToken': csrftoken,
+								'X-Requested-With': 'XMLHttpRequest'
+							},
+							body: JSON.stringify({})
+						}).then(r => r.json())))
+						.then(results => {
+							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some declines failed'); window.location.reload(); }
+						})
+						.catch(err => { console.error(err); alert('Error during bulk decline'); });
+					});
+
+					// bulk present/absent
+					const bulkPresentBtn = document.getElementById('bulkPresentBtn');
+					const bulkAbsentBtn = document.getElementById('bulkAbsentBtn');
+					if (bulkPresentBtn) bulkPresentBtn.addEventListener('click', function() {
+						const ids = getSelectedIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(id => fetch('/hoo/attendance/toggle/', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-CSRFToken': csrftoken,
+								'X-Requested-With': 'XMLHttpRequest'
+							},
+							body: JSON.stringify({ id: id, present: true })
+						}).then(r => r.json())))
+						.then(results => {
+							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some attendance updates failed'); window.location.reload(); }
+						})
+						.catch(err => { console.error(err); alert('Error during bulk present'); });
+					});
+
+					if (bulkAbsentBtn) bulkAbsentBtn.addEventListener('click', function() {
+						const ids = getSelectedIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(id => fetch('/hoo/attendance/toggle/', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json',
+								'X-CSRFToken': csrftoken,
+								'X-Requested-With': 'XMLHttpRequest'
+							},
+							body: JSON.stringify({ id: id, present: false })
+						}).then(r => r.json())))
+						.then(results => {
+							if (results.every(r => r && r.success)) window.location.reload(); else { alert('Some attendance updates failed'); window.location.reload(); }
+						})
+						.catch(err => { console.error(err); alert('Error during bulk absent'); });
+					});
+				})
+				.catch(err => {
+					console.error('Error fetching bulk rows', err);
+					const tbody = document.getElementById('bulkDetailsTbody');
+					tbody.innerHTML = '<tr><td colspan="3" class="text-danger text-center">Failed to load data.</td></tr>';
+					document.getElementById('bulkDetailsSection').classList.remove('d-none');
+					document.getElementById('bulkDetailsSection').scrollIntoView({ behavior: 'smooth' });
+				});
+		});
+	});
+
+	document.getElementById('closeBulkDetails').addEventListener('click', function() {
+		document.getElementById('bulkDetailsSection').classList.add('d-none');
+		document.getElementById('bulkDetailsTbody').innerHTML = '';
+	});
+    
+	// Approve button handler: send POST to approve endpoint and update UI
+	function getCookie(name) {
+		let cookieValue = null;
+		if (document.cookie && document.cookie !== '') {
+			const cookies = document.cookie.split(';');
+			for (let i = 0; i < cookies.length; i++) {
+				const cookie = cookies[i].trim();
+				if (cookie.substring(0, name.length + 1) === (name + '=')) {
+					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+					break;
+				}
+			}
+		}
+		return cookieValue;
+	}
+
+	const csrftoken = getCookie('csrftoken');
+
+	// Approve / Decline toggle
+	document.querySelectorAll('.approve-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			const regId = this.dataset.id;
+			if (!regId) return;
+			const button = this;
+			const isApproveAction = button.innerText.trim().toLowerCase() === 'approve';
+			const url = isApproveAction ? `/hoo/BulkRegistrations/Approve/${regId}/` : `/hoo/BulkRegistrations/Decline/${regId}/`;
+
+			fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': csrftoken,
+					'X-Requested-With': 'XMLHttpRequest'
+				},
+				body: JSON.stringify({})
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data && data.success) {
+					// reload so server-side Django messages are shown
+					window.location.reload();
+				} else {
+					console.error('Approve/Decline failed', data);
+					alert('Failed to update approval');
+				}
+			})
+			.catch(err => {
+				console.error('Error updating approval', err);
+				alert('Error updating approval');
+			});
+		});
+	});
+
+	// Present / Absent toggle — uses existing attendance toggle endpoint
+	document.querySelectorAll('.present-btn').forEach(btn => {
+		btn.addEventListener('click', function() {
+			if (this.disabled) return; // ignore clicks when disabled (not approved)
+			const regId = this.dataset.id;
+			if (!regId) return;
+			const button = this;
+			const isPresent = button.innerText.trim().toLowerCase() === 'present';
+
+			fetch('/hoo/attendance/toggle/', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': csrftoken,
+					'X-Requested-With': 'XMLHttpRequest'
+				},
+				body: JSON.stringify({ id: regId, present: isPresent })
+			})
+			.then(r => r.json())
+			.then(data => {
+				if (data && data.success) {
+					// reload to show server-side message
+					window.location.reload();
+				} else {
+					console.error('Attendance toggle failed', data);
+					alert('Failed to update attendance');
+				}
+			})
+			.catch(err => {
+				console.error('Error toggling attendance', err);
+				alert('Error toggling attendance');
+			});
+		});
+	});
+});
+</script>
+
+{% endblock %}

@@ -114,6 +114,10 @@ urlpatterns = [
     #path('hoo/Event/Update', hoo_views.UPDATE_EVENT, name='update_event'),
     path('hoo/Event/Attendance', hoo_views.ATTENDANCE_EVENT, name='attendance_event'),
     path('hoo/attendance/toggle/', hoo_views.ATTENDANCE_TOGGLE, name='attendance_toggle'),
+    path('hoo/BulkRegistrations/ViewAll', hoo_views.VIEWALL_BULK_REG, name='viewall_bulk_reg'),
+    path('hoo/BulkRegistrations/Get/<int:member_id>/', hoo_views.GET_BULK_BY_MEMBER, name='get_bulk_by_member'),
+    path('hoo/BulkRegistrations/Approve/<int:reg_id>/', hoo_views.APPROVE_MEMBER_EVENT_REG, name='approve_bulk_registration'),
+    path('hoo/BulkRegistrations/Decline/<int:reg_id>/', hoo_views.DECLINE_MEMBER_EVENT_REG, name='decline_bulk_registration'),
     
     #Membership Registration
     path('hoo/MembershipRegistration/View', hoo_views.MEMBERSHIP_REGISTRATION, name='membership_registration'),
@@ -143,5 +147,9 @@ urlpatterns = [
     path('member/basic_information', member_views.basic_information, name='basic_information'),
     #path('member/registration_member', member_views.REGISTRATION_MEMBER, name='registration_member'),
     
+    #bulk member registration
+    path('member/Event/BulkRegistration', member_views.BULK_EVENT_REG, name='bulk_event_reg_member'),
+    path('member/Event/BulkRegistration/Upload', member_views.UPLOAD_BULK_EVENT_REG, name='upload_bulk_event_reg_member'),
+    path('member/Event/BulkRegistration/Save', member_views.SAVE_BULK_EVENT_REG, name='save_bulk_event_reg_member'),
     
 ]+ static(settings.MEDIA_URL,document_root = settings.MEDIA_ROOT)

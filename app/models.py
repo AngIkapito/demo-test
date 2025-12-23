@@ -266,6 +266,7 @@ class Member_Event_Registration(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_present = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False)
     
     def __str__(self):
         return f"Registration of {self.user.username} for {self.event.title}" 
@@ -275,7 +276,7 @@ class Member_Event_Registration(models.Model):
       
 class Bulk_Event_Reg(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    registered_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    registered_by = models.ForeignKey(Member,on_delete=models.CASCADE ,null=True, blank=True)
     registration_date = models.DateTimeField(auto_now_add=True)
     last_name = models.CharField(max_length=150)
     first_name = models.CharField(max_length=150)
@@ -288,6 +289,8 @@ class Bulk_Event_Reg(models.Model):
     is_coach = models.BooleanField(default=False)
     if_coach = models.CharField(max_length=100, blank=True, null=True)
     tshirt_size = models.CharField(max_length=10, blank=True, null=True)
+    is_present = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False)
     
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.event.title}"

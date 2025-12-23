@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Tags
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 import json
@@ -1329,16 +1329,200 @@ def ATTENDANCE_TOGGLE(request):
     if reg_id is None:
         return JsonResponse({'error': 'missing_id'}, status=400)
 
+    # Try Bulk_Event_Reg first
+    try:
+        bulk = Bulk_Event_Reg.objects.filter(id=int(reg_id)).first()
+    except Exception:
+        bulk = None
+
+    if bulk:
+        try:
+            bulk.is_present = 1 if bool(present) else 0
+            bulk.save()
+        except Exception as e:
+            return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+        try:
+            if bulk.is_present:
+                messages.success(request, f"Marked {bulk.first_name} {bulk.last_name} as Present.")
+            else:
+                messages.warning(request, f"Marked {bulk.first_name} {bulk.last_name} as Absent.")
+        except Exception:
+            pass
+
+        return JsonResponse({'success': True, 'id': bulk.id, 'is_present': bulk.is_present})
+
+    # Fallback to Member_Event_Registration
     try:
         reg = Member_Event_Registration.objects.get(id=int(reg_id))
     except (Member_Event_Registration.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Registration not found'}, status=404)
 
-    # Update the registration's is_present flag (1 = present, 0 = absent)
     try:
         reg.is_present = 1 if bool(present) else 0
         reg.save()
     except Exception as e:
         return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
 
+    try:
+        user = getattr(reg, 'user', None)
+        if reg.is_present:
+            if user:
+                messages.success(request, f"Marked {user.first_name} {user.last_name} as Present.")
+            else:
+                messages.success(request, "Marked registration as Present.")
+        else:
+            if user:
+                messages.warning(request, f"Marked {user.first_name} {user.last_name} as Absent.")
+            else:
+                messages.warning(request, "Marked registration as Absent.")
+    except Exception:
+        pass
+
     return JsonResponse({'success': True, 'id': reg.id, 'is_present': reg.is_present})
+
+
+def VIEWALL_BULK_REG(request):
+    # Build `bulk_regs` from Member_Event_Registration entries.
+    regs = Member_Event_Registration.objects.select_related('user').all()
+
+    bulk_regs = []
+    for reg in regs:
+        user = getattr(reg, 'user', None)
+        if not user:
+            continue
+
+        # Find Member record for this CustomUser (if exists) to get organization
+        member_obj = Member.objects.filter(admin_id=user.id).select_related('organization').first()
+
+        bulk_regs.append({
+            'id': reg.id,
+            'last_name': (getattr(user, 'last_name', '') or ''),
+            'first_name': (getattr(user, 'first_name', '') or ''),
+            # keep the Member instance so template can access registered_by.organization.name
+            'registered_by': member_obj,
+            # default attending_as to Professor as requested
+            'attending_as': 'Professor',
+            'is_approved': bool(getattr(reg, 'is_approved', False)),
+            'is_present': bool(getattr(reg, 'is_present', False)),
+        })
+
+    return render(request, 'hoo/view_bulk_reg.html', {'bulk_regs': bulk_regs})
+
+
+def GET_BULK_BY_MEMBER(request, member_id):
+    """Return Bulk_Event_Reg entries for a given Member.id as JSON.
+
+    Response: { "bulk_regs": [ {id, last_name, first_name, attending_as}, ... ] }
+    """
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET':
+        regs_qs = Bulk_Event_Reg.objects.filter(registered_by_id=member_id).values('id', 'last_name', 'first_name', 'attending_as')
+        regs = list(regs_qs)
+
+        member = Member.objects.filter(id=member_id).select_related('admin', 'organization').first()
+        owner_name = ''
+        if member:
+            # Prefer organization name (school) as the owner label; fall back to admin full name
+            org = getattr(member, 'organization', None)
+            if org and getattr(org, 'name', None):
+                owner_name = org.name
+            elif getattr(member, 'admin', None):
+                owner_name = f"{getattr(member.admin, 'first_name', '')} {getattr(member.admin, 'last_name', '')}".strip()
+
+        return JsonResponse({'bulk_regs': regs, 'member_name': owner_name})
+    raise Http404("Invalid request")
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def APPROVE_MEMBER_EVENT_REG(request, reg_id):
+    """Mark a Member_Event_Registration as approved (is_approved=True).
+
+    Expects POST (AJAX). Returns JSON {success: True, id: reg_id} on success.
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    # Try Bulk_Event_Reg first
+    bulk = Bulk_Event_Reg.objects.filter(id=reg_id).first()
+    if bulk:
+        try:
+            bulk.is_approved = True
+            bulk.save()
+        except Exception as e:
+            return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+        try:
+            messages.success(request, f"Bulk registration for {bulk.first_name} {bulk.last_name} approved.")
+        except Exception:
+            pass
+        return JsonResponse({'success': True, 'id': bulk.id})
+
+    # Fallback to Member_Event_Registration
+    try:
+        reg = Member_Event_Registration.objects.get(id=reg_id)
+    except Member_Event_Registration.DoesNotExist:
+        return JsonResponse({'error': 'not_found'}, status=404)
+
+    try:
+        reg.is_approved = True
+        reg.save()
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+    # Add a Django message so it appears after the page reload
+    try:
+        user = getattr(reg, 'user', None)
+        if user:
+            messages.success(request, f"Registration for {user.first_name} {user.last_name} approved.")
+        else:
+            messages.success(request, "Registration approved.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'id': reg.id})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def DECLINE_MEMBER_EVENT_REG(request, reg_id):
+    """Mark a Member_Event_Registration as not approved (is_approved=False)."""
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    # Try Bulk_Event_Reg first
+    bulk = Bulk_Event_Reg.objects.filter(id=reg_id).first()
+    if bulk:
+        try:
+            bulk.is_approved = False
+            bulk.save()
+        except Exception as e:
+            return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+        try:
+            messages.warning(request, f"Bulk registration for {bulk.first_name} {bulk.last_name} declined.")
+        except Exception:
+            pass
+        return JsonResponse({'success': True, 'id': bulk.id})
+
+    # Fallback to Member_Event_Registration
+    try:
+        reg = Member_Event_Registration.objects.get(id=reg_id)
+    except Member_Event_Registration.DoesNotExist:
+        return JsonResponse({'error': 'not_found'}, status=404)
+
+    try:
+        reg.is_approved = False
+        reg.save()
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+    # Add a Django message for decline
+    try:
+        user = getattr(reg, 'user', None)
+        if user:
+            messages.warning(request, f"Registration for {user.first_name} {user.last_name} declined.")
+        else:
+            messages.warning(request, "Registration declined.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'id': reg.id})
