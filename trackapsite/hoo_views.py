@@ -219,6 +219,57 @@ def EVENT_ANALYTICS(request):
     # Compute registered / attended counts for the active event (sum of member + bulk approved)
     registered_total = 0
     attended_total = 0
+    # If there's an active event, compute the initial totals so the page shows accurate counts
+    try:
+        if event:
+            mem_registered = Member_Event_Registration.objects.filter(event=event, is_approved=True).count()
+            bulk_registered = Bulk_Event_Reg.objects.filter(event=event, is_approved=True).count()
+            registered_total = (mem_registered or 0) + (bulk_registered or 0)
+
+            mem_attended = Member_Event_Registration.objects.filter(event=event, is_present=True).count()
+            bulk_attended = Bulk_Event_Reg.objects.filter(event=event, is_present=True).count()
+            attended_total = (mem_attended or 0) + (bulk_attended or 0)
+    except Exception:
+        registered_total = registered_total or 0
+        attended_total = attended_total or 0
+
+    # Build organizations JSON for client-side charting (categories = initials)
+    # Count registrations per organization for the selected/active event
+    organizations = Organization.objects.all()
+    orgs_json = []
+    for org in organizations:
+        try:
+            if event:
+                # Count Member_Event_Registration entries for this event where the
+                # related Member belongs to the organization.
+                member_count = Member_Event_Registration.objects.filter(
+                    event=event,
+                    member_id__organization_id=org.id,
+                    is_approved=True,
+                ).count()
+
+                # Also include Bulk_Event_Reg entries for this event where the
+                # registered_by (Member) belongs to the organization.
+                try:
+                    bulk_count = Bulk_Event_Reg.objects.filter(
+                        event=event,
+                        registered_by__organization_id=org.id,
+                        is_approved=True,
+                    ).count()
+                except Exception:
+                    bulk_count = 0
+
+                total_count = member_count + (bulk_count or 0)
+            else:
+                total_count = 0
+        except Exception:
+            total_count = 0
+        orgs_json.append({
+            'id': org.id,
+            'initials': getattr(org, 'initials', '') or '',
+            'name': getattr(org, 'name', '') or '',
+            'value': total_count,
+        })
 
     context = {
         'event': event,
@@ -226,6 +277,7 @@ def EVENT_ANALYTICS(request):
         'events_json': json.dumps(events_json),
         'registered_total': registered_total,
         'attended_total': attended_total,
+        'organizations_json': json.dumps(orgs_json),
     }
     return render(request, 'hoo/event_analytics.html', context)
 
@@ -247,7 +299,37 @@ def GET_EVENT_STATS(request, id):
             bulk_attended = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_present=True).count()
             attended_total = mem_attended + bulk_attended
 
-            return JsonResponse({'registered_total': registered_total, 'attended_total': attended_total})
+            # Build per-organization counts for this event
+            orgs = []
+            try:
+                organizations = Organization.objects.all()
+                for org in organizations:
+                    try:
+                        mem_count = Member_Event_Registration.objects.filter(
+                            event_id=ev_id,
+                            member_id__organization_id=org.id,
+                            is_approved=True,
+                        ).count()
+                    except Exception:
+                        mem_count = 0
+                    try:
+                        bulk_count = Bulk_Event_Reg.objects.filter(
+                            event_id=ev_id,
+                            registered_by__organization_id=org.id,
+                            is_approved=True,
+                        ).count()
+                    except Exception:
+                        bulk_count = 0
+                    orgs.append({
+                        'id': org.id,
+                        'initials': getattr(org, 'initials', '') or '',
+                        'name': getattr(org, 'name', '') or '',
+                        'value': (mem_count or 0) + (bulk_count or 0),
+                    })
+            except Exception:
+                orgs = []
+
+            return JsonResponse({'registered_total': registered_total, 'attended_total': attended_total, 'organizations': orgs})
         except Exception:
             return JsonResponse({'registered_total': 0, 'attended_total': 0})
 
@@ -1426,19 +1508,21 @@ def ATTENDANCE_EVENT(request):
     attendees = []
     if active_event:
         # Get registrations for the active event (registered status)
-        regs = Member_Event_Registration.objects.filter(event=active_event, status='registered').select_related('user')
+        # Use `member_id` relationship (FK to Member) and related admin/user/org
+        regs = Member_Event_Registration.objects.filter(event=active_event, status='registered').select_related('member_id__admin', 'member_id__organization')
         for reg in regs:
-            user = reg.user
+            member_obj = getattr(reg, 'member_id', None)
+            user = getattr(member_obj, 'admin', None) if member_obj else None
             first = user.first_name if user else ''
             last = user.last_name if user else ''
 
-            # Try to fetch Member (linked via admin OneToOneField)
+            # Member's organization name
             school_name = ''
             try:
-                member = Member.objects.get(admin=user)
-                if member and member.organization:
-                    school_name = member.organization.name
-            except Member.DoesNotExist:
+                if member_obj and getattr(member_obj, 'organization', None):
+                    school_name = member_obj.organization.name
+            except Exception:
+                school_name = ''
                 school_name = ''
 
             # Use the registration's `is_present` flag as the current attendance status
@@ -1511,7 +1595,8 @@ def ATTENDANCE_TOGGLE(request):
 
     # Fallback to Member_Event_Registration
     try:
-        reg = Member_Event_Registration.objects.get(id=int(reg_id))
+        # include member->admin so we can show the member's user name in messages
+        reg = Member_Event_Registration.objects.select_related('member_id__admin').get(id=int(reg_id))
     except (Member_Event_Registration.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Registration not found'}, status=404)
 
@@ -1522,7 +1607,8 @@ def ATTENDANCE_TOGGLE(request):
         return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
 
     try:
-        user = getattr(reg, 'user', None)
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
         if reg.is_present:
             if user:
                 messages.success(request, f"Marked {user.first_name} {user.last_name} as Present.")
@@ -1540,17 +1626,17 @@ def ATTENDANCE_TOGGLE(request):
 
 
 def VIEWALL_BULK_REG(request):
+
     # Build `bulk_regs` from Member_Event_Registration entries.
-    regs = Member_Event_Registration.objects.select_related('user').all()
+    regs = Member_Event_Registration.objects.select_related('member_id__organization', 'member_id__admin').all()
 
     bulk_regs = []
     for reg in regs:
-        user = getattr(reg, 'user', None)
-        if not user:
+        member_obj = getattr(reg, 'member_id', None)
+        if not member_obj:
             continue
 
-        # Find Member record for this CustomUser (if exists) to get organization
-        member_obj = Member.objects.filter(admin_id=user.id).select_related('organization').first()
+        user = getattr(member_obj, 'admin', None)
 
         bulk_regs.append({
             'id': reg.id,
@@ -1743,7 +1829,8 @@ def APPROVE_MEMBER_EVENT_REG(request, reg_id):
 
     # Only operate on single Member_Event_Registration (no Bulk_Event_Reg handling)
     try:
-        reg = Member_Event_Registration.objects.select_related('event', 'user').get(id=reg_id)
+        # include member->admin so message can reference the linked CustomUser
+        reg = Member_Event_Registration.objects.select_related('event', 'member_id__admin').get(id=reg_id)
     except Member_Event_Registration.DoesNotExist:
         return JsonResponse({'error': 'not_found'}, status=404)
 
@@ -1773,7 +1860,8 @@ def APPROVE_MEMBER_EVENT_REG(request, reg_id):
 
     # Add a Django message so it appears after the page reload
     try:
-        user = getattr(reg, 'user', None)
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
         if user:
             messages.success(request, f"Registration for {user.first_name} {user.last_name} approved.")
         else:
@@ -1791,7 +1879,7 @@ def DECLINE_MEMBER_EVENT_REG(request, reg_id):
         return JsonResponse({'error': 'Invalid request'}, status=400)
     # Only operate on Member_Event_Registration (no Bulk_Event_Reg handling here)
     try:
-        reg = Member_Event_Registration.objects.select_related('event').get(id=reg_id)
+        reg = Member_Event_Registration.objects.select_related('event', 'member_id__admin').get(id=reg_id)
     except Member_Event_Registration.DoesNotExist:
         return JsonResponse({'error': 'not_found'}, status=404)
 
@@ -1820,7 +1908,8 @@ def DECLINE_MEMBER_EVENT_REG(request, reg_id):
 
     # Add a Django message for decline
     try:
-        user = getattr(reg, 'user', None)
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
         if user:
             messages.warning(request, f"Registration for {user.first_name} {user.last_name} declined.")
         else:

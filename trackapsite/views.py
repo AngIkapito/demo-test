@@ -131,9 +131,9 @@ def REG_EVENT(request):
 def ANNOUNCEMENT(request):
     announcements = Announcement.objects.prefetch_related('tags').all()
     tags = Tags.objects.all()
-    # Active events to show on announcements page (most recent first)
-    # Include events that are 'active' or 'full' so full events still appear in featured list
-    active_events = Event.objects.filter(status__in=['active', 'full']).order_by('-date')
+    # All events to show on announcements page (most recent first).
+    # We will show active, full, and inactive events; inactive ones are displayed faded in the template.
+    active_events = Event.objects.all().order_by('-date')
     # Collect tags used by active events (Event.tags is a FK to Tags)
     active_tag_ids = [tid for tid in active_events.values_list('tags_id', flat=True) if tid]
     event_tags = Tags.objects.filter(id__in=active_tag_ids) if active_tag_ids else Tags.objects.none()

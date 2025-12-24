@@ -32,29 +32,42 @@
 
 	<!-- Main content: left panel (event) + right panel (analytics) -->
 	<div class="row gy-4">
+		<style>
+		/* Dashboard styles */
+		.card-compact .card-body{padding:.75rem}
+		.metric-card .card-body{padding:.9rem}
+		.metric-value{font-size:1.5rem; font-weight:700}
+		#chart{min-height:320px}
+		#pie_chart{max-width:320px; margin:0 auto}
+		</style>
+
 		<div class="col-lg-4">
-			<div class="card shadow-sm h-100">
-				<div class="card-body">
-					<div class="d-flex align-items-start justify-content-between">
-						<div>
-							<h6 class="text-muted">Active Event</h6>
-							{% if event %}
-								<h5 class="fw-bold text-primary mb-1" id="event_title_display">{{ event.title }}</h5>
-								{% if event.date %}
-									<div class="small text-muted mb-2" id="event_date_display">{{ event.date }}</div>
+			<div class="d-flex flex-column gap-3">
+				<div class="card shadow-sm card-compact">
+					<div class="card-body">
+						<div class="d-flex align-items-start">
+							<div class="flex-grow-1">
+								<h6 class="text-muted mb-1">Active Event</h6>
+								{% if event %}
+									<h5 class="fw-bold text-primary mb-1" id="event_title_display">{{ event.title }}</h5>
+									<div class="small text-muted mb-1" id="event_date_display">{% if event.date %}{{ event.date }}{% endif %}</div>
+									<div><span id="event_status_badge" class="badge {% if event.status == 'active' %}bg-success{% elif event.status == 'inactive' %}bg-danger{% else %}bg-secondary{% endif %}">{{ event.status|capfirst }}</span></div>
 								{% else %}
-									<div class="small text-muted mb-2" id="event_date_display"></div>
+									<div class="text-muted">No active event at the moment.</div>
 								{% endif %}
-								<div class="mb-3"><span id="event_status_badge" class="badge {% if event.status == 'active' %}bg-success{% elif event.status == 'inactive' %}bg-danger{% else %}bg-secondary{% endif %}">{{ event.status|capfirst }}</span></div>
-							{% else %}
-								<div class="text-muted">No active event at the moment.</div>
-								<div class="mb-3"><span id="event_status_badge" class="badge bg-secondary"></span></div>
-							{% endif %}
-							<p class="mb-0 text-muted small">Use the controls in the header to switch cycles and events.</p>
+								<p class="mb-0 text-muted small mt-2">Use the controls to switch cycles and events.</p>
+							</div>
+							<div class="ms-3 align-self-center">
+								<i class="fas fa-calendar-check fa-2x text-gray-400"></i>
+							</div>
 						</div>
-						<div class="ms-3">
-							<i class="fas fa-chart-line fa-2x text-gray-400"></i>
-						</div>
+					</div>
+				</div>
+
+				<div class="card shadow-sm text-center">
+					<div class="card-body">
+						<div id="pie_chart" style="height:150px; width:100%;"></div>
+						<div class="small text-muted mt-2">Participation Breakdown</div>
 					</div>
 				</div>
 			</div>
@@ -63,38 +76,33 @@
 		<div class="col-lg-8">
 			<div class="row g-3">
 				<div class="col-md-6">
-					<div class="card shadow-sm h-100 border-start-primary">
-						<div class="card-body">
-							<div class="d-flex justify-content-between align-items-center">
-								<div>
-									<div class="small text-muted">Registered</div>
-									<div id="registered_count" class="h4 fw-bold">{{ registered_total|default:'0' }}</div>
-								</div>
-								<div><i class="fas fa-user-check fa-2x text-primary"></i></div>
+					<div class="card shadow-sm metric-card border-start-primary">
+						<div class="card-body d-flex align-items-center justify-content-between">
+							<div>
+								<div class="small text-muted">Registered</div>
+								<div id="registered_count" class="metric-value">{{ registered_total|default:'0' }}</div>
 							</div>
+							<div><i class="fas fa-user-check fa-2x text-primary"></i></div>
 						</div>
 					</div>
 				</div>
 				<div class="col-md-6">
-					<div class="card shadow-sm h-100 border-start-success">
-						<div class="card-body">
-							<div class="d-flex justify-content-between align-items-center">
-								<div>
-									<div class="small text-muted">Attended</div>
-									<div id="attended_count" class="h4 fw-bold">{{ attended_total|default:'0' }}</div>
-								</div>
-								<div><i class="fas fa-users fa-2x text-success"></i></div>
+					<div class="card shadow-sm metric-card border-start-success">
+						<div class="card-body d-flex align-items-center justify-content-between">
+							<div>
+								<div class="small text-muted">Attended</div>
+								<div id="attended_count" class="metric-value">{{ attended_total|default:'0' }}</div>
 							</div>
+							<div><i class="fas fa-users fa-2x text-success"></i></div>
 						</div>
 					</div>
 				</div>
 			</div>
 
 			<div class="card shadow-sm mt-3">
-				<div class="card-body" style="min-height:320px;">
+				<div class="card-body" style="min-height:340px;">
 					<div id="analytics_chart" style="height:100%;">
-						<!-- Chart placeholder: replace with ApexCharts or Chart.js init -->
-						<div class="d-flex h-100 align-items-center justify-content-center text-muted">Analytics chart will appear here.</div>
+						<div id="chart" style="height:100%;"></div>
 					</div>
 				</div>
 			</div>
@@ -144,58 +152,147 @@
 			if(initial) populateEventsForCycle(initial);
 		}
 
+		// Auto-select the active event (from server) and trigger the change handler
+		try{
+			var activeEventId = '{{ event.id|default:"" }}';
+			if(activeEventId && eventSelect){
+				var found = Array.from(eventSelect.options).find(function(o){ return String(o.value) === String(activeEventId); });
+				if(found){
+					found.selected = true;
+					var evt = new Event('change', { bubbles: true });
+					eventSelect.dispatchEvent(evt);
+				}
+			}
+		}catch(e){ /* ignore */ }
+
 		if(eventSelect){
 				eventSelect.addEventListener('change', function(e){
-					var sel = e.target.selectedOptions[0];
-					if(sel && sel.value){
-						if(titleEl) titleEl.textContent = sel.textContent;
-						if(dateEl) dateEl.textContent = sel.dataset.date || '';
+							var sel = e.target.selectedOptions[0];
+							if(sel && sel.value){
+								if(titleEl) titleEl.textContent = sel.textContent;
+								if(dateEl) dateEl.textContent = sel.dataset.date || '';
 
-						// update status badge
-						var badge = document.getElementById('event_status_badge');
-						if(badge){
-							var st = sel.dataset.status || '';
-							badge.textContent = st ? (st.charAt(0).toUpperCase() + st.slice(1)) : '';
-							var cls = 'badge ';
-							if(st === 'active') cls += 'bg-success';
-							else if(st === 'inactive') cls += 'bg-danger';
-							else if(st === 'cancelled' || st === '') cls += 'bg-secondary';
-							else cls += 'bg-info';
-							badge.className = cls;
-						}
-
-						// fetch counts for selected event
-						var eventId = sel.value;
-						fetch('/hoo/Event/Stats/' + eventId + '/')
-							.then(function(res){ return res.json(); })
-							.then(function(data){
-								if(data && typeof data.registered_total !== 'undefined'){
-									var regEl = document.getElementById('registered_count');
-									var attEl = document.getElementById('attended_count');
-									if(regEl) regEl.textContent = data.registered_total;
-									if(attEl) attEl.textContent = data.attended_total;
+								// update status badge
+								var badge = document.getElementById('event_status_badge');
+								if(badge){
+									var st = sel.dataset.status || '';
+									badge.textContent = st ? (st.charAt(0).toUpperCase() + st.slice(1)) : '';
+									var cls = 'badge ';
+									if(st === 'active') cls += 'bg-success';
+									else if(st === 'inactive') cls += 'bg-danger';
+									else if(st === 'cancelled' || st === '') cls += 'bg-secondary';
+									else cls += 'bg-info';
+									badge.className = cls;
 								}
-							})
-							.catch(function(){
+
+								// fetch counts + org breakdown for selected event
+								var eventId = sel.value;
+								fetch('/hoo/Event/Stats/' + eventId + '/')
+									.then(function(res){ return res.json(); })
+									.then(function(data){
+										var regEl = document.getElementById('registered_count');
+										var attEl = document.getElementById('attended_count');
+										if(data && typeof data.registered_total !== 'undefined'){
+											if(regEl) regEl.textContent = data.registered_total;
+											if(attEl) attEl.textContent = data.attended_total;
+										} else {
+											if(regEl) regEl.textContent = '0';
+											if(attEl) attEl.textContent = '0';
+										}
+
+										// update chart if organizations data present
+										if(data && Array.isArray(data.organizations) && window.eventOrgChart){
+											var orgs = data.organizations || [];
+											// sort descending by value so largest bars appear first
+											orgs.sort(function(a,b){ return (b.value || 0) - (a.value || 0); });
+											var cats = orgs.map(function(o){ return o.initials || o.name || ''; });
+											var vals = orgs.map(function(o){ return o.value || 0; });
+											try{
+												window.eventOrgChart.updateOptions({ xaxis: { categories: cats } });
+												window.eventOrgChart.updateSeries([{ name: 'Count', data: vals }]);
+											}catch(e){
+												// fallback: recreate chart
+												var chartEl = document.querySelector('#chart');
+												if(chartEl){
+													window.eventOrgChart.destroy();
+													window.eventOrgChart = new ApexCharts(chartEl, {
+														series:[{ name: 'Count', data: vals }],
+														chart:{ type:'bar', height:350 },
+														plotOptions:{ bar:{ borderRadius:4, borderRadiusApplication:'end', horizontal:true } },
+														dataLabels:{ enabled:false },
+														xaxis:{ categories: cats }
+													});
+													window.eventOrgChart.render();
+												}
+											}
+										}
+									})
+									.catch(function(){
+										var regEl = document.getElementById('registered_count');
+										var attEl = document.getElementById('attended_count');
+										if(regEl) regEl.textContent = '0';
+										if(attEl) attEl.textContent = '0';
+									});
+							} else {
+								if(titleEl) titleEl.textContent = '';
+								if(dateEl) dateEl.textContent = '';
 								var regEl = document.getElementById('registered_count');
 								var attEl = document.getElementById('attended_count');
 								if(regEl) regEl.textContent = '0';
 								if(attEl) attEl.textContent = '0';
-							});
-					} else {
-						if(titleEl) titleEl.textContent = '';
-						if(dateEl) dateEl.textContent = '';
-						var regEl = document.getElementById('registered_count');
-						var attEl = document.getElementById('attended_count');
-						if(regEl) regEl.textContent = '0';
-						if(attEl) attEl.textContent = '0';
 
-						var badge = document.getElementById('event_status_badge');
-						if(badge){ badge.textContent = ''; badge.className = 'badge bg-secondary'; }
-					}
-				});
+								var badge = document.getElementById('event_status_badge');
+								if(badge){ badge.textContent = ''; badge.className = 'badge bg-secondary'; }
+							}
+						});
 		}
 	});
+	</script>
+
+	<!-- ApexCharts chart for organization initials -->
+	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+	<script>
+	document.addEventListener('DOMContentLoaded', function(){
+		var orgs = [];
+		try { orgs = JSON.parse('{{ organizations_json|default:'[]'|escapejs }}'); } catch(e){ orgs = []; }
+
+		// sort descending by value so largest bars appear first
+		orgs.sort(function(a,b){ return (b.value || 0) - (a.value || 0); });
+
+		var categories = orgs.map(function(o){ return o.initials || o.name || ''; });
+		// Try common numeric fields for values, fall back to 0
+		var values = orgs.map(function(o){ return (o.value || o.registered_total || o.count || 0); });
+
+				var options = {
+					series: [{ name: 'Count', data: values }],
+		  chart: { type: 'bar', height: 350 },
+		  plotOptions: { bar: { borderRadius: 4, borderRadiusApplication: 'end', horizontal: true } },
+		  dataLabels: { enabled: false },
+		  xaxis: { categories: categories }
+		};
+
+		var chartEl = document.querySelector("#chart");
+		if(chartEl){
+			// store chart globally so we can update it on event change
+			window.eventOrgChart = new ApexCharts(chartEl, options);
+			window.eventOrgChart.render();
+		}
+	});
+	</script>
+
+	<script>
+	// Render static ApexCharts pie chart into the #pie_chart element placed under Active Event
+	var pieOptions = {
+	  series: [44, 55, 13, 43, 22],
+	  chart: { width: 280, type: 'pie' },
+	  labels: ['Team A', 'Team B', 'Team C', 'Team D', 'Team E'],
+	  responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: 'bottom' } } }]
+	};
+
+	try{
+		var pieChart = new ApexCharts(document.querySelector("#pie_chart"), pieOptions);
+		pieChart.render();
+	}catch(e){ /* ignore if element not present */ }
 	</script>
 
 </div>

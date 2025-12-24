@@ -50,6 +50,12 @@
       background-color: #ffffff;
       display: block;
     }
+    /* Fade and de-emphasize inactive events */
+    .active-event.inactive {
+      opacity: 0.45;
+      filter: grayscale(60%);
+      pointer-events: auto; /* keep buttons clickable if needed, visual-only change */
+    }
   </style>
 
   <!-- Page header / Hero -->
@@ -84,7 +90,7 @@
       <div class="row g-3">
         {% for event in active_events %}
           <div class="col-lg-6">
-            <article class="card shadow-sm active-event" data-tag="{{ event.tags.name|default:'' }}">
+            <article class="card shadow-sm active-event {% if event.status == 'inactive' %}inactive{% endif %}" data-tag="{{ event.tags.name|default:'' }}" data-status="{{ event.status }}">
               <div class="row g-0">
                 <div class="col-5 d-flex align-items-center">
                   {% if event.banner %}
@@ -123,7 +129,7 @@
 
                     <div class="mt-auto d-flex justify-content-between align-items-center">
                       <div class="small text-muted">Category: <strong>{{ event.tags.name|default:'—' }}</strong></div>
-                      {% if event.registration_link and not event.is_closed %}
+                      {% if event.status == 'active' and event.registration_link and not event.is_closed %}
                         <a href="{% url 'registration_event' %}?event_id={{ event.id }}" class="btn btn-sm btn-primary">Register Now</a>
                       {% else %}
                         <button class="btn btn-sm btn-outline-secondary" disabled>Registration Closed</button>

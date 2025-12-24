@@ -16,7 +16,13 @@ class CustomUser(AbstractUser):
     user_type = models.CharField(choices=USER, max_length=25)
     profile_pic = models.ImageField(upload_to='profile_pic/')
     email = models.EmailField(max_length=150, unique=True)
+  
+class Attending_as(models.Model):
+    name = models.CharField(max_length=100)
     
+    def __str__(self):
+        return self.name
+  
 class Salutation(models.Model):
     name = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -256,7 +262,7 @@ class Member_Event_Registration(models.Model):
         ('cancelled', 'Cancelled'),
     ]
 
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, blank=True, null=True)           # Stores only the user ID
+    member_id = models.ForeignKey(Member, on_delete=models.CASCADE, blank=True, null=True)           # Stores only the user ID
     event = models.ForeignKey(Event, on_delete=models.CASCADE, blank=True, null=True)          # Stores only the event ID
     date_created = models.DateTimeField(default=timezone.now)
     status = models.CharField(

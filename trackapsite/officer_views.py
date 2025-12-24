@@ -129,15 +129,16 @@ def MEMBER_EVENT_REG(request):
         return render(request, 'officer/member_event_reg.html', {'event': None})
 
     if request.method == 'POST':
-        user_id = request.user.id
-        if not user_id:
-            messages.error(request, "User not authenticated.")
+        # Resolve Member record for the logged-in user
+        member_obj = Member.objects.filter(admin_id=getattr(request.user, 'id', None)).first()
+        if not member_obj:
+            messages.error(request, "No member profile found for the current user.")
             return redirect('member_event_reg_officer')
 
-        # ✅ Check for duplicate registration
+        # Check for duplicate registration using Member FK
         already_registered = Member_Event_Registration.objects.filter(
-            user_id=user_id,
-            event_id=event.id,
+            member_id=member_obj,
+            event=event,
             status='registered'
         ).exists()
 
@@ -145,74 +146,14 @@ def MEMBER_EVENT_REG(request):
             messages.warning(request, "You are already registered for this event.")
             return redirect('member_event_reg_officer')
 
-        # ✅ Determine available slots (default to max_attendees if available_slots not set)
-        available_slots = getattr(event, 'available_slots', event.max_attendees)
-
-        if available_slots <= 0:
-            # mark the event as closed (1) when no slots remain; do NOT change status
-            # set both `is_closed` and `is_full` when no slots remain
-            if getattr(event, 'is_closed', 0) != 1 or not getattr(event, 'is_full', False):
-                try:
-                    event.is_closed = 1
-                    event.is_full = True
-                    event.save(update_fields=['is_closed', 'is_full'])
-                except Exception:
-                    # silent fallback if fields don't exist
-                    try:
-                        event.is_closed = 1
-                        event.save(update_fields=['is_closed'])
-                    except Exception:
-                        pass
-            messages.error(request, "Registration closed. The event is full.")
-            return redirect('member_event_reg_officer')
-
         try:
-            # ✅ Create the registration record
+            # Create the registration record referencing Member (member_id)
             Member_Event_Registration.objects.create(
-                user_id=user_id,
-                event_id=event.id,
+                member_id=member_obj,
+                event=event,
                 date_created=timezone.now(),
                 status='registered'
             )
-
-            # ✅ Recalculate available slots: max_attendees - total registered
-            total_registered = Member_Event_Registration.objects.filter(
-                event_id=event.id, status='registered'
-            ).count()
-            new_available_slots = event.max_attendees - total_registered
-            # Prevent negative available_slots which would cause DB errors
-            if new_available_slots < 0:
-                new_available_slots = 0
-
-            # ✅ Update event.available_slots and is_closed flag (do NOT change status)
-            event.available_slots = new_available_slots
-            # set is_closed and is_full flags when no slots remain
-            if new_available_slots <= 0:
-                try:
-                    event.is_closed = 1
-                except Exception:
-                    pass
-                try:
-                    event.is_full = True
-                except Exception:
-                    pass
-            else:
-                try:
-                    event.is_closed = 0
-                except Exception:
-                    pass
-                try:
-                    event.is_full = False
-                except Exception:
-                    pass
-            # try to save both fields; fall back to saving available_slots only
-            try:
-                event.save(update_fields=['available_slots', 'is_closed', 'is_full'])
-            except Exception:
-                try:
-                    event.save(update_fields=['available_slots', 'is_closed'])
-                except Exception:
-                    event.save(update_fields=['available_slots'])
 
             messages.success(request, "Registration successful!")
             return redirect('member_event_reg_officer')
