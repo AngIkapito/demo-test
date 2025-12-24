@@ -58,9 +58,9 @@ def REG_EVENT(request):
             password = request.POST.get('password') or ''
             user = authenticate(request=request, username=username, password=password)
             if user is None:
-                # Render the registration page again with a specific inline error
-                auth_error = 'Invalid username or password. Please try again.'
-                return render(request, 'registration_event.html', {'event': event, 'auth_error': auth_error})
+                # Add an error to Django messages and re-render the page so it appears in the messages include
+                messages.error(request, 'Invalid username or password. Please try again.')
+                return render(request, 'registration_event.html', {'event': event})
         else:
             user = request.user
 
@@ -72,15 +72,15 @@ def REG_EVENT(request):
             member_obj = None
 
         if not member_obj:
-            membership_error = 'No member profile found for this account. Please contact the administrator.'
-            return render(request, 'registration_event.html', {'event': event, 'membership_error': membership_error})
+            messages.warning(request, 'No member profile found for this account. Please contact the administrator.')
+            return render(request, 'registration_event.html', {'event': event})
 
         # Check for a Membership tied to this member with an active school year (status=1)
         has_active_membership = Membership.objects.filter(member_id=member_obj.id, school_year__status=1).exists()
         if not has_active_membership:
             # Inform the user their membership is expired and ask them to renew
-            membership_error = 'Your membership has expired. Please renew your membership to register for events.'
-            return render(request, 'registration_event.html', {'event': event, 'membership_error': membership_error})
+            messages.warning(request, 'Your membership has expired. Please renew your membership to register for events.')
+            return render(request, 'registration_event.html', {'event': event})
         # ---------- end membership check ----------
 
         # Single-seat registration (1 seat per submission). Decrement available_slots atomically.
@@ -88,33 +88,19 @@ def REG_EVENT(request):
             with transaction.atomic():
                 # Lock the event row for update to avoid race conditions
                 locked_event = Event.objects.select_for_update().get(id=event.id)
-                if (locked_event.available_slots or 0) < 1:
-                    messages.error(request, f'No available seats for "{locked_event.title}".')
-                    return redirect(reverse('registration_event') + f'?event_id={event.id}')
 
-                # Prevent duplicate registrations
-                existing = Member_Event_Registration.objects.filter(user_id=user.id, event_id=event.id, status='registered').exists()
+                # Prevent duplicate registrations (use Member instance rather than User.id)
+                existing = Member_Event_Registration.objects.filter(member_id=member_obj, event_id=event.id, status='registered').exists()
                 if existing:
                     messages.info(request, f'You are already registered for "{locked_event.title}".')
-                    return redirect('announcement')
+                    return redirect(reverse('registration_event') + f'?event_id={event.id}')
 
-                # Decrement available_slots by 1
-                locked_event.available_slots = F('available_slots') - 1
-                locked_event.save()
-
-                # Create the registration record
+                # NOTE: removed decrement of `available_slots` per request — allow registrations
                 reg = Member_Event_Registration.objects.create(
-                    user_id=user.id,
+                    member_id=member_obj,
                     event_id=event.id,
                     status='registered'
                 )
-
-                # Refresh to get the updated numeric value
-                locked_event.refresh_from_db()
-                if locked_event.available_slots == 0:
-                    locked_event.status = 'full'
-                    locked_event.is_closed = True
-                    locked_event.save(update_fields=['status', 'is_closed'])
 
         except Event.DoesNotExist:
             messages.error(request, 'Event not found.')
@@ -123,8 +109,9 @@ def REG_EVENT(request):
             messages.error(request, f'Failed to save registration: {e}')
             return redirect(reverse('registration_event') + f'?event_id={event.id}')
 
-        messages.success(request, f'Registration submitted for "{event.title}" by {user.username}.')
-        return redirect('announcement')
+        # Use POST-Redirect-GET to avoid duplicate submission on refresh.
+        messages.success(request, 'Your registration is submitted. Please wait for approval.')
+        return redirect(reverse('registration_event') + f'?event_id={event.id}')
 
     return render(request, 'registration_event.html', {'event': event})
 

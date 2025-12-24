@@ -1,46 +1,37 @@
-{% for message in messages %}
-    {% if message.tags == 'error' %}
-        <div class="alert alert-danger alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
-            <strong>{{ message }}</strong>
-            {% comment %} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> {% endcomment %}
-        </div>
-    {% endif %}
-{% empty %}
-{% endfor %}
+{% if messages %}
+    {% for message in messages %}
+        {% if 'error' in message.tags %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
+                <strong>{{ message }}</strong>
+            </div>
+        {% elif 'warning' in message.tags %}
+            <div class="alert alert-warning alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
+                <strong>{{ message }}</strong>
+            </div>
+        {% elif 'success' in message.tags %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
+                <strong>{{ message }}</strong>
+            </div>
+        {% elif 'info' in message.tags %}
+            <div class="alert alert-info alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
+                <strong>{{ message }}</strong>
+            </div>
+        {% else %}
+            <div class="alert alert-info alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
+                <strong>{{ message }}</strong>
+            </div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
 
-{% for message in messages %}
-    {% if message.tags == 'success' %}
-        <div class="alert alert-success alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
-            <strong>{{ message }}</strong>
-            {% comment %} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> {% endcomment %}
-        </div>
-    {% endif %}
-{% empty %}
-{% endfor %}
-
-{% for message in messages %}
-    {% if message.tags == 'warning' %}
-        <div class="alert alert-warning alert-dismissible fade show" role="alert" id="alert-{{ forloop.counter }}">
-            <strong>{{ message }}</strong>
-            {% comment %} <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button> {% endcomment %}
-        </div>
-    {% endif %}
-{% empty %}
-{% endfor %}
-
-   <script>
-    // Function to hide alerts after 3 seconds
+<script>
+    // Auto-hide alerts after 10 seconds
     setTimeout(function() {
-        // Select all alert messages
         const alerts = document.querySelectorAll('.alert');
         alerts.forEach(alert => {
-            // Fade out the alert
             alert.classList.remove('show');
             alert.classList.add('fade');
-            // Optionally, you can remove the alert from the DOM after fading out
-            setTimeout(() => {
-                alert.style.display = 'none'; // Hide the alert completely
-            }, 150); // Match this duration with your CSS transition duration
+            setTimeout(() => { alert.style.display = 'none'; }, 150);
         });
-    }, 10000); // 10000 milliseconds = 10 seconds
+    }, 10000);
 </script>
