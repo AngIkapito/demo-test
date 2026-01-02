@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 import datetime
@@ -16,13 +16,13 @@ class CustomUser(AbstractUser):
     user_type = models.CharField(choices=USER, max_length=25)
     profile_pic = models.ImageField(upload_to='profile_pic/')
     email = models.EmailField(max_length=150, unique=True)
-  
-class Attending_as(models.Model):
+
+
+class IT_Topics(models.Model): 
     name = models.CharField(max_length=100)
-    
     def __str__(self):
         return self.name
-  
+    
 class Salutation(models.Model):
     name = models.CharField(max_length=20)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -129,6 +129,13 @@ class Member(models.Model):
     def __str__(self):
         return self.admin.first_name + " " + self.admin.last_name
     
+
+class Intetrested_Topics(models.Model):
+    member = models.ForeignKey(Member, on_delete=models.CASCADE)
+    topic = models.ForeignKey(IT_Topics, on_delete=models.CASCADE)
+    
+    def __str__(self):
+        return f"{self.member.admin.first_name} - {self.topic.name}"
 
 class Membership(models.Model):
     STATUS_CHOICES = [
@@ -298,12 +305,9 @@ class Bulk_Event_Reg(models.Model):
     tshirt_size = models.CharField(max_length=10, blank=True, null=True)
     is_present = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
-    
+  
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.event.title}"
-    
-    
-
     
 
     

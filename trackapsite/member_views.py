@@ -395,7 +395,7 @@ def SAVE_BULK_EVENT_REG(request):
             for r in rows:
                 try:
                     # Only save fields that exist; map expected keys
-                    Bulk_Event_Reg.objects.create(
+                    reg = Bulk_Event_Reg.objects.create(
                         event_id=event.id,
                         # Store Member.id in registered_by (FK to Member)
                         registered_by_id=member_id,

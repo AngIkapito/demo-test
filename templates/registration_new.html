@@ -90,9 +90,22 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group col-md-6">
+                                        <label for="it_topic_id">Interested IT Topic(s)</label>
+                                        <select class="form-control" id="it_topic_id" name="it_topic_id" multiple size="4">
+                                            {% for topic in it_topics %}
+                                                <option value="{{ topic.id }}">{{ topic.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <div id="itSelected" class="mt-2"></div>
+                                        <small id="itLimitWarning" class="form-text text-danger d-none">You can select up to 3 topics.</small>
+                                        <small class="form-text text-muted">Click to toggle selection (no Ctrl required). Selected items shown below.</small>
+                                    </div>
+                                    <div class="form-group col-md-6">
                                         <label for="contact_no">Contact Number</label>
                                         <input type="tel" class="form-control" id="contact_no" placeholder="eg. 09123456789" name="contact_no" maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number."/>                        
                                     </div>
+                                </div>
+                                <div class="form-row">
                                     <div class="form-group col-md-6">
                                         <label for="facebook_profile_link">Facebook Profile Link:</label>
                                         <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" required />
@@ -231,6 +244,63 @@
 
     document.getElementById('first_name').addEventListener('input', generateUsername);
     document.getElementById('last_name').addEventListener('input', generateUsername);
+
+    // Multi-select UX for IT Topics: click to toggle without Ctrl and show badges
+    document.addEventListener('DOMContentLoaded', function() {
+        const select = document.getElementById('it_topic_id');
+        const container = document.getElementById('itSelected');
+        if (!select || !container) return;
+
+        function updateBadges() {
+            container.innerHTML = '';
+            const selectedCount = Array.from(select.options).filter(o => o.selected).length;
+            const warn = document.getElementById('itLimitWarning');
+            if (warn) {
+                if (selectedCount >= 3) warn.classList.remove('d-none');
+                else warn.classList.add('d-none');
+            }
+            Array.from(select.options).forEach(function(opt) {
+                if (opt.selected) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge badge-primary mr-1 p-2';
+                    badge.textContent = opt.text;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'btn btn-sm btn-light ml-2';
+                    btn.textContent = 'x';
+                    btn.addEventListener('click', function() {
+                        opt.selected = false;
+                        updateBadges();
+                    });
+                    badge.appendChild(btn);
+                    container.appendChild(badge);
+                }
+            });
+        }
+
+        // Allow clicking options to toggle selection without requiring Ctrl
+        select.addEventListener('mousedown', function(e) {
+            if (e.target && e.target.tagName === 'OPTION') {
+                e.preventDefault();
+                const option = e.target;
+                const currentlySelected = Array.from(select.options).filter(o => o.selected).length;
+                // if attempting to select (option not selected) and already at limit, block
+                if (!option.selected && currentlySelected >= 3) {
+                    const warn = document.getElementById('itLimitWarning');
+                    if (warn) {
+                        warn.classList.remove('d-none');
+                    }
+                    return;
+                }
+                // toggle selection
+                option.selected = !option.selected;
+                updateBadges();
+            }
+        });
+
+        // initialize badges if any preselected
+        updateBadges();
+    });
 </script>
 
 </body>

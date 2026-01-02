@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password
-from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration
+from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration, IT_Topics, Intetrested_Topics
 from django.utils.safestring import mark_safe
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import path, include, reverse
@@ -405,6 +405,7 @@ def REGISTRATION_NEW(request):
     organizations = Organization.objects.all()
     memberships = Membership.objects.all()
     school_year = School_Year.objects.all()
+    it_topics = IT_Topics.objects.all()
 
     # ✅ Get active School Year
     active_school_year = get_object_or_404(School_Year, status=1)
@@ -427,6 +428,8 @@ def REGISTRATION_NEW(request):
         contact_no = (request.POST.get('contact_no') or '').strip()
         birthdate = request.POST.get('birthdate')
         facebook_profile_link = (request.POST.get('facebook_profile_link') or '').strip()
+        # accept multiple selected IT topics
+        it_topic_ids = request.POST.getlist('it_topic_id')
 
         proof_of_payment = request.FILES.get('proof_of_payment')
         payment_date = request.POST.get('payment_date')
@@ -494,6 +497,21 @@ def REGISTRATION_NEW(request):
         )
         membership.save()
 
+        # Save interested IT topics if provided (supports multiple selections, limit to 3)
+        try:
+            if it_topic_ids:
+                # accept at most 3 topics; notify user if extras provided
+                accepted_ids = [tid for tid in it_topic_ids if tid][:3]
+                if len(it_topic_ids) > 3:
+                    messages.warning(request, 'Only up to 3 IT topics are accepted; extras were ignored.')
+                # bulk create using member_id and topic_id
+                objs = [Intetrested_Topics(member_id=member.id, topic_id=tid) for tid in accepted_ids]
+                if objs:
+                    Intetrested_Topics.objects.bulk_create(objs)
+        except Exception:
+            # non-fatal: continue but log in future if needed
+            pass
+
         # ✅ Confirmation message
         home_link = reverse('login')
         registration_message = (
@@ -513,6 +531,7 @@ def REGISTRATION_NEW(request):
         'memberships': memberships,
         'school_year': school_year,
         'active_school_year_id': active_school_year_id,
+        'it_topics': it_topics,
     }
 
     return render(request, 'registration_new.html', context)

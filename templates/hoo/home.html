@@ -153,6 +153,69 @@
               <button class="btn btn-outline-success">Export to Excel</button>
             </div>
           </div>
+          <!-- Member Rankings (profile-style, no data) -->
+          <style>
+            .ranking-card .member-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:0}
+            .ranking-card .avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#eee,#ddd);flex:0 0 46px}
+            .ranking-card .profile-placeholder{flex:1;min-width:0}
+            .ranking-card .name-placeholder{height:14px;width:45%;background:#f1f3f5;border-radius:4px;margin-bottom:6px}
+            .ranking-card .org-placeholder{height:12px;width:35%;background:#f1f3f5;border-radius:4px}
+            .ranking-card .rank-badge{min-width:46px;text-align:center;background:transparent;color:#495057;font-weight:700}
+          </style>
+          <div class="card shadow mb-4 ranking-card">
+            <div class="card-header bg-light">
+              <strong>Member Rankings</strong>
+              <div class="small text-muted">Top contributors / competitors (preview)</div>
+            </div>
+            <div class="card-body">
+              <!-- Empty placeholders: no member data rendered -->
+              <div class="d-flex flex-column">
+                <!-- Repeat a few placeholder rows to show layout -->
+                <div class="member-row">
+                  <div class="avatar" aria-hidden="true"></div>
+                  <div class="profile-placeholder">
+                    <div class="name-placeholder"></div>
+                    <div class="org-placeholder"></div>
+                  </div>
+                  <div class="rank-badge">#1</div>
+                </div>
+                <div class="member-row">
+                  <div class="avatar" aria-hidden="true"></div>
+                  <div class="profile-placeholder">
+                    <div class="name-placeholder"></div>
+                    <div class="org-placeholder"></div>
+                  </div>
+                  <div class="rank-badge">#2</div>
+                </div>
+                <div class="member-row">
+                  <div class="avatar" aria-hidden="true"></div>
+                  <div class="profile-placeholder">
+                    <div class="name-placeholder"></div>
+                    <div class="org-placeholder"></div>
+                  </div>
+                  <div class="rank-badge">#3</div>
+                </div>
+                <div class="member-row">
+                  <div class="avatar" aria-hidden="true"></div>
+                  <div class="profile-placeholder">
+                    <div class="name-placeholder"></div>
+                    <div class="org-placeholder"></div>
+                  </div>
+                  <div class="rank-badge">#4</div>
+                </div>
+                <div class="member-row">
+                  <div class="avatar" aria-hidden="true"></div>
+                  <div class="profile-placeholder">
+                    <div class="name-placeholder"></div>
+                    <div class="org-placeholder"></div>
+                  </div>
+                  <div class="rank-badge">#5</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Interested IT Topics Pie Chart -->
+          
         </div>
 
         <!-- Right column: calendar -->
@@ -188,7 +251,15 @@
               </div>
             </div>
           </div>
+          <!-- Interested IT Topics Pie Chart (moved under calendar) -->
+          <div class="card shadow mb-4 mt-3">
+            <div class="card-header bg-info text-white">Interested IT Topics</div>
+            <div class="card-body">
+              <div id="topicsPie" style="max-width:420px;margin:0 auto;"></div>
+            </div>
+          </div>
         </div>
+            
         <!-- Event details modal -->
         <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
           <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -289,6 +360,25 @@
       var chart = new ApexCharts(document.querySelector("#chart"), options);
       chart.render();
     }catch(e){ console.error('ApexCharts init failed', e); }
+  })();
+</script>
+
+<!-- Topics pie chart -->
+<script>
+  (function(){
+    try{
+      var options = {
+        series: {{ topics_pie_series_json|safe }},
+        chart: { width: 380, type: 'pie' },
+        labels: {{ topics_pie_labels_json|safe }},
+        responsive: [{
+          breakpoint: 480,
+          options: { chart: { width: 200 }, legend: { position: 'bottom' } }
+        }]
+      };
+      var chart = new ApexCharts(document.querySelector("#topicsPie"), options);
+      chart.render();
+    }catch(e){ console.error('Topics pie init failed', e); }
   })();
 </script>
 

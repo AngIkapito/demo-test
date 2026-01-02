@@ -501,7 +501,7 @@ def SAVE_BULK_EVENT_REG(request):
             for r in rows:
                 try:
                     # Only save fields that exist; map expected keys
-                    Bulk_Event_Reg.objects.create(
+                    reg = Bulk_Event_Reg.objects.create(
                         event_id=event.id,
                         # Store Member.id, since registered_by FK points to Member
                         registered_by_id=member_id,
@@ -517,6 +517,8 @@ def SAVE_BULK_EVENT_REG(request):
                         if_coach=r.get('if_coach', '') or '',
                         tshirt_size=r.get('tshirt_size', '') or '',
                     )
+                    # Attending records are synchronized automatically by the post_save
+                    # handler on `Bulk_Event_Reg` in `app.models`, so no manual creation here.
                     saved += 1
                 except Exception:
                     skipped += 1

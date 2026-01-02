@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, Intetrested_Topics, IT_Topics
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 import json
@@ -16,7 +16,7 @@ from django.utils.crypto import get_random_string
 import datetime
 import os
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Count
 
 # Create your views here.
 def COMPUTE_EVENT_PROGRESS(event):
@@ -189,6 +189,24 @@ def home(request):
     context['chart_series_json'] = json.dumps(chart_series)
     context['chart_categories_json'] = json.dumps(categories)
 
+    # Build pie chart data for Interested IT Topics: labels = IT_Topics.name, series = counts
+    try:
+        topic_qs = Intetrested_Topics.objects.values('topic_id').annotate(cnt=Count('id')).order_by('-cnt')
+        pie_labels = []
+        pie_series = []
+        for row in topic_qs:
+            tid = row.get('topic_id')
+            cnt = row.get('cnt') or 0
+            name = IT_Topics.objects.filter(id=tid).values_list('name', flat=True).first() or f"Topic {tid}"
+            pie_labels.append(name)
+            pie_series.append(cnt)
+    except Exception:
+        pie_labels = []
+        pie_series = []
+
+    context['topics_pie_series_json'] = json.dumps(pie_series)
+    context['topics_pie_labels_json'] = json.dumps(pie_labels)
+
     return render(request, 'hoo/home.html', context)
 
 
@@ -334,6 +352,92 @@ def GET_EVENT_STATS(request, id):
             return JsonResponse({'registered_total': 0, 'attended_total': 0})
 
     raise Http404('Invalid request')
+
+
+@login_required(login_url='/')
+def GET_EVENT_ATTENDING_PIE(request, id):
+    """Return JSON for pie chart grouped by attendee role categories.
+
+    Labels: 'Student', 'Professor/Teacher/Instructor', 'Other'
+    Series: count of distinct `bulk_reg` ids that have an Attending in that category
+    for the given event id.
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    # Prepare sets of Bulk_Event_Reg ids per category using Bulk_Event_Reg.attending_as
+    student_set = set()
+    prof_set = set()
+    other_set = set()
+
+    # Read directly from Bulk_Event_Reg so we use the saved attending_as string
+    # Only consider approved bulk registrations
+    bulk_qs = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_approved=True)
+    for b in bulk_qs:
+        roles_str = (getattr(b, 'attending_as', '') or '').strip()
+        if not roles_str:
+            continue
+
+        # support comma-separated roles
+        parts = [p.strip().lower() for p in roles_str.split(',') if p.strip()]
+        for role in parts:
+            if 'student' in role:
+                student_set.add(b.id)
+            elif any(k in role for k in ('professor', 'teacher', 'instructor')):
+                prof_set.add(b.id)
+            else:
+                other_set.add(b.id)
+
+    labels = []
+    series = []
+
+    if student_set:
+        labels.append('Student')
+        series.append(len(student_set))
+    if prof_set:
+        labels.append('Professor/Teacher/Instructor')
+        series.append(len(prof_set))
+    if other_set:
+        labels.append('Other')
+        series.append(len(other_set))
+
+    return JsonResponse({'labels': labels, 'series': series})
+
+
+@login_required(login_url='/')
+def GET_EVENT_COMPETITOR_COUNTS(request, id):
+    """Return counts of competitor types for an event.
+
+    Response: { labels: [...], series: [...] }
+    Groups `Bulk_Event_Reg.if_competitor` and counts rows where `is_competitor=1`.
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    try:
+        qs = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_competitor=1, is_approved=True)
+        grouped = qs.values('if_competitor').annotate(count=Count('id')).order_by('-count')
+        labels = []
+        series = []
+        for item in grouped:
+            val = item.get('if_competitor') or ''
+            if not val.strip():
+                continue
+            labels.append(val)
+            series.append(item.get('count', 0))
+        return JsonResponse({'labels': labels, 'series': series})
+    except Exception:
+        return JsonResponse({'labels': [], 'series': []})
 
 
 
