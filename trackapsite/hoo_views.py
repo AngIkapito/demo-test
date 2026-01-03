@@ -78,6 +78,9 @@ def home(request):
     else:
         registered_count, available_slots, progress_percent = 0, 0, 0
 
+    # expose available school years for client-side filtering
+    school_years = School_Year.objects.all().order_by('-sy_start')
+
     context = {
         'members': members,
         'events': events,
@@ -85,6 +88,7 @@ def home(request):
         'registered_count': registered_count,
         'available_slots': available_slots,
         'progress_percent': progress_percent,  # pass percentage
+        'school_years': school_years,
     }
 
     # Serialize events for the client-side calendar (ISO date strings)
@@ -152,6 +156,89 @@ def home(request):
         })
 
     context['events_json'] = events_json
+
+    # ----- Member rankings by consecutive attendance -----
+    try:
+        # Allow optional query param `school_year` to filter rankings by school year
+        selected_sy = request.GET.get('school_year')
+
+        ev_qs = Event.objects.filter(date__isnull=False)
+        if selected_sy:
+            try:
+                ev_qs = ev_qs.filter(school_year_id=int(selected_sy))
+            except Exception:
+                pass
+
+        # Order events by date (ignore events without a date)
+        ordered_event_ids = list(ev_qs.order_by('date').values_list('id', flat=True))
+
+        # Map member_id -> set(event_id) for approved member registrations
+        regs = Member_Event_Registration.objects.filter(event_id__in=ordered_event_ids, is_approved=True).values('member_id_id', 'event_id')
+        member_events_map = {}
+        for r in regs:
+            mid = r.get('member_id_id')
+            eid = r.get('event_id')
+            if mid is None or eid is None:
+                continue
+            member_events_map.setdefault(mid, set()).add(eid)
+
+        member_rankings = []
+        for m in members:
+            mid = getattr(m, 'id', None)
+            events_set = member_events_map.get(mid, set())
+
+            # Compute longest consecutive streak across ordered events
+            longest = 0
+            curr = 0
+            for eid in ordered_event_ids:
+                if eid in events_set:
+                    curr += 1
+                    if curr > longest:
+                        longest = curr
+                else:
+                    curr = 0
+
+            total_joined = len(events_set)
+
+            # Friendly member name and organization if available
+            try:
+                first = getattr(m, 'first_name', '') or ''
+                last = getattr(m, 'last_name', '') or ''
+                name = (first + ' ' + last).strip() or str(m)
+            except Exception:
+                name = str(m)
+            org_name = ''
+            try:
+                org = getattr(m, 'organization', None)
+                if org:
+                    org_name = getattr(org, 'name', '') or str(org)
+            except Exception:
+                org_name = ''
+
+            member_rankings.append({
+                'member': m,
+                'member_name': name,
+                'organization': org_name,
+                'longest_streak': longest,
+                'total_joined': total_joined,
+            })
+
+        # sort by longest streak desc, then by total joined desc
+        member_rankings.sort(key=lambda x: (x['longest_streak'], x['total_joined']), reverse=True)
+
+        # Counts for thresholds (3x, 5x, 10x in a row) - use friendly keys for template
+        streak_counts = {
+            'three': sum(1 for r in member_rankings if r['longest_streak'] >= 3),
+            'five': sum(1 for r in member_rankings if r['longest_streak'] >= 5),
+            'ten': sum(1 for r in member_rankings if r['longest_streak'] >= 10),
+        }
+    except Exception:
+        member_rankings = []
+        streak_counts = {'three': 0, 'five': 0, 'ten': 0}
+
+    context['member_rankings'] = member_rankings
+    context['streak_counts'] = streak_counts
+    context['selected_school_year'] = int(selected_sy) if selected_sy and str(selected_sy).isdigit() else None
 
     # Build column chart data: categories = event titles; series = Registered / Attended counts
     categories = []

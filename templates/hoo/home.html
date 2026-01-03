@@ -163,54 +163,54 @@
             .ranking-card .rank-badge{min-width:46px;text-align:center;background:transparent;color:#495057;font-weight:700}
           </style>
           <div class="card shadow mb-4 ranking-card">
-            <div class="card-header bg-light">
-              <strong>Member Rankings</strong>
-              <div class="small text-muted">Top contributors / competitors (preview)</div>
-            </div>
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>Member Rankings</strong>
+                  <div class="small text-muted">Top contributors / competitors (preview)</div>
+                </div>
+                <form id="syFilterForm" method="get" class="d-flex align-items-center">
+                  <select name="school_year" onchange="document.getElementById('syFilterForm').submit()" class="form-select form-select-sm">
+                    <option value="">All years</option>
+                    {% for sy in school_years %}
+                      <option value="{{ sy.id }}" {% if selected_school_year and selected_school_year == sy.id %}selected{% endif %}>{{ sy.sy_start.year }}-{{ sy.sy_end.year }}</option>
+                    {% endfor %}
+                  </select>
+                </form>
+              </div>
             <div class="card-body">
-              <!-- Empty placeholders: no member data rendered -->
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="small text-muted">Members with consecutive attendance streaks</div>
+                <div class="small">
+                  <span class="badge bg-success">3x: {{ streak_counts.three }}</span>
+                  <span class="badge bg-primary">5x: {{ streak_counts.five }}</span>
+                  <span class="badge bg-warning text-dark">10x: {{ streak_counts.ten }}</span>
+                </div>
+              </div>
               <div class="d-flex flex-column">
-                <!-- Repeat a few placeholder rows to show layout -->
-                <div class="member-row">
-                  <div class="avatar" aria-hidden="true"></div>
-                  <div class="profile-placeholder">
-                    <div class="name-placeholder"></div>
-                    <div class="org-placeholder"></div>
+                {% for r in member_rankings %}
+                <div class="member-row py-2">
+                  <div class="org-logo" aria-hidden="true" style="flex:0 0 56px;">
+                    {% if r.member and r.member.organization and r.member.organization.logo %}
+                      <img src="{{ r.member.organization.logo.url }}" class="rounded" style="width:56px;height:46px;object-fit:cover" alt="org-logo">
+                    {% endif %}
                   </div>
-                  <div class="rank-badge">#1</div>
-                </div>
-                <div class="member-row">
-                  <div class="avatar" aria-hidden="true"></div>
-                  <div class="profile-placeholder">
-                    <div class="name-placeholder"></div>
-                    <div class="org-placeholder"></div>
+                  <div class="avatar" aria-hidden="true">
+                    {% if r.member and r.member.admin and r.member.admin.profile_pic %}
+                      <img src="{{ r.member.admin.profile_pic.url }}" class="rounded-circle" style="width:46px;height:46px;object-fit:cover" alt="avatar">
+                    {% endif %}
                   </div>
-                  <div class="rank-badge">#2</div>
-                </div>
-                <div class="member-row">
-                  <div class="avatar" aria-hidden="true"></div>
                   <div class="profile-placeholder">
-                    <div class="name-placeholder"></div>
-                    <div class="org-placeholder"></div>
+                    <div><strong>{{ r.member_name }}</strong></div>
+                    <div class="small text-muted">{{ r.organization }}</div>
+                    <div class="small text-muted">Joined {{ r.total_joined }} events</div>
                   </div>
-                  <div class="rank-badge">#3</div>
-                </div>
-                <div class="member-row">
-                  <div class="avatar" aria-hidden="true"></div>
-                  <div class="profile-placeholder">
-                    <div class="name-placeholder"></div>
-                    <div class="org-placeholder"></div>
+                  <div class="rank-badge">
+                    <span class="badge {% if r.longest_streak >= 10 %}bg-warning text-dark{% elif r.longest_streak >= 5 %}bg-primary{% elif r.longest_streak >= 3 %}bg-success{% else %}bg-secondary{% endif %}">{{ r.longest_streak }}x</span>
                   </div>
-                  <div class="rank-badge">#4</div>
                 </div>
-                <div class="member-row">
-                  <div class="avatar" aria-hidden="true"></div>
-                  <div class="profile-placeholder">
-                    <div class="name-placeholder"></div>
-                    <div class="org-placeholder"></div>
-                  </div>
-                  <div class="rank-badge">#5</div>
-                </div>
+                {% empty %}
+                <div class="text-muted">No member attendance data.</div>
+                {% endfor %}
               </div>
             </div>
           </div>
