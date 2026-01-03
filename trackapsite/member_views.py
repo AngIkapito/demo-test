@@ -20,6 +20,7 @@ def home(request):
     user = request.user
     membership_expiry = None
     membership_status = None
+    member = None
     try:
         member = Member.objects.get(admin=user)
         membership = (
@@ -38,9 +39,71 @@ def home(request):
 
     context = {
         'user': user,
-        'membership_expiry': membership_expiry,
+        'membership_expiry': membership_expiry, 
         'membership_sy_status': membership_status,
     }
+    # Build timeline entries from this member's Membership records
+    timeline_entries = []
+    try:
+        if member:
+            mem_qs = Membership.objects.filter(member=member).select_related('school_year').order_by('-school_year__sy_start')
+            for m in mem_qs:
+                sy = getattr(m, 'school_year', None)
+                # Prefer membership.created_at as the timeline date
+                created = getattr(m, 'created_at', None)
+                date_str = None
+                year = None
+                if created:
+                    try:
+                        date_str = created.strftime('%b %d, %Y')
+                        year = getattr(created, 'year', None)
+                    except Exception:
+                        date_str = str(created)
+                        try:
+                            year = int(str(created)[:4])
+                        except Exception:
+                            year = None
+                else:
+                    # fallback to school_year start year if created_at missing
+                    if sy and getattr(sy, 'sy_start', None):
+                        try:
+                            year = getattr(sy.sy_start, 'year', None) or int(str(sy.sy_start)[:4])
+                        except Exception:
+                            year = None
+
+                # Gather events the member joined for this school year where they were present
+                joined_events = []
+                try:
+                    if member and sy:
+                        regs = Member_Event_Registration.objects.filter(
+                            member_id=member,
+                            event__school_year=sy,
+                            is_present=True,
+                        ).select_related('event')
+                        for r in regs:
+                            ev = getattr(r, 'event', None)
+                            joined_events.append({
+                                'title': getattr(ev, 'title', '') if ev else '',
+                                'date': getattr(ev, 'date', None).strftime('%b %d, %Y') if getattr(ev, 'date', None) else '',
+                                'id': getattr(ev, 'id', None) if ev else None,
+                            })
+                except Exception:
+                    joined_events = []
+
+                timeline_entries.append({
+                    'year': year,
+                    'date': date_str,
+                    'school_year_display': f"{getattr(sy, 'sy_start', '') and sy.sy_start.year}-{getattr(sy, 'sy_end', '') and sy.sy_end.year}" if sy and getattr(sy, 'sy_start', None) and getattr(sy, 'sy_end', None) else '',
+                    'status': getattr(m, 'status', ''),
+                    'id': getattr(m, 'id', None),
+                    'notes': '',
+                    'school_year_id': getattr(sy, 'id', None) if sy else None,
+                    'joined_events': joined_events,
+                })
+    except Exception:
+        timeline_entries = []
+
+    context['timeline_entries'] = timeline_entries
     return render(request,'member/home.html', context)
 
 

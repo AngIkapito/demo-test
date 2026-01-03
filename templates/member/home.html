@@ -92,6 +92,50 @@
                 </ul>
             </div>
 
+            <!-- Timeline Card (redesigned) -->
+            <div class="card mb-4 shadow timeline-card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Timeline</strong>
+                        <div class="small text-muted">Membership and Joined Events</div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="timeline">
+                        {% if timeline_entries %}
+                            {% for te in timeline_entries %}
+                                <li class="timeline-entry">
+                                    <div class="timeline-date">{% if te.date %}{{ te.date }}{% elif te.year %}{{ te.year }}{% else %}—{% endif %}</div>
+                                    <div class="timeline-marker {% if te.status == 'Approved' %}marker-success{% elif te.status == 'Pending' %}marker-warning{% else %}marker-primary{% endif %}"></div>
+                                    <div class="timeline-body">
+                                        <h6 class="mb-1">Membership</h6>
+                                        <div class="small text-muted mb-1">{{ te.school_year_display }}</div>
+                                        <p class="small mb-0">Status: {{ te.status }}</p>
+                                        {% if te.joined_events %}
+                                            <div class="small fw-semibold mt-2">Joined events:</div>
+                                            <ul class="list-unstyled mt-1 mb-0">
+                                                {% for je in te.joined_events %}
+                                                    <li class="small"><span class="fw-semibold">{{ je.title }}</span> <small class="text-muted">— {{ je.date }}</small></li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% endif %}
+                                    </div>
+                                </li>
+                            {% endfor %}
+                        {% else %}
+                            <li class="timeline-entry">
+                                <div class="timeline-date">—</div>
+                                <div class="timeline-marker marker-primary"></div>
+                                <div class="timeline-body">
+                                    <h6 class="mb-1">No membership records</h6>
+                                    <p class="small mb-0 text-muted">You have no recorded memberships yet.</p>
+                                </div>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
             <!-- Analytics -->
             <div class="card shadow">
                 <div class="card-header">
@@ -101,6 +145,30 @@
                     [Analytics Chart Placeholder]
                 </div>
             </div>
+
+            <style>
+                /* Redesigned vertical timeline */
+                .timeline{list-style:none;margin:0;padding:0;position:relative}
+                .timeline:before{content:'';position:absolute;left:120px;top:12px;bottom:12px;width:2px;background:#e9ecef;border-radius:2px}
+                .timeline-entry{position:relative;display:flex;gap:16px;padding:18px 12px;border-bottom:1px solid #f1f3f5}
+                .timeline-date{width:110px;flex:0 0 110px;text-align:right;padding-right:10px;color:#6c757d;font-size:.875rem}
+                .timeline-marker{position:absolute;left:114px;top:22px;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 6px rgba(0,0,0,0.03)}
+                .timeline-body{padding-left:8px}
+                .marker-primary{background:#0d6efd}
+                .marker-success{background:#198754}
+                .marker-warning{background:#ffc107}
+                .timeline-entry h6{margin:0;font-size:1rem}
+                .timeline-entry p{margin:0}
+
+                /* compact on mobile */
+                @media (max-width:768px){
+                    .timeline:before{left:48px}
+                    .timeline-entry{padding-left:12px}
+                    .timeline-date{display:block;width:auto;flex:0 0 auto;text-align:left;padding-right:0;margin-bottom:6px}
+                    .timeline-marker{left:42px}
+                    .timeline-body{padding-left:0}
+                }
+            </style>
 
 
         {% comment %} </div> {% endcomment %}
@@ -200,6 +268,19 @@
             modal.show();
         }
     });
+</script>
+
+<script>
+// Ensure Bootstrap JS is loaded (fallback to CDN if base template didn't include it)
+(function(){
+    if (typeof window.bootstrap === 'undefined'){
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js';
+        s.crossOrigin = 'anonymous';
+        s.onload = function(){ console.log('Bootstrap bundle loaded dynamically'); };
+        document.head.appendChild(s);
+    }
+})();
 </script>
 
 {% endblock %}
