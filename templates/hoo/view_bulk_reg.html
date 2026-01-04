@@ -6,18 +6,29 @@
 
 <div class="card shadow mb-4">
 	<div class="card-body">
-		<div class="d-sm-flex align-items-center justify-content-between mb-4">
-			<a href="{% url 'hoo_home' %}" class="btn btn-secondary" title="Go Back">
-				<i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
-			</a>
-			<h1 class="h3 mb-0 text-gray-800">Member Registration</h1>
-			<div></div>
+		<div class="col-sm-12">
+			<div class="d-sm-flex align-items-center mb-4">
+				<a href="{% url 'hoo_home' %}" class="btn btn-secondary" title="Go Back">
+					<i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+				</a>
+				<h1 class="h3 mb-0 text-gray-800 mx-auto">Member Event Registration</h1>
+			</div>
+
+			<!-- Bulk action controls (right-aligned) -->
+			<div class="mb-3 d-flex justify-content-end">
+				<div class="btn-group" role="group" aria-label="Bulk actions">
+					<button id="selectAllBtn" class="btn btn-primary btn-sm">Select All</button>
+					<button id="approveSelectedBtn" class="btn btn-success btn-sm">Approve Selected</button>
+					<button id="declineSelectedBtn" class="btn btn-danger btn-sm">Decline Selected</button>
+				</div>
+			</div>
 		</div>
 
 		<div class="table-responsive">
 			<table class="table table-bordered text-center text-uppercase" id="dataTable" width="100%" cellspacing="0">
 				<thead>
 					<tr>
+						<th></th>
 						<th>Last Name</th>
 						<th>First Name</th>
 						<th>School</th>
@@ -29,6 +40,7 @@
 				</thead>
 				<tfoot>
 					<tr>
+						<th></th>
 						<th>Last Name</th>
 						<th>First Name</th>
 						<th>School</th>
@@ -41,6 +53,7 @@
 				<tbody>
 					{% for reg in bulk_regs %}
 					<tr>
+						<td class="align-middle"><input type="checkbox" class="member-checkbox" value="{{ reg.id }}"></td>
 						<td>{{ reg.last_name }}</td>
 						<td>{{ reg.first_name }}</td>
 						<td>
@@ -91,7 +104,7 @@
 					</tr>
 					{% empty %}
 					<tr>
-						<td colspan="7" class="text-center">No bulk registrations found.</td>
+						<td colspan="8" class="text-center">No bulk registrations found.</td>
 					</tr>
 					{% endfor %}
 				</tbody>
@@ -103,15 +116,117 @@
 <script>
    $(document).ready(function() {
 	   $('#dataTable').DataTable({
-		   "order": [[ 0, "asc" ]],
+		   "order": [[ 1, "asc" ]],
 		   "paging": true,
 		   "searching": true,
 		   "columnDefs": [
-			   { "orderable": true, "targets": [0, 1, 2, 3, 4, 5] },
-			   { "orderable": false, "targets": [6] }
+			   { "orderable": true, "targets": [1, 2, 3, 4, 5, 6] },
+			   { "orderable": false, "targets": [0, 7] }
 		   ]
 	   });
    });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	function getCookie(name) {
+		let cookieValue = null;
+		if (document.cookie && document.cookie !== '') {
+			const cookies = document.cookie.split(';');
+			for (let i = 0; i < cookies.length; i++) {
+				const cookie = cookies[i].trim();
+				if (cookie.substring(0, name.length + 1) === (name + '=')) {
+					cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+					break;
+				}
+			}
+		}
+		return cookieValue;
+	}
+
+	const csrftoken = getCookie('csrftoken');
+	const selectAllBtn = document.getElementById('selectAllBtn');
+	const approveBtn = document.getElementById('approveSelectedBtn');
+	const declineBtn = document.getElementById('declineSelectedBtn');
+
+	if (selectAllBtn) {
+		selectAllBtn.dataset.all = 'false';
+		selectAllBtn.addEventListener('click', function() {
+			const all = document.querySelectorAll('.member-checkbox');
+			const setTo = this.dataset.all !== 'true';
+			all.forEach(cb => cb.checked = setTo);
+			this.dataset.all = setTo ? 'true' : 'false';
+			this.innerText = setTo ? 'Unselect All' : 'Select All';
+		});
+	}
+
+	function getSelectedIds() {
+		return Array.from(document.querySelectorAll('.member-checkbox:checked')).map(cb => cb.value).filter(Boolean);
+	}
+
+	function sendBulkAction(ids, action) {
+		if (!ids.length) { alert('No members selected'); return Promise.resolve([]); }
+
+		// Send a single request to the bulk member-registration endpoints so server adds one summary message
+		const endpointFor = (act) => {
+			if (act === 'approve') return '/hoo/MemberRegistrations/ApproveMultiple/';
+			if (act === 'decline') return '/hoo/MemberRegistrations/DeclineMultiple/';
+			return '';
+		};
+
+		const url = endpointFor(action);
+		if (!url) return Promise.resolve([]);
+		return fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-CSRFToken': csrftoken,
+				'X-Requested-With': 'XMLHttpRequest'
+			},
+			body: JSON.stringify({ ids: ids })
+		}).then(r => r.json().then(j => ({ ok: r.ok, json: j })).catch(() => ({ ok: r.ok }))).catch(() => ({ ok: false }));
+	}
+
+	function showAlert(type, text) {
+		const container = document.querySelector('.card.shadow') || document.body;
+		const div = document.createElement('div');
+		let cls = 'alert alert-info';
+		if (type === 'success') cls = 'alert alert-success';
+		if (type === 'warning') cls = 'alert alert-warning';
+		if (type === 'danger' || type === 'error') cls = 'alert alert-danger';
+		div.className = cls + ' alert-dismissible fade show';
+		div.role = 'alert';
+		div.innerHTML = `<strong>${text}</strong>`;
+		container.parentNode.insertBefore(div, container);
+		setTimeout(() => {
+			div.classList.remove('show');
+			div.classList.add('fade');
+			setTimeout(() => div.remove(), 300);
+		}, 5000);
+	}
+
+	if (approveBtn) approveBtn.addEventListener('click', function() {
+		const ids = getSelectedIds();
+		if (!ids.length) { alert('No members selected'); return; }
+		const btn = this; btn.disabled = true;
+		sendBulkAction(ids, 'approve').then(results => {
+			btn.disabled = false;
+			// server-side messages will be shown after reload
+			window.location.reload();
+		}).catch(err => { btn.disabled = false; console.error(err); alert('Error during bulk approve'); });
+	});
+
+	if (declineBtn) declineBtn.addEventListener('click', function() {
+		const ids = getSelectedIds();
+		if (!ids.length) { alert('No members selected'); return; }
+		const btn = this; btn.disabled = true;
+		sendBulkAction(ids, 'decline').then(results => {
+			btn.disabled = false;
+			// server-side messages will be shown after reload
+			window.location.reload();
+		}).catch(err => { btn.disabled = false; console.error(err); alert('Error during bulk decline'); });
+	});
+});
 </script>
 
 <!-- Inline details section (hidden until a member is selected) -->

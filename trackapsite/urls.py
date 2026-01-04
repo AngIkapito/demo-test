@@ -122,6 +122,8 @@ urlpatterns = [
     path('hoo/MemberRegistrations/Get/<int:member_id>/', hoo_views.GET_BULK_BY_MEMBER, name='get_bulk_by_member'),
     path('hoo/MemberRegistrations/Approve/<int:reg_id>/', hoo_views.APPROVE_MEMBER_EVENT_REG, name='approve_bulk_registration'),
     path('hoo/MemberRegistrations/Decline/<int:reg_id>/', hoo_views.DECLINE_MEMBER_EVENT_REG, name='decline_bulk_registration'),
+    path('hoo/MemberRegistrations/ApproveMultiple/', hoo_views.APPROVE_MEMBER_EVENT_REGS_VIEW, name='approve_member_registration_multiple'),
+    path('hoo/MemberRegistrations/DeclineMultiple/', hoo_views.DECLINE_MEMBER_EVENT_REGS_VIEW, name='decline_member_registration_multiple'),
     path('hoo/MemberRegistrations/BulkDecline/<int:reg_id>/', hoo_views.DECLINE_BULK_EVENT_REG, name='decline_bulk_registration_bulk'),
     # Bulk-approve endpoints (single and multiple)
     path('hoo/MemberRegistrations/BulkApprove/<int:reg_id>/', hoo_views.APPROVE_BULK_EVENT_REG_VIEW, name='approve_bulk_registration_bulk'),

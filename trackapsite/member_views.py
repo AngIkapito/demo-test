@@ -183,14 +183,16 @@ def MEMBER_EVENT_REG(request):
         return render(request, 'officer/member_event_reg.html', {'event': None})
 
     if request.method == 'POST':
-        user_id = request.user.id
-        if not user_id:
-            messages.error(request, "User not authenticated.")
+        # map the current logged-in user to the Member record
+        try:
+            member = Member.objects.get(admin=request.user)
+        except Member.DoesNotExist:
+            messages.error(request, "Member profile not found for this user.")
             return redirect('member_event_reg_member')
 
-        # ✅ Check for duplicate registration
+        # ✅ Check for duplicate registration using member_id FK
         already_registered = Member_Event_Registration.objects.filter(
-            user_id=user_id,
+            member_id=member,
             event_id=event.id,
             status='registered'
         ).exists()
@@ -222,7 +224,7 @@ def MEMBER_EVENT_REG(request):
         try:
             # ✅ Create the registration record
             Member_Event_Registration.objects.create(
-                user_id=user_id,
+                member_id=member,
                 event_id=event.id,
                 date_created=timezone.now(),
                 status='registered'

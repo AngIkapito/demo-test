@@ -283,7 +283,13 @@ class Member_Event_Registration(models.Model):
     is_approved = models.BooleanField(default=False)
     
     def __str__(self):
-        return f"Registration of {self.user.username} for {self.event.title}" 
+        try:
+            member_username = getattr(self.member_id, 'admin', None) and getattr(self.member_id.admin, 'username', None)
+            if member_username:
+                return f"Registration of {member_username} for {self.event.title}"
+        except Exception:
+            pass
+        return f"Registration {getattr(self, 'id', '')} for {getattr(self.event, 'title', '')}"
 
     
  

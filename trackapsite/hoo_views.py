@@ -1357,7 +1357,136 @@ def MEMBERSHIP_APPROVAL(request):
     Sends emails using CustomUser email linked via Member.admin.
     """
     if request.method == "POST":
-        # Use membership.member_id as unique identifier
+        # Support AJAX bulk requests: accept JSON { ids: [...], action: 'approve'|'decline' }
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            try:
+                payload = json.loads(request.body.decode('utf-8') or '{}')
+            except Exception:
+                return JsonResponse({'error': 'bad_payload'}, status=400)
+
+            ids = payload.get('ids') if isinstance(payload, dict) else None
+            action = payload.get('action') if isinstance(payload, dict) else None
+
+            if not ids or not isinstance(ids, list) or action not in ('approve', 'decline'):
+                return JsonResponse({'error': 'missing_ids_or_action'}, status=400)
+
+            approved = []
+            declined = []
+            failed = {}
+            email_failed = {}
+
+            for mid in ids:
+                try:
+                    member = Member.objects.get(id=mid)
+                except Member.DoesNotExist:
+                    failed[str(mid)] = 'not_found'
+                    continue
+
+                user = getattr(member, 'admin', None)
+
+                # Find membership record (prefer pending)
+                membership_qs = Membership.objects.filter(member_id=member.id).order_by('-id')
+                membership = membership_qs.filter(status__iexact='PENDING').first() or membership_qs.first()
+                if not membership:
+                    failed[str(mid)] = 'no_membership'
+                    continue
+
+                try:
+                    if action == 'approve':
+                        membership.status = 'APPROVED'
+                        membership.save()
+                        if user:
+                            user.is_active = 1
+                            user.save()
+
+                        # For new memberships generate password and email; for renewals just notify
+                        try:
+                            if getattr(membership, 'membertype_id', None) != 2:
+                                password = get_random_string(length=10)
+                                if user:
+                                    user.set_password(password)
+                                    user.save()
+                                from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                                try:
+                                    send_mail(
+                                        subject='Membership Approved',
+                                        message=(
+                                            f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                            f"Your membership has been approved.\n"
+                                            f"Here are your login credentials:\n\n"
+                                            f"Username: {getattr(user, 'username', '')}\n"
+                                            f"Password: {password}\n\n"
+                                            f"Please login and change your password as soon as possible."
+                                        ),
+                                        from_email=from_email,
+                                        recipient_list=[getattr(user, 'email', '')],
+                                        fail_silently=False,
+                                    )
+                                except Exception as e:
+                                    email_failed[str(mid)] = str(e)
+                            else:
+                                from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                                try:
+                                    send_mail(
+                                        subject='Membership Renewal Approved',
+                                        message=(
+                                            f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                            f"Your membership renewal has been approved.\n\n"
+                                            f"Thank you."
+                                        ),
+                                        from_email=from_email,
+                                        recipient_list=[getattr(user, 'email', '')],
+                                        fail_silently=False,
+                                    )
+                                except Exception as e:
+                                    email_failed[str(mid)] = str(e)
+                        except Exception:
+                            pass
+                        approved.append(mid)
+
+                    elif action == 'decline':
+                        membership.status = 'DECLINED'
+                        membership.save()
+                        try:
+                            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                            try:
+                                send_mail(
+                                    subject='Membership Application Declined',
+                                    message=(
+                                        f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                        "We regret to inform you that your membership application has been declined.\n\n"
+                                        "If you believe this is a mistake or have questions, please contact the administration.\n\n"
+                                        "Regards,\nPSITE President/Officer"
+                                    ),
+                                    from_email=from_email,
+                                    recipient_list=[getattr(user, 'email', '')],
+                                    fail_silently=False,
+                                )
+                            except Exception as e:
+                                email_failed[str(mid)] = str(e)
+                        except Exception:
+                            pass
+                        declined.append(mid)
+
+                except Exception as e:
+                    failed[str(mid)] = str(e)
+
+            # Add single summary messages for the HOO page reload
+            try:
+                if approved:
+                    messages.success(request, f"{len(approved)} membership(s) approved.")
+                if declined:
+                    messages.warning(request, f"{len(declined)} membership(s) declined.")
+                if failed:
+                    messages.error(request, f"{len(failed)} membership(s) failed to process.")
+                if email_failed:
+                    messages.warning(request, f"{len(email_failed)} email(s) failed to send.")
+            except Exception:
+                pass
+
+            return JsonResponse({'success': True, 'approved': approved, 'declined': declined, 'failed': failed, 'email_failed': email_failed})
+
+        # Non-AJAX single-member form POST (existing behavior)
         member_id = request.POST.get("member_id")
         action = request.POST.get("action")  # "approve" or "decline"
 
@@ -1441,6 +1570,24 @@ def MEMBERSHIP_APPROVAL(request):
         elif action == "decline":
             membership.status = "DECLINED"
             membership.save()
+
+            # Send decline notification email to the user
+            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+            try:
+                send_mail(
+                    subject="Membership Application Declined",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        "We regret to inform you that your membership application has been declined.\n\n"
+                        "If you believe this is a mistake or have questions, please contact the administration.\n\n"
+                        "Regards,\nPSITE President/Officer"
+                    ),
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                messages.error(request, f"Failed to send decline email: {e}")
 
             messages.warning(
                 request, f"Membership for {user.first_name} {user.last_name} declined."
@@ -2060,7 +2207,212 @@ def APPROVE_MEMBER_EVENT_REG(request, reg_id):
     except Exception:
         pass
 
+    # Send approval email to the registered user (non-blocking)
+    try:
+        event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        if user and getattr(user, 'email', None):
+            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+            try:
+                send_mail(
+                    subject="Event Registration Approved",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"Your registration for the event \"{event_title}\" has been approved.\n\n"
+                        "Please check the event details on the portal for more information.\n\n"
+                        "Regards,\nPSITE President/Officer"
+                    ),
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                try:
+                    messages.error(request, f"Failed to send approval email: {e}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
     return JsonResponse({'success': True, 'id': reg.id})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def APPROVE_MEMBER_EVENT_REGS_VIEW(request):
+    """Approve multiple Member_Event_Registration ids and add a single summary message.
+
+    Expects JSON body: { "ids": [1,2,3] }
+    Returns JSON with success/failure counts and reloads will show the Django message.
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'error': 'bad_payload'}, status=400)
+
+    ids = payload.get('ids') if isinstance(payload, dict) else None
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({'error': 'missing_ids'}, status=400)
+
+    success = []
+    failed = {}
+    email_failed = {}
+    for rid in ids:
+        try:
+            reg = Member_Event_Registration.objects.select_related('event', 'member_id__admin').get(id=rid)
+        except Member_Event_Registration.DoesNotExist:
+            failed[str(rid)] = 'not_found'
+            continue
+
+        try:
+            with transaction.atomic():
+                if not getattr(reg, 'is_approved', False):
+                    reg.is_approved = True
+                    reg.save()
+                    event = getattr(reg, 'event', None)
+                    if event and getattr(event, 'id', None):
+                        Event.objects.filter(id=event.id).update(available_slots=F('available_slots') - 1)
+                        try:
+                            ev = Event.objects.get(id=event.id)
+                            if ev.available_slots is None or ev.available_slots < 0:
+                                ev.available_slots = 0
+                                ev.save()
+                        except Exception:
+                            pass
+                        # Send approval email to user (non-blocking, record failures)
+                        try:
+                            event_title = getattr(event, 'title', 'the event')
+                            member = getattr(reg, 'member_id', None)
+                            user = getattr(member, 'admin', None)
+                            if user and getattr(user, 'email', None):
+                                from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                                try:
+                                    send_mail(
+                                        subject="Event Registration Approved",
+                                        message=(
+                                            f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                            f"Your registration for the event \"{event_title}\" has been approved.\n\n"
+                                            "Please check the event details on the portal for more information.\n\n"
+                                            "Regards,\nPSITE President/Officer"
+                                        ),
+                                        from_email=from_email,
+                                        recipient_list=[user.email],
+                                        fail_silently=False,
+                                    )
+                                except Exception as e:
+                                    email_failed[str(rid)] = str(e)
+                        except Exception:
+                            # do not let email issues break the approval loop
+                            pass
+                success.append(reg.id)
+        except Exception as e:
+            failed[str(rid)] = str(e)
+
+    # Add one summary message
+    try:
+        if success:
+            messages.success(request, f"{len(success)} member(s) event registration approved.")
+        if failed:
+            messages.warning(request, f"{len(failed)} registration(s) failed to approve.")
+        if email_failed:
+            messages.warning(request, f"{len(email_failed)} approval email(s) failed to send.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'approved': success, 'failed': failed, 'email_failed': email_failed})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def DECLINE_MEMBER_EVENT_REGS_VIEW(request):
+    """Decline multiple Member_Event_Registration ids and add a single summary message.
+
+    Expects JSON body: { "ids": [1,2,3] }
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'error': 'bad_payload'}, status=400)
+
+    ids = payload.get('ids') if isinstance(payload, dict) else None
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({'error': 'missing_ids'}, status=400)
+
+    success = []
+    failed = {}
+    email_failed = {}
+    for rid in ids:
+        try:
+            reg = Member_Event_Registration.objects.select_related('event', 'member_id__admin').get(id=rid)
+        except Member_Event_Registration.DoesNotExist:
+            failed[str(rid)] = 'not_found'
+            continue
+
+        try:
+            with transaction.atomic():
+                was_approved = bool(getattr(reg, 'is_approved', False))
+                reg.is_approved = False
+                reg.save()
+
+                if was_approved:
+                    event = getattr(reg, 'event', None)
+                    if event and getattr(event, 'id', None):
+                        Event.objects.filter(id=event.id).update(available_slots=F('available_slots') + 1)
+                        try:
+                            ev = Event.objects.get(id=event.id)
+                            if ev.available_slots is None:
+                                ev.available_slots = 0
+                            if getattr(ev, 'max_attendees', None) is not None and ev.available_slots > ev.max_attendees:
+                                ev.available_slots = ev.max_attendees
+                            ev.save()
+                        except Exception:
+                            pass
+                        # Send decline email to user (non-blocking, record failures)
+                        try:
+                            event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+                            member = getattr(reg, 'member_id', None)
+                            user = getattr(member, 'admin', None)
+                            if user and getattr(user, 'email', None):
+                                from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                                try:
+                                    send_mail(
+                                        subject="Event Registration Declined",
+                                        message=(
+                                            f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                            f"We regret to inform you that your registration for the event \"{event_title}\" has been declined.\n\n"
+                                            "If you have questions, please contact the organizers via the portal.\n\n"
+                                            "Regards,\nPSITE President/Officer"
+                                        ),
+                                        from_email=from_email,
+                                        recipient_list=[user.email],
+                                        fail_silently=False,
+                                    )
+                                except Exception as e:
+                                    email_failed[str(rid)] = str(e)
+                        except Exception:
+                            pass
+                success.append(reg.id)
+        except Exception as e:
+            failed[str(rid)] = str(e)
+
+    try:
+        if success:
+            messages.success(request, f"{len(success)} member(s) event registration declined.")
+        if failed:
+            messages.warning(request, f"{len(failed)} registration(s) failed to decline.")
+        if email_failed:
+            messages.warning(request, f"{len(email_failed)} decline email(s) failed to send.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'declined': success, 'failed': failed, 'email_failed': email_failed})
 
 @login_required(login_url='/')
 @require_http_methods(["POST"])
@@ -2105,6 +2457,34 @@ def DECLINE_MEMBER_EVENT_REG(request, reg_id):
             messages.warning(request, f"Registration for {user.first_name} {user.last_name} declined.")
         else:
             messages.warning(request, "Registration declined.")
+    except Exception:
+        pass
+
+    # Send decline email to the registered user (non-blocking)
+    try:
+        event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        if user and getattr(user, 'email', None):
+            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+            try:
+                send_mail(
+                    subject="Event Registration Declined",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"We regret to inform you that your registration for the event \"{event_title}\" has been declined.\n\n"
+                        "If you believe this is an error or have questions, please contact the administration.\n\n"
+                        "Regards,\nPSITE President/Officer"
+                    ),
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                try:
+                    messages.error(request, f"Failed to send decline email: {e}")
+                except Exception:
+                    pass
     except Exception:
         pass
 
