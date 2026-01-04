@@ -2414,6 +2414,158 @@ def DECLINE_MEMBER_EVENT_REGS_VIEW(request):
 
     return JsonResponse({'success': True, 'declined': success, 'failed': failed, 'email_failed': email_failed})
 
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def PRESENT_MEMBER_EVENT_REGS_VIEW(request):
+    """Mark multiple Member_Event_Registration rows as present and email users.
+
+    Expects JSON body: { "ids": [1,2,3] }
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'error': 'bad_payload'}, status=400)
+
+    ids = payload.get('ids') if isinstance(payload, dict) else None
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({'error': 'missing_ids'}, status=400)
+
+    success = []
+    failed = {}
+    email_failed = {}
+    for rid in ids:
+        try:
+            reg = Member_Event_Registration.objects.select_related('member_id__admin', 'event').get(id=rid)
+        except Member_Event_Registration.DoesNotExist:
+            failed[str(rid)] = 'not_found'
+            continue
+
+        try:
+            with transaction.atomic():
+                reg.is_present = True
+                reg.save()
+
+                # send present notification
+                try:
+                    member = getattr(reg, 'member_id', None)
+                    user = getattr(member, 'admin', None)
+                    event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+                    if user and getattr(user, 'email', None):
+                        from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                        try:
+                            send_mail(
+                                subject="Event Attendance: Present",
+                                message=(
+                                    f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                    f"You have been marked present for the event \"{event_title}\".\n\n"
+                                    "Thank you for attending.\n\n"
+                                    "Regards,\nPSITE President/Officer"
+                                ),
+                                from_email=from_email,
+                                recipient_list=[user.email],
+                                fail_silently=False,
+                            )
+                        except Exception as e:
+                            email_failed[str(rid)] = str(e)
+                except Exception:
+                    pass
+
+                success.append(reg.id)
+        except Exception as e:
+            failed[str(rid)] = str(e)
+
+    try:
+        if success:
+            messages.success(request, f"{len(success)} member(s) marked present.")
+        if failed:
+            messages.warning(request, f"{len(failed)} registration(s) failed to update present.")
+        if email_failed:
+            messages.warning(request, f"{len(email_failed)} present email(s) failed to send.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'presented': success, 'failed': failed, 'email_failed': email_failed})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def ABSENT_MEMBER_EVENT_REGS_VIEW(request):
+    """Mark multiple Member_Event_Registration rows as absent and email users.
+
+    Expects JSON body: { "ids": [1,2,3] }
+    """
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        payload = json.loads(request.body.decode('utf-8') or '{}')
+    except Exception:
+        return JsonResponse({'error': 'bad_payload'}, status=400)
+
+    ids = payload.get('ids') if isinstance(payload, dict) else None
+    if not ids or not isinstance(ids, list):
+        return JsonResponse({'error': 'missing_ids'}, status=400)
+
+    success = []
+    failed = {}
+    email_failed = {}
+    for rid in ids:
+        try:
+            reg = Member_Event_Registration.objects.select_related('member_id__admin', 'event').get(id=rid)
+        except Member_Event_Registration.DoesNotExist:
+            failed[str(rid)] = 'not_found'
+            continue
+
+        try:
+            with transaction.atomic():
+                reg.is_present = False
+                reg.save()
+
+                # send absent notification
+                try:
+                    member = getattr(reg, 'member_id', None)
+                    user = getattr(member, 'admin', None)
+                    event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+                    if user and getattr(user, 'email', None):
+                        from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+                        try:
+                            send_mail(
+                                subject="Event Attendance: Marked Absent",
+                                message=(
+                                    f"Dear {getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')},\n\n"
+                                    f"You have been marked absent for the event \"{event_title}\".\n\n"
+                                    "If this is incorrect, please contact the organizers.\n\n"
+                                    "Regards,\nPSITE President/Officer"
+                                ),
+                                from_email=from_email,
+                                recipient_list=[user.email],
+                                fail_silently=False,
+                            )
+                        except Exception as e:
+                            email_failed[str(rid)] = str(e)
+                except Exception:
+                    pass
+
+                success.append(reg.id)
+        except Exception as e:
+            failed[str(rid)] = str(e)
+
+    try:
+        if success:
+            messages.success(request, f"{len(success)} member(s) marked absent.")
+        if failed:
+            messages.warning(request, f"{len(failed)} registration(s) failed to update absent.")
+        if email_failed:
+            messages.warning(request, f"{len(email_failed)} absent email(s) failed to send.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'absented': success, 'failed': failed, 'email_failed': email_failed})
+
 @login_required(login_url='/')
 @require_http_methods(["POST"])
 def DECLINE_MEMBER_EVENT_REG(request, reg_id):
@@ -2485,6 +2637,124 @@ def DECLINE_MEMBER_EVENT_REG(request, reg_id):
                     messages.error(request, f"Failed to send decline email: {e}")
                 except Exception:
                     pass
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'id': reg.id})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def PRESENT_MEMBER_EVENT_REG(request, reg_id):
+    """Mark a single Member_Event_Registration as present and email the user."""
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        reg = Member_Event_Registration.objects.select_related('member_id__admin', 'event').get(id=reg_id)
+    except Member_Event_Registration.DoesNotExist:
+        return JsonResponse({'error': 'not_found'}, status=404)
+
+    try:
+        with transaction.atomic():
+            reg.is_present = True
+            reg.save()
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+    try:
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+        if user and getattr(user, 'email', None):
+            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+            try:
+                send_mail(
+                    subject="Event Attendance: Present",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"You have been marked present for the event \"{event_title}\".\n\n"
+                        "Thank you for attending.\n\n"
+                        "Regards,\nPSITE President/Officer"
+                    ),
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                try:
+                    messages.warning(request, f"Failed to send present email: {e}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        if user:
+            messages.success(request, f"Marked {user.first_name} {user.last_name} present.")
+        else:
+            messages.success(request, "Marked attendee present.")
+    except Exception:
+        pass
+
+    return JsonResponse({'success': True, 'id': reg.id})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def ABSENT_MEMBER_EVENT_REG(request, reg_id):
+    """Mark a single Member_Event_Registration as absent and email the user."""
+    if request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+
+    try:
+        reg = Member_Event_Registration.objects.select_related('member_id__admin', 'event').get(id=reg_id)
+    except Member_Event_Registration.DoesNotExist:
+        return JsonResponse({'error': 'not_found'}, status=404)
+
+    try:
+        with transaction.atomic():
+            reg.is_present = False
+            reg.save()
+    except Exception as e:
+        return JsonResponse({'error': 'save_failed', 'message': str(e)}, status=500)
+
+    try:
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        event_title = getattr(getattr(reg, 'event', None), 'title', 'the event')
+        if user and getattr(user, 'email', None):
+            from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
+            try:
+                send_mail(
+                    subject="Event Attendance: Marked Absent",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"You have been marked absent for the event \"{event_title}\".\n\n"
+                        "If this is incorrect, please contact the organizers.\n\n"
+                        "Regards,\nPSITE President/Officer"
+                    ),
+                    from_email=from_email,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                try:
+                    messages.warning(request, f"Failed to send absent email: {e}")
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    try:
+        member = getattr(reg, 'member_id', None)
+        user = getattr(member, 'admin', None)
+        if user:
+            messages.success(request, f"Marked {user.first_name} {user.last_name} absent.")
+        else:
+            messages.success(request, "Marked attendee absent.")
     except Exception:
         pass
 

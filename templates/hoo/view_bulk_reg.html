@@ -20,6 +20,8 @@
 					<button id="selectAllBtn" class="btn btn-primary btn-sm">Select All</button>
 					<button id="approveSelectedBtn" class="btn btn-success btn-sm">Approve Selected</button>
 					<button id="declineSelectedBtn" class="btn btn-danger btn-sm">Decline Selected</button>
+					<button id="presentSelectedBtn" class="btn btn-warning btn-sm">Present Selected</button>
+					<button id="absentSelectedBtn" class="btn btn-secondary btn-sm">Absent Selected</button>
 				</div>
 			</div>
 		</div>
@@ -148,6 +150,8 @@ document.addEventListener('DOMContentLoaded', function() {
 	const selectAllBtn = document.getElementById('selectAllBtn');
 	const approveBtn = document.getElementById('approveSelectedBtn');
 	const declineBtn = document.getElementById('declineSelectedBtn');
+	const presentBtn = document.getElementById('presentSelectedBtn');
+	const absentBtn = document.getElementById('absentSelectedBtn');
 
 	if (selectAllBtn) {
 		selectAllBtn.dataset.all = 'false';
@@ -171,6 +175,8 @@ document.addEventListener('DOMContentLoaded', function() {
 		const endpointFor = (act) => {
 			if (act === 'approve') return '/hoo/MemberRegistrations/ApproveMultiple/';
 			if (act === 'decline') return '/hoo/MemberRegistrations/DeclineMultiple/';
+				if (act === 'present') return '/hoo/MemberRegistrations/PresentMultiple/';
+				if (act === 'absent') return '/hoo/MemberRegistrations/AbsentMultiple/';
 			return '';
 		};
 
@@ -186,6 +192,7 @@ document.addEventListener('DOMContentLoaded', function() {
 			body: JSON.stringify({ ids: ids })
 		}).then(r => r.json().then(j => ({ ok: r.ok, json: j })).catch(() => ({ ok: r.ok }))).catch(() => ({ ok: false }));
 	}
+
 
 	function showAlert(type, text) {
 		const container = document.querySelector('.card.shadow') || document.body;
@@ -225,6 +232,26 @@ document.addEventListener('DOMContentLoaded', function() {
 			// server-side messages will be shown after reload
 			window.location.reload();
 		}).catch(err => { btn.disabled = false; console.error(err); alert('Error during bulk decline'); });
+	});
+
+	if (presentBtn) presentBtn.addEventListener('click', function() {
+		const ids = getSelectedIds();
+		if (!ids.length) { alert('No members selected'); return; }
+		const btn = this; btn.disabled = true;
+		sendBulkAction(ids, 'present').then(results => {
+			btn.disabled = false;
+			window.location.reload();
+		}).catch(err => { btn.disabled = false; console.error(err); alert('Error during marking present'); });
+	});
+
+	if (absentBtn) absentBtn.addEventListener('click', function() {
+		const ids = getSelectedIds();
+		if (!ids.length) { alert('No members selected'); return; }
+		const btn = this; btn.disabled = true;
+		sendBulkAction(ids, 'absent').then(results => {
+			btn.disabled = false;
+			window.location.reload();
+		}).catch(err => { btn.disabled = false; console.error(err); alert('Error during marking absent'); });
 	});
 });
 </script>
@@ -500,14 +527,15 @@ document.addEventListener('DOMContentLoaded', function() {
 			const button = this;
 			const isPresent = button.innerText.trim().toLowerCase() === 'present';
 
-			fetch('/hoo/attendance/toggle/', {
+			const url = isPresent ? `/hoo/MemberRegistrations/Present/${regId}/` : `/hoo/MemberRegistrations/Absent/${regId}/`;
+			fetch(url, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 					'X-CSRFToken': csrftoken,
 					'X-Requested-With': 'XMLHttpRequest'
 				},
-				body: JSON.stringify({ id: regId, present: isPresent })
+				body: JSON.stringify({})
 			})
 			.then(r => r.json())
 			.then(data => {
