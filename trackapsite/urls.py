@@ -33,6 +33,7 @@ urlpatterns = [
     
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
+    path('hoo/generate_report/', hoo_views.generate_report, name='hoo_generate_report'),
     path('hoo/event_analytics', hoo_views.EVENT_ANALYTICS, name='hoo_event_analytics'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
     path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),

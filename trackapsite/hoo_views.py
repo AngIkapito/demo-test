@@ -17,6 +17,9 @@ import datetime
 import os
 from django.db import transaction
 from django.db.models import F, Count
+from openpyxl import Workbook
+from openpyxl.styles import Font
+from django.utils.http import http_date
 
 # Create your views here.
 def COMPUTE_EVENT_PROGRESS(event):
@@ -295,6 +298,132 @@ def home(request):
     context['topics_pie_labels_json'] = json.dumps(pie_labels)
 
     return render(request, 'hoo/home.html', context)
+
+
+@login_required(login_url='/')
+def generate_report(request):
+    """Generate Excel report of members for selected school year range.
+
+    Expects POST with `sy_start` and `sy_end` (School_Year ids).
+    Builds an .xlsx with columns:
+      A: No. (serial starting at 1)
+      B: School Name (member.organization.name)
+      C: Member Email (member.admin.email)
+      D: Member Lastname (member.admin.last_name)
+      E: Member Firstname (member.admin.first_name)
+    """
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    sy_start_id = request.POST.get('sy_start')
+    sy_end_id = request.POST.get('sy_end')
+
+    # Determine selected school years; fall back to all if none provided
+    sy_qs = School_Year.objects.all()
+    try:
+        if sy_start_id and sy_end_id:
+            sy1 = School_Year.objects.filter(id=int(sy_start_id)).first()
+            sy2 = School_Year.objects.filter(id=int(sy_end_id)).first()
+            if sy1 and sy2:
+                start_date = min(sy1.sy_start, sy2.sy_start)
+                end_date = max(sy1.sy_end, sy2.sy_end)
+                sy_qs = School_Year.objects.filter(sy_start__gte=start_date, sy_end__lte=end_date)
+            elif sy1:
+                sy_qs = School_Year.objects.filter(id=sy1.id)
+            elif sy2:
+                sy_qs = School_Year.objects.filter(id=sy2.id)
+    except Exception:
+        sy_qs = School_Year.objects.all()
+
+    # Get members who have a Membership in the selected school years
+    memberships = Membership.objects.filter(school_year__in=sy_qs)
+    member_ids = list(memberships.values_list('member_id', flat=True)) if memberships.exists() else []
+    members = Member.objects.filter(id__in=member_ids).distinct() if member_ids else Member.objects.none()
+
+    # Build workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Members'
+
+    # Header row
+    ws['A1'] = 'No.'
+    ws['B1'] = 'School Name'
+    ws['C1'] = 'Member Email'
+    ws['D1'] = 'Member Lastname'
+    ws['E1'] = 'Member Firstname'
+
+    # Bold requested header cells (School Name, Member Email, Lastname, Firstname)
+    bold_font = Font(bold=True)
+    ws['B1'].font = bold_font
+    ws['C1'].font = bold_font
+    ws['D1'].font = bold_font
+    ws['E1'].font = bold_font
+
+    # Events as additional columns starting at F (column 6).
+    events_qs = Event.objects.filter(school_year__in=sy_qs).order_by('date')
+    event_list = list(events_qs)
+    start_col = 6  # 'F'
+    for i, ev in enumerate(event_list):
+        cell = ws.cell(row=1, column=start_col + i, value=(getattr(ev, 'title', '') or ''))
+        cell.font = bold_font
+
+    # Preload member-event registrations for quick lookup
+    reg_map = {}
+    if event_list and member_ids:
+        ev_ids = [e.id for e in event_list]
+        regs = Member_Event_Registration.objects.filter(event_id__in=ev_ids, member_id_id__in=member_ids).values('event_id', 'member_id_id', 'is_present')
+        for r in regs:
+            reg_map[(r.get('member_id_id'), r.get('event_id'))] = r.get('is_present')
+
+    # Fill rows
+    row = 2
+    for idx, m in enumerate(members, start=1):
+        # Resolve school name from organization_id to avoid relation surprises
+        school_name = ''
+        try:
+            org_id = getattr(m, 'organization_id', None) or (getattr(m, 'organization', None) and getattr(m.organization, 'id', None))
+            if org_id:
+                school_name = Organization.objects.filter(id=org_id).values_list('name', flat=True).first() or ''
+        except Exception:
+            school_name = ''
+
+        # Resolve member info from admin_id (CustomUser)
+        email = ''
+        first = ''
+        last = ''
+        try:
+            admin_id = getattr(m, 'admin_id', None) or (getattr(m, 'admin', None) and getattr(m.admin, 'id', None))
+            if admin_id:
+                cu = CustomUser.objects.filter(id=admin_id).values('email', 'first_name', 'last_name').first()
+                if cu:
+                    email = cu.get('email', '') or ''
+                    first = cu.get('first_name', '') or ''
+                    last = cu.get('last_name', '') or ''
+        except Exception:
+            pass
+
+        ws.cell(row=row, column=1, value=idx)
+        ws.cell(row=row, column=2, value=school_name)
+        ws.cell(row=row, column=3, value=email)
+        ws.cell(row=row, column=4, value=last)
+        ws.cell(row=row, column=5, value=first)
+        # Fill attendance columns per event: 'Attended' if is_present truthy, otherwise 'Not Attended'
+        for j, ev in enumerate(event_list):
+            present = reg_map.get((m.id, ev.id))
+            attended_text = 'Attended' if bool(present) else 'Not Attended'
+            ws.cell(row=row, column=start_col + j, value=attended_text)
+        row += 1
+
+    # Prepare response
+    from io import BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"members_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
 
 
 @login_required(login_url='/')
