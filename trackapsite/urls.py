@@ -33,7 +33,7 @@ urlpatterns = [
     
     #President/Admin/Head of Organization Panel
     path('hoo/home', hoo_views.home, name='hoo_home'),
-    path('hoo/generate_report/', hoo_views.generate_report, name='hoo_generate_report'),
+    path('hoo/generate_report/', hoo_views.GENERATE_REPORT, name='hoo_generate_report'),
     path('hoo/event_analytics', hoo_views.EVENT_ANALYTICS, name='hoo_event_analytics'),
     # path('hoo/member_detail', hoo_views.MEMBER_DETAIL, name='member_detail'),
     path('hoo/profile', hoo_views.PROFILE, name='profile_hoo'),
@@ -45,6 +45,8 @@ urlpatterns = [
     #add Member
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
     path('hoo/Member/ViewAll', hoo_views.VIEWALL_MEMBER, name='viewall_member'),
+    path('hoo/Event/Invitations', hoo_views.EVENT_INVITATIONS, name='hoo_event_invitations'),
+    path('hoo/SendInvitations', hoo_views.SEND_INVITATIONS, name='hoo_send_invitations'),
     path('hoo/Member/Edit/<str:id>', hoo_views.EDIT_MEMBER, name='edit_member'),
     path('hoo/Member/Update', hoo_views.UPDATE_MEMBER, name='update_member'),
     path('hoo/Member/Delete/<str:id>', hoo_views.DELETE_MEMBER, name='delete_member'),

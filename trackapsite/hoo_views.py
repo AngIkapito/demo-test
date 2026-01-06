@@ -10,13 +10,15 @@ from django.utils import timezone
 import json
 from django.http import JsonResponse, Http404
 from django.views.decorators.http import require_http_methods
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
+from email.mime.image import MIMEImage
+import os
 from django.conf import settings
 from django.utils.crypto import get_random_string
 import datetime
 import os
 from django.db import transaction
-from django.db.models import F, Count
+from django.db.models import F, Count, Max
 from openpyxl import Workbook
 from openpyxl.styles import Font
 from django.utils.http import http_date
@@ -301,7 +303,7 @@ def home(request):
 
 
 @login_required(login_url='/')
-def generate_report(request):
+def GENERATE_REPORT(request):
     """Generate Excel report of members for selected school year range.
 
     Expects POST with `sy_start` and `sy_end` (School_Year ids).
@@ -1773,6 +1775,152 @@ def VIEWALL_EVENT(request):
     # Fetch all events with related school year to reduce queries
     events = Event.objects.select_related('school_year').all()
     return render(request, 'hoo/viewall_event.html', {'events': events})
+
+
+@login_required(login_url='/')
+def EVENT_INVITATIONS(request):
+    """Render the member invitations/list table used by `event_invitations.html`.
+
+    Provides `members` queryset with related `admin` and `organization` to
+    avoid N+1 queries in the template.
+    """
+    # Allow filtering by membership status (based on the latest Membership row per member)
+    status_filter = request.GET.get('status_filter', 'all')  # values: 'all', 'active', 'inactive'
+
+    base_qs = Member.objects.select_related('admin', 'organization')
+
+    if status_filter in ('active', 'inactive'):
+        # Find the latest membership id per member, then pick those with APPROVED/DECLINED
+        latest = Membership.objects.values('member_id').annotate(latest_id=Max('id'))
+        latest_ids = [r['latest_id'] for r in latest if r.get('latest_id')]
+
+        if latest_ids:
+            if status_filter == 'active':
+                member_ids = list(Membership.objects.filter(id__in=latest_ids, status__iexact='APPROVED').values_list('member_id', flat=True))
+            else:
+                member_ids = list(Membership.objects.filter(id__in=latest_ids, status__iexact='DECLINED').values_list('member_id', flat=True))
+
+            members = base_qs.filter(id__in=member_ids)
+        else:
+            members = Member.objects.none()
+    else:
+        members = base_qs.all()
+
+    context = {
+        'members': members,
+        'status_filter': status_filter,
+    }
+    return render(request, 'hoo/event_invitations.html', context)
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def SEND_INVITATIONS(request):
+    """Send invitation emails to selected members.
+
+    Expects POST with:
+      - member_ids: repeated member id values
+      - subject: email subject
+      - body: email body
+
+    Includes active event title and banner URL in the message. Attaches the
+    banner file if available on disk.
+    """
+    member_ids = request.POST.getlist('member_ids')
+    subject = request.POST.get('subject', '').strip()
+    body = request.POST.get('body', '').strip()
+
+    if not member_ids:
+        messages.error(request, 'No members selected for invitations.')
+        return redirect('hoo_event_invitations')
+
+    if not subject or not body:
+        messages.error(request, 'Subject and message body are required.')
+        return redirect('hoo_event_invitations')
+
+    # Resolve recipients
+    members = Member.objects.select_related('admin').filter(id__in=member_ids)
+    recipients = [m.admin.email for m in members if getattr(m, 'admin', None) and getattr(m.admin, 'email', None)]
+
+    if not recipients:
+        messages.error(request, 'Selected members do not have email addresses.')
+        return redirect('hoo_event_invitations')
+
+    # Get active event (if any)
+    event = Event.objects.filter(status='active').order_by('-date').first()
+    event_title = event.title if event else ''
+    banner_url = ''
+    banner_path = None
+    if event and getattr(event, 'banner', None):
+        try:
+            banner_url = request.build_absolute_uri(event.banner.url)
+        except Exception:
+            banner_url = ''
+        # try to attach if file path exists
+        try:
+            banner_path = event.banner.path
+        except Exception:
+            banner_path = None
+
+    # Compose message: include provided body then append event info
+    message = f"{body}\n\n"
+    if event_title:
+        message += f"Event: {event_title}\n"
+    if banner_url:
+        message += f"Banner: {banner_url}\n"
+
+    # Determine from-email
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+    try:
+        # Prepare plain text and HTML content. HTML will embed the banner inline.
+        text_content = message
+        # If there's an inline banner, reference it via cid:bannerimg and display it smaller
+        if banner_path and os.path.exists(banner_path):
+            # Render a small square banner first, then show the message body below it
+            # Use a fixed small size (80x80px) and object-fit to crop while preserving aspect
+            html_content = (
+                f"<div>"
+                f"<img src=\"cid:bannerimg\" alt=\"Event Banner\" "
+                f"style=\"display:block;width:80px;height:80px;object-fit:cover;margin:0 0 8px 0;\">"
+                f"<div>{body.replace('\n','<br>')}</div>"
+                f"</div>"
+            )
+        else:
+            html_content = f"<div>{body.replace('\n','<br>')}</div>"
+
+        msg = EmailMultiAlternatives(subject=subject, body=text_content, from_email=from_email, to=[from_email], bcc=recipients)
+        msg.attach_alternative(html_content, "text/html")
+
+        # Attach banner as inline image (MIMEImage) so it appears in the body instead of a link
+        if banner_path and os.path.exists(banner_path):
+            try:
+                with open(banner_path, 'rb') as f:
+                    img_data = f.read()
+                mime_img = MIMEImage(img_data)
+                mime_img.add_header('Content-ID', '<bannerimg>')
+                mime_img.add_header('Content-Disposition', 'inline; filename="%s"' % os.path.basename(banner_path))
+                msg.attach(mime_img)
+            except Exception:
+                # ignore image attach failures
+                pass
+
+        # Attach uploaded PDF(s) (if provided) — support multiple files
+        uploaded_files = request.FILES.getlist('attachment')
+        for uploaded in uploaded_files:
+            try:
+                content = uploaded.read()
+                content_type = getattr(uploaded, 'content_type', 'application/pdf')
+                msg.attach(uploaded.name, content, content_type)
+            except Exception:
+                # ignore attachment failures for individual files
+                continue
+
+        msg.send(fail_silently=False)
+        messages.success(request, f'Invitations sent to {len(recipients)} recipients.')
+    except Exception as e:
+        messages.error(request, f'Failed to send invitations: {str(e)}')
+
+    return redirect('hoo_event_invitations')
 
 
 
