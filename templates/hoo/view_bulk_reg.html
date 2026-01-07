@@ -21,7 +21,7 @@
 					<select id="eventFilter" class="form-select form-select-sm">
 						<option value="">All Events</option>
 						{% for ev in events %}
-							<option value="{{ ev.id }}" {% if selected_event_id and ev.id == selected_event_id %}selected{% endif %}>{{ ev.title }} {% if ev.status == 'active' %}(active){% endif %}</option>
+							<option value="{{ ev.id }}" data-status="{{ ev.status }}" {% if selected_event_id and ev.id == selected_event_id %}selected{% endif %}>{{ ev.title }} {% if ev.status == 'active' %}(active){% endif %}</option>
 						{% endfor %}
 					</select>
 				</div>
@@ -92,7 +92,7 @@
 						<td class="text-center">
 							{% if reg.registered_by %}
 								<div class="btn-group" role="group" aria-label="actions">
-									<button class="btn btn-sm btn-info view-bulk-btn" data-member-id="{{ reg.registered_by.id }}" title="View Bulk" {% if not reg.is_approved or not reg.is_present %}disabled{% endif %}>
+									<button class="btn btn-sm btn-info view-bulk-btn" data-member-id="{{ reg.registered_by.id }}" data-event-id="{{ reg.event_id }}" title="View Bulk" {% if not reg.is_approved or not reg.is_present %}disabled{% endif %}>
 										<i class="fas fa-eye"></i>
 									</button>
 
@@ -142,13 +142,41 @@
 document.addEventListener('DOMContentLoaded', function() {
     var eventFilter = document.getElementById('eventFilter');
     if (!eventFilter) return;
-    eventFilter.addEventListener('change', function() {
-        var val = this.value;
-        var url = new URL(window.location.href);
-        if (val) url.searchParams.set('event', val); else url.searchParams.delete('event');
-        // Preserve other query params
-        window.location.href = url.toString();
-    });
+	// remember original disabled state for per-row buttons so we don't re-enable template-disabled buttons
+	document.querySelectorAll('.approve-btn, .present-btn, .view-bulk-btn').forEach(btn => {
+		btn.dataset.origDisabled = btn.disabled ? 'true' : 'false';
+	});
+
+	function setActionsDisabled(disabled) {
+		const ids = ['selectAllBtn','approveSelectedBtn','declineSelectedBtn','presentSelectedBtn','absentSelectedBtn'];
+		ids.forEach(id => {
+			const b = document.getElementById(id);
+			if (b) b.disabled = disabled;
+		});
+		document.querySelectorAll('.approve-btn, .present-btn, .view-bulk-btn').forEach(btn => {
+			const orig = btn.dataset.origDisabled === 'true';
+			btn.disabled = disabled || orig;
+		});
+	}
+
+	function applySelectedEventState(selectEl) {
+		const opt = selectEl.options[selectEl.selectedIndex];
+		const status = opt ? opt.dataset.status : undefined;
+		if (status && status !== 'active') setActionsDisabled(true); else setActionsDisabled(false);
+	}
+
+	// apply initial state based on preselected option
+	applySelectedEventState(eventFilter);
+
+	eventFilter.addEventListener('change', function() {
+		// immediately reflect state in UI (helps prevent actions before reload)
+		applySelectedEventState(this);
+		var val = this.value;
+		var url = new URL(window.location.href);
+		if (val) url.searchParams.set('event', val); else url.searchParams.delete('event');
+		// Preserve other query params
+		window.location.href = url.toString();
+	});
 });
 </script>
 
@@ -283,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div id="bulkDetailsSection" class="card shadow mb-4 d-none">
 	<div class="card-body">
 			<div class="d-sm-flex align-items-center justify-content-between mb-4">
-				<h3 class="h5 mb-0 text-gray-800">Bulk Registrations for <span id="bulkOwnerName"></span></h3>
+				<h3 class="h5 mb-0 text-gray-800">Bulk Registrations for <b><span id="bulkOwnerName"></span></b></h3>
 				<div>
 					<button class="btn btn-primary me-2" id="bulkSelectAllBtn">Select All</button>
 					<button class="btn btn-success me-2" id="bulkApproveBtn">Approve Selected</button>
@@ -313,15 +341,29 @@ document.addEventListener('DOMContentLoaded', function() {
 document.addEventListener('DOMContentLoaded', function() {
 	// View bulk-button handler (populate inline table)
 	document.querySelectorAll('.view-bulk-btn').forEach(btn => {
-		btn.addEventListener('click', function() {
-			if (this.disabled) return; // ignore clicks when disabled
-			const memberId = this.dataset.memberId;
-			if (!memberId) return;
-			fetch(`/hoo/MemberRegistrations/Get/${memberId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+			btn.addEventListener('click', function() {
+				if (this.disabled) return; // ignore clicks when disabled
+				const memberId = this.dataset.memberId;
+				if (!memberId) return;
+				// prefer explicit event id on the button, fallback to the row's data-event-id
+				const eventId = this.dataset.eventId || (this.closest && this.closest('tr') ? this.closest('tr').dataset.eventId : null);
+				fetch(`/hoo/MemberRegistrations/Get/${memberId}/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
 				.then(r => r.json())
 				.then(data => {
-					const rows = data.bulk_regs || [];
+					let rows = data.bulk_regs || [];
 					const ownerName = data.member_name || '';
+					// Filter by clicked row's event id (if provided) and only include active events when provided by backend
+					if (eventId) {
+						rows = rows.filter(r => {
+							if (r.event_id === undefined) return false;
+							if (String(r.event_id) !== String(eventId)) return false;
+							if (r.event_status !== undefined && r.event_status !== 'active') return false;
+							return true;
+						});
+					} else {
+						// If no eventId supplied, still filter out non-active events if backend included status
+						rows = rows.filter(r => (r.event_status === undefined) || (r.event_status === 'active'));
+					}
 					document.getElementById('bulkOwnerName').innerText = ownerName;
 
 					const tbody = document.getElementById('bulkDetailsTbody');

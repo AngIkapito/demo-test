@@ -2344,8 +2344,33 @@ def GET_BULK_BY_MEMBER(request, member_id):
     Response: { "bulk_regs": [ {id, last_name, first_name, attending_as}, ... ] }
     """
     if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET':
-        regs_qs = Bulk_Event_Reg.objects.filter(registered_by_id=member_id).values('id', 'last_name', 'first_name', 'attending_as')
-        regs = list(regs_qs)
+        # Optional query param `event` (event id) may be provided by the client.
+        event_param = request.GET.get('event') or request.GET.get('event_id')
+
+        regs_qs = Bulk_Event_Reg.objects.filter(registered_by_id=member_id).select_related('event')
+        # If client passed an event id, narrow to that event
+        if event_param:
+            try:
+                eid = int(event_param)
+                regs_qs = regs_qs.filter(event_id=eid)
+            except Exception:
+                # ignore invalid event id and return empty set
+                regs_qs = regs_qs.none()
+
+        # Only include registrations whose related Event is active
+        regs_qs = regs_qs.filter(event__status='active')
+
+        # Build serialized list including event metadata so client can decide
+        regs = []
+        for b in regs_qs:
+            regs.append({
+                'id': getattr(b, 'id', None),
+                'last_name': getattr(b, 'last_name', '') or '',
+                'first_name': getattr(b, 'first_name', '') or '',
+                'attending_as': getattr(b, 'attending_as', '') or '',
+                'event_id': getattr(b, 'event_id', None),
+                'event_status': getattr(b.event, 'status', None) if getattr(b, 'event', None) else None,
+            })
 
         member = Member.objects.filter(id=member_id).select_related('admin', 'organization').first()
         owner_name = ''
