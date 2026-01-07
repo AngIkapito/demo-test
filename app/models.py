@@ -316,4 +316,14 @@ class Bulk_Event_Reg(models.Model):
         return f"{self.first_name} {self.last_name} - {self.event.title}"
     
 
+class Event_Evaluation(models.Model):
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    rating = models.IntegerField()
+    comments = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_name = models.CharField(max_length=150, blank=True, null=True)
+    first_name = models.CharField(max_length=150, blank=True, null=True)
+    email = models.EmailField(max_length=150, blank=True, null=True)
     
+    def __str__(self):
+        return f"Evaluation for {self.event.title} by {self.first_name} {self.last_name}"

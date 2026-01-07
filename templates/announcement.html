@@ -14,14 +14,28 @@
   </script>
 
   <style>
-    /* Disable hover color/background changes for announcement cards */
-    .announcement, .announcement * {
-      transition: none !important;
+    /* Make the card surface non-clickable while keeping internal controls interactive,
+       and restore a subtle hover lift animation for visual affordance. */
+    .announcement {
+      transition: transform 150ms ease, box-shadow 150ms ease;
+      cursor: default;
+      pointer-events: none; /* disable clicks on the card itself */
     }
-    .announcement:hover, .announcement:focus, .announcement:active {
-      background-color: inherit !important;
-      color: inherit !important;
-      box-shadow: none !important;
+    /* Re-enable pointer events for interactive children so buttons/links still work */
+    .announcement * {
+      pointer-events: none;
+    }
+    .announcement .btn,
+    .announcement a,
+    .announcement input,
+    .announcement select,
+    .announcement textarea {
+      pointer-events: auto;
+    }
+    /* Hover animation (visual only) */
+    .announcement:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 .75rem 1.5rem rgba(0,0,0,0.12);
     }
     /* Ensure buttons inside cards keep their styles on hover as normal */
     .announcement .btn:hover {
@@ -50,6 +64,19 @@
       background-color: #ffffff;
       display: block;
     }
+    /* Star rating button styles used by the rate modal */
+    .star {
+      font-size: 1.5rem;
+      color: #d1d5db; /* light gray */
+      background: transparent;
+      border: none;
+      padding: 0 .25rem;
+      line-height: 1;
+    }
+    .star.selected {
+      color: gold;
+    }
+    .star:focus { outline: none; box-shadow: none; }
     /* Fade and de-emphasize inactive events */
     .active-event.inactive {
       opacity: 0.45;
@@ -90,7 +117,7 @@
       <div class="row g-3">
         {% for event in active_events %}
           <div class="col-lg-6">
-            <article class="card shadow-sm active-event {% if event.status == 'inactive' %}inactive{% endif %}" data-tag="{{ event.tags.name|default:'' }}" data-status="{{ event.status }}">
+            <article class="card shadow-sm active-event {% if event.status == 'inactive' %}inactive{% endif %}" data-tag="{{ event.tags.name|default:'' }}" data-status="{{ event.status }}" data-title="{{ event.title|escapejs }}" data-date="{{ event.date|date:'F j, Y g:i A' }}">
               <div class="row g-0">
                 <div class="col-5 d-flex align-items-center">
                   {% if event.banner %}
@@ -129,11 +156,14 @@
 
                     <div class="mt-auto d-flex justify-content-between align-items-center">
                       <div class="small text-muted">Category: <strong>{{ event.tags.name|default:'—' }}</strong></div>
-                      {% if event.status == 'active' and event.registration_link and not event.is_closed %}
-                        <a href="{% url 'registration_event' %}?event_id={{ event.id }}" class="btn btn-sm btn-primary">Register Now</a>
-                      {% else %}
-                        <button class="btn btn-sm btn-outline-secondary" disabled>Registration Closed</button>
-                      {% endif %}
+                      <div class="d-flex flex-column align-items-end gap-2">
+                        {% if event.status == 'active' and event.registration_link and not event.is_closed %}
+                          <a href="{% url 'registration_event' %}?event_id={{ event.id }}" class="btn btn-sm btn-primary">Register Now</a>
+                          <button type="button" class="btn btn-sm btn-outline-secondary" data-event-id="{{ event.id }}">Rate</button>
+                        {% else %}
+                          <button class="btn btn-sm btn-outline-secondary" disabled>Registration Closed</button>
+                        {% endif %}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -202,6 +232,59 @@
     </div>
   </div>
 
+  <!-- Rate modal (non-functional stub) -->
+  <div class="modal fade" id="rateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Rate Event</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="rateMessage" class="alert d-none mt-2" role="alert" style="display:none;"></div>
+          <h6 id="rateEventTitle" class="mb-1"></h6>
+          <p id="rateEventDate" class="text-muted small mb-3"></p>
+          <form id="rateForm" novalidate>
+            <div class="mb-3">
+              <label class="form-label">Email</label>
+              <input type="email" id="rateEmail" class="form-control" required>
+            </div>
+            <input type="hidden" id="rateEventId" value="">
+            <div class="mb-3 row">
+              <div class="col">
+                <label class="form-label">First name <small class="text-muted">(optional)</small></label>
+                <input type="text" id="rateFirstName" class="form-control">
+              </div>
+              <div class="col">
+                <label class="form-label">Last name <small class="text-muted">(optional)</small></label>
+                <input type="text" id="rateLastName" class="form-control">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Feedback</label>
+              <textarea id="rateComment" class="form-control" rows="3"></textarea>
+            </div>
+            <div class="mb-3">
+              <label class="form-label d-block">Rating</label>
+              <div id="starWrap" class="d-flex">
+                <button type="button" class="star" data-value="1">☆</button>
+                <button type="button" class="star" data-value="2">☆</button>
+                <button type="button" class="star" data-value="3">☆</button>
+                <button type="button" class="star" data-value="4">☆</button>
+                <button type="button" class="star" data-value="5">☆</button>
+              </div>
+              <input type="hidden" id="ratingValue" value="0">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-primary" id="submitRating">Submit</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- Scripts: filtering + modal population + tag highlighting -->
@@ -213,7 +296,8 @@
       return raw.split(',').map(t => t.trim()).filter(Boolean);
     }
 
-    const tagButtons = document.querySelectorAll('[data-tag]');
+    // Only select the filter buttons (avoid matching event cards which also have `data-tag`)
+    const tagButtons = document.querySelectorAll('button[data-tag]');
     const showAllBtn = document.getElementById('show-all');
     const announcements = document.querySelectorAll('.announcement');
     const activeEventCards = document.querySelectorAll('.active-event');
@@ -278,6 +362,96 @@
         const tagsHtml = parseTags(tags).map(t => `<i>#${t}</i>`).join(' ');
         document.getElementById('modalTags').innerHTML = tagsHtml ? 'Categories: ' + tagsHtml : '';
       });
+    });
+
+    // Rate button -> populate and show rate modal (non-functional submit)
+    document.querySelectorAll('.active-event button[data-event-id]').forEach(btn => {
+      btn.addEventListener('click', function(){
+        const article = this.closest('.active-event');
+        if(!article) return;
+        const title = article.getAttribute('data-title') || '';
+        const date = article.getAttribute('data-date') || '';
+        const eid = this.getAttribute('data-event-id') || '';
+
+        document.getElementById('rateEventTitle').textContent = title;
+        document.getElementById('rateEventDate').textContent = date ? date : '';
+        document.getElementById('rateEventId').value = eid;
+        document.getElementById('rateEmail').value = '';
+        document.getElementById('rateFirstName').value = '';
+        document.getElementById('rateLastName').value = '';
+        document.getElementById('rateComment').value = '';
+        document.getElementById('ratingValue').value = '0';
+        document.querySelectorAll('#starWrap .star').forEach(s => { s.classList.remove('selected'); s.textContent = '☆'; });
+
+        var modalEl = document.getElementById('rateModal');
+        var modal = new bootstrap.Modal(modalEl);
+        modal.show();
+      });
+    });
+
+    // star rating click handlers (visual only)
+    document.querySelectorAll('#starWrap .star').forEach(star => {
+      star.addEventListener('click', function(){
+        const value = parseInt(this.getAttribute('data-value')) || 0;
+        document.getElementById('ratingValue').value = value;
+        document.querySelectorAll('#starWrap .star').forEach(s => {
+          const sv = parseInt(s.getAttribute('data-value')) || 0;
+          const selected = sv <= value;
+          s.classList.toggle('selected', selected);
+          s.textContent = selected ? '★' : '☆';
+        });
+      });
+    });
+
+    // submit rating via AJAX — show inline message inside modal instead of alert
+    document.getElementById('submitRating').addEventListener('click', async function(e){
+      e.preventDefault();
+      const msgEl = document.getElementById('rateMessage');
+      // hide previous message
+      msgEl.style.display = 'none';
+      msgEl.className = 'alert d-none';
+
+      const payload = {
+        event_id: document.getElementById('rateEventId').value,
+        email: document.getElementById('rateEmail').value,
+        first_name: document.getElementById('rateFirstName').value,
+        last_name: document.getElementById('rateLastName').value,
+        comments: document.getElementById('rateComment').value,
+        rating: document.getElementById('ratingValue').value,
+      };
+
+      try{
+        const res = await fetch("{% url 'submit_rating' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.getCsrfToken(),
+          },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if(data && data.success){
+          msgEl.className = 'alert alert-success';
+          msgEl.textContent = data.message || 'Thank you for your feedback';
+          msgEl.style.display = '';
+          // auto-close modal after short delay
+          setTimeout(() => {
+            const modalEl = document.getElementById('rateModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if(modal) modal.hide();
+            // clear form and message after hide
+            setTimeout(() => { msgEl.style.display = 'none'; msgEl.className = 'alert d-none'; msgEl.textContent = ''; }, 600);
+          }, 1200);
+        } else {
+          msgEl.className = 'alert alert-danger';
+          msgEl.textContent = (data && data.message) || 'Failed to submit rating';
+          msgEl.style.display = '';
+        }
+      }catch(err){
+        msgEl.className = 'alert alert-danger';
+        msgEl.textContent = 'Error submitting rating: ' + err;
+        msgEl.style.display = '';
+      }
     });
 
   })();

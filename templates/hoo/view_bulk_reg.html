@@ -16,6 +16,15 @@
 
 			<!-- Bulk action controls (right-aligned) -->
 			<div class="mb-3 d-flex justify-content-end">
+				<div class="me-3">
+					<label for="eventFilter" class="form-label mb-1 small">Filter Event</label>
+					<select id="eventFilter" class="form-select form-select-sm">
+						<option value="">All Events</option>
+						{% for ev in events %}
+							<option value="{{ ev.id }}" {% if selected_event_id and ev.id == selected_event_id %}selected{% endif %}>{{ ev.title }} {% if ev.status == 'active' %}(active){% endif %}</option>
+						{% endfor %}
+					</select>
+				</div>
 				<div class="btn-group" role="group" aria-label="Bulk actions">
 					<button id="selectAllBtn" class="btn btn-primary btn-sm">Select All</button>
 					<button id="approveSelectedBtn" class="btn btn-success btn-sm">Approve Selected</button>
@@ -54,7 +63,7 @@
 				</tfoot>
 				<tbody>
 					{% for reg in bulk_regs %}
-					<tr>
+					<tr data-event-id="{{ reg.event_id }}">
 						<td class="align-middle"><input type="checkbox" class="member-checkbox" value="{{ reg.id }}"></td>
 						<td>{{ reg.last_name }}</td>
 						<td>{{ reg.first_name }}</td>
@@ -127,6 +136,20 @@
 		   ]
 	   });
    });
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var eventFilter = document.getElementById('eventFilter');
+    if (!eventFilter) return;
+    eventFilter.addEventListener('change', function() {
+        var val = this.value;
+        var url = new URL(window.location.href);
+        if (val) url.searchParams.set('event', val); else url.searchParams.delete('event');
+        // Preserve other query params
+        window.location.href = url.toString();
+    });
+});
 </script>
 
 <script>

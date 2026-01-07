@@ -13,6 +13,7 @@ from django.views.decorators.http import require_http_methods
 from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
 from email.mime.image import MIMEImage
 import os
+import qrcode
 from django.conf import settings
 from django.utils.crypto import get_random_string
 import datetime
@@ -1851,6 +1852,8 @@ def SEND_INVITATIONS(request):
     event_title = event.title if event else ''
     banner_url = ''
     banner_path = None
+    qr_url = ''
+    qr_path = None
     if event and getattr(event, 'banner', None):
         try:
             banner_url = request.build_absolute_uri(event.banner.url)
@@ -1861,6 +1864,16 @@ def SEND_INVITATIONS(request):
             banner_path = event.banner.path
         except Exception:
             banner_path = None
+    # Try to get qr path/url
+    if event and getattr(event, 'qr_code', None):
+        try:
+            qr_url = request.build_absolute_uri(event.qr_code.url)
+        except Exception:
+            qr_url = ''
+        try:
+            qr_path = event.qr_code.path
+        except Exception:
+            qr_path = None
 
     # Compose message: include provided body then append event info
     message = f"{body}\n\n"
@@ -1875,18 +1888,22 @@ def SEND_INVITATIONS(request):
         # Prepare plain text and HTML content. HTML will embed the banner inline.
         text_content = message
         # If there's an inline banner, reference it via cid:bannerimg and display it smaller
+        # Build HTML content: optional inline banner, then body, then optional QR image
+        parts = []
         if banner_path and os.path.exists(banner_path):
-            # Render a small square banner first, then show the message body below it
-            # Use a fixed small size (80x80px) and object-fit to crop while preserving aspect
-            html_content = (
-                f"<div>"
+            parts.append(
                 f"<img src=\"cid:bannerimg\" alt=\"Event Banner\" "
                 f"style=\"display:block;width:80px;height:80px;object-fit:cover;margin:0 0 8px 0;\">"
-                f"<div>{body.replace('\n','<br>')}</div>"
+            )
+        parts.append(f"<div>{body.replace('\n','<br>')}</div>")
+        if qr_path and os.path.exists(qr_path):
+            parts.append(
+                f"<div style=\"margin-top:12px;\">"
+                f"<p style=\"margin:0 0 6px 0;\"><strong>Scan QR to register:</strong></p>"
+                f"<img src=\"cid:qrimg\" alt=\"Event QR\" style=\"width:200px;height:200px;object-fit:contain;\">"
                 f"</div>"
             )
-        else:
-            html_content = f"<div>{body.replace('\n','<br>')}</div>"
+        html_content = f"<div>{''.join(parts)}</div>"
 
         msg = EmailMultiAlternatives(subject=subject, body=text_content, from_email=from_email, to=[from_email], bcc=recipients)
         msg.attach_alternative(html_content, "text/html")
@@ -1902,6 +1919,18 @@ def SEND_INVITATIONS(request):
                 msg.attach(mime_img)
             except Exception:
                 # ignore image attach failures
+                pass
+
+        # Attach QR image inline under the body if present
+        if qr_path and os.path.exists(qr_path):
+            try:
+                with open(qr_path, 'rb') as f:
+                    qr_data = f.read()
+                mime_qr = MIMEImage(qr_data)
+                mime_qr.add_header('Content-ID', '<qrimg>')
+                mime_qr.add_header('Content-Disposition', 'inline; filename="%s"' % os.path.basename(qr_path))
+                msg.attach(mime_qr)
+            except Exception:
                 pass
 
         # Attach uploaded PDF(s) (if provided) — support multiple files
@@ -1957,11 +1986,9 @@ def ADD_EVENT(request):
         registration_fee = request.POST.get('registration_fee')
         chair_id = request.POST.get('chair')
         co_chair_id = request.POST.get('co_chair')
-        registration_link = request.POST.get('registration_link')
         evaluation_link = request.POST.get('evaluation_link')
 
         banner = request.FILES.get('banner')
-        qr_code = request.FILES.get('qr_code')
         # Selected tag id from form (optional)
         tag_id = request.POST.get('tag')
 
@@ -1995,10 +2022,9 @@ def ADD_EVENT(request):
             registration_fee=registration_fee_val,
             chair_id=chair_id,
             co_chair_id=co_chair_id,
-            registration_link=registration_link,
+            # registration_link will be generated after saving (absolute URL to registration page)
             evaluation_link=evaluation_link,
             banner=banner,
-            qr_code=qr_code,
             created_by=request.user,
             created_at=timezone.now(),
             updated_at=timezone.now(),
@@ -2008,6 +2034,29 @@ def ADD_EVENT(request):
             tags_id=tag_id if tag_id not in (None, '') else None
         )
         event.save()
+        # Build absolute registration link and save it on the event
+        try:
+            reg_path = reverse('registration_event') + f'?event_id={event.id}'
+            registration_url = request.build_absolute_uri(reg_path)
+            event.registration_link = registration_url
+            event.save()
+        except Exception as e:
+            print('Failed to set registration_link for event', event.id, e)
+
+        # Auto-generate QR code image encoding the registration URL and save path to event.qr_code
+        try:
+            qr_data = event.registration_link if event.registration_link else f"EVENT:{event.id}"
+            img = qrcode.make(qr_data)
+            qr_dir = os.path.join(settings.MEDIA_ROOT, 'qr_codes')
+            os.makedirs(qr_dir, exist_ok=True)
+            filename = f"event_{event.id}_qr.png"
+            dest_path = os.path.join(qr_dir, filename)
+            img.save(dest_path)
+            # Save relative media path on the model (use forward slashes)
+            event.qr_code = os.path.join('qr_codes', filename).replace('\\', '/')
+            event.save()
+        except Exception as e:
+            print('Failed to generate QR code for event', event.id, e)
 
         # Handle optional bulk registration template upload
         bulk_template = request.FILES.get('bulk_template')
@@ -2085,8 +2134,6 @@ def EDIT_EVENT(request, id):
 
         if 'banner' in request.FILES:
             event.banner = request.FILES['banner']
-        if 'qr_code' in request.FILES:
-            event.qr_code = request.FILES['qr_code']
 
         event.save()
         messages.success(request, f'Event "{event.title}" updated successfully!')
@@ -2241,12 +2288,28 @@ def ATTENDANCE_TOGGLE(request):
 
 
 def VIEWALL_BULK_REG(request):
+    # Provide list of events for filtering and pick default selected event
+    events = Event.objects.all().order_by('-date')
+    active_event = Event.objects.filter(status='active').order_by('-date').first()
 
-    # Build `bulk_regs` from Member_Event_Registration entries.
-    regs = Member_Event_Registration.objects.select_related('member_id__organization', 'member_id__admin').all()
+    # Determine selected event: GET param `event` takes precedence, else active_event
+    selected_event_id = None
+    try:
+        sel = request.GET.get('event')
+        if sel and str(sel).isdigit():
+            selected_event_id = int(sel)
+        elif active_event:
+            selected_event_id = active_event.id
+    except Exception:
+        selected_event_id = active_event.id if active_event else None
+
+    # Build `bulk_regs` from Member_Event_Registration entries, optionally filtered by event
+    regs_qs = Member_Event_Registration.objects.select_related('member_id__organization', 'member_id__admin')
+    if selected_event_id:
+        regs_qs = regs_qs.filter(event_id=selected_event_id)
 
     bulk_regs = []
-    for reg in regs:
+    for reg in regs_qs.all():
         member_obj = getattr(reg, 'member_id', None)
         if not member_obj:
             continue
@@ -2263,9 +2326,16 @@ def VIEWALL_BULK_REG(request):
             'attending_as': 'Professor',
             'is_approved': bool(getattr(reg, 'is_approved', False)),
             'is_present': bool(getattr(reg, 'is_present', False)),
+            'event_id': getattr(reg, 'event_id', None),
+            'event_title': getattr(reg, 'event', None) and getattr(reg.event, 'title', '') or '',
         })
 
-    return render(request, 'hoo/view_bulk_reg.html', {'bulk_regs': bulk_regs})
+    context = {
+        'bulk_regs': bulk_regs,
+        'events': events,
+        'selected_event_id': selected_event_id,
+    }
+    return render(request, 'hoo/view_bulk_reg.html', context)
 
 
 def GET_BULK_BY_MEMBER(request, member_id):

@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password
-from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration, IT_Topics, Intetrested_Topics
+from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration, IT_Topics, Intetrested_Topics, Bulk_Event_Reg, Event_Evaluation
 from django.utils.safestring import mark_safe
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import path, include, reverse
@@ -11,6 +11,8 @@ from django.utils.crypto import get_random_string
 from datetime import datetime
 from django.core.mail import send_mail, BadHeaderError
 from django.conf import settings
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 import random
 import string
 from django.db import transaction
@@ -725,3 +727,70 @@ def FORGOT_PASSWORD(request):
         return render(request, "forgot_password_done.html")
 
     return render(request, "forgot_password.html")
+
+
+@require_POST
+def SUBMIT_RATING(request):
+    """Accept a rating POST and save to Event_Evaluation if the email is registered
+
+    Expected JSON or form POST fields: event_id, email, first_name, last_name, comments, rating
+    Only accept if the Event is active and a Bulk_Event_Reg exists with the same email and event.
+    """
+    import json
+    try:
+        if request.content_type and 'application/json' in request.content_type:
+            payload = json.loads(request.body.decode('utf-8') or '{}')
+        else:
+            payload = request.POST
+
+        event_id = payload.get('event_id') or payload.get('eventId')
+        email = (payload.get('email') or '').strip()
+        first_name = (payload.get('first_name') or payload.get('firstName') or '').strip()
+        last_name = (payload.get('last_name') or payload.get('lastName') or '').strip()
+        comments = payload.get('comments') or payload.get('comment') or payload.get('rateComment') or ''
+        rating_raw = payload.get('rating') or payload.get('ratingValue')
+        rating = int(rating_raw) if rating_raw not in (None, '') else 0
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Invalid payload: {e}'}, status=400)
+
+    # Basic validation
+    if not event_id or not email:
+        return JsonResponse({'success': False, 'message': 'Missing event_id or email'}, status=400)
+
+    # Ensure rating is in 1..5
+    if not (1 <= rating <= 5):
+        return JsonResponse({'success': False, 'message': 'Rating must be between 1 and 5'}, status=400)
+
+    # Verify event exists and is active
+    try:
+        ev = Event.objects.get(id=event_id)
+    except Event.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Event not found'}, status=404)
+
+    if ev.status != 'active':
+        return JsonResponse({'success': False, 'message': 'Event is not active'}, status=400)
+
+    # Verify the email is registered for this event in Bulk_Event_Reg
+    registered = Bulk_Event_Reg.objects.filter(event_id=ev.id, email__iexact=email).exists()
+    if not registered:
+        return JsonResponse({'success': False, 'message': 'Email not found for this event registration'}, status=403)
+
+    # Prevent duplicate feedback: one submission per (event, email)
+    already = Event_Evaluation.objects.filter(event=ev, email__iexact=email).exists()
+    if already:
+        return JsonResponse({'success': False, 'message': 'Feedback already submitted for this event with this email'}, status=409)
+
+    # Save evaluation
+    try:
+        Event_Evaluation.objects.create(
+            event=ev,
+            rating=rating,
+            comments=comments,
+            last_name=last_name or None,
+            first_name=first_name or None,
+            email=email,
+        )
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Failed to save evaluation: {e}'}, status=500)
+
+    return JsonResponse({'success': True, 'message': 'Thank you for your feedback'})
