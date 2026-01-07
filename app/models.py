@@ -324,6 +324,10 @@ class Event_Evaluation(models.Model):
     last_name = models.CharField(max_length=150, blank=True, null=True)
     first_name = models.CharField(max_length=150, blank=True, null=True)
     email = models.EmailField(max_length=150, blank=True, null=True)
+    q1_rating = models.IntegerField(blank=True, null=True)
+    q2_rating = models.IntegerField(blank=True, null=True)
+    q3_rating = models.IntegerField(blank=True, null=True)
+    nps_rating = models.IntegerField(blank=True, null=True)
     
     def __str__(self):
         return f"Evaluation for {self.event.title} by {self.first_name} {self.last_name}"

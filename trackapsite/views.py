@@ -146,6 +146,8 @@ def ANNOUNCEMENT(request):
         'latest_announcement': latest_announcement,
         'active_events': active_events,
         'event_tags': event_tags,
+        # provide a simple range for templates that need 1..10
+        'recommend_range': range(1, 11),
     }
     return render(request,'announcement.html', context)
 
@@ -790,6 +792,23 @@ def SUBMIT_RATING(request):
             first_name=first_name or None,
             email=email,
         )
+
+        # Send a thank-you email to the submitter (do not fail the request on email errors)
+        try:
+            subject = f"Thank you for your feedback on {ev.title}"
+            display_name = (first_name + ' ' + last_name).strip() if (first_name or last_name) else email
+            body = (
+                f"Hello {display_name},\n\n"
+                f"Thank you for rating the event \"{ev.title}\". We received your rating of {rating} out of 5.\n\n"
+                f"Your comments:\n{comments or '(no comments)'}\n\n"
+                "We appreciate your feedback and will use it to improve future events.\n\n"
+                "Regards,\n"
+                f"{settings.DEFAULT_FROM_EMAIL}"
+            )
+            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
+        except Exception:
+            # Swallow email errors so user still receives feedback success
+            pass
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Failed to save evaluation: {e}'}, status=500)
 
