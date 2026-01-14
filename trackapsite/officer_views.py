@@ -17,6 +17,7 @@ from django.conf import settings
 import os
 import pandas as pd
 from openpyxl import load_workbook
+from app.audit import audit_logger
 
 @login_required(login_url='/')
 def home(request):
@@ -92,10 +93,12 @@ def PROFILE_UPDATE(request):
                 customuser.save()
 
             messages.success(request, 'Your profile was updated successfully!')
+            audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated their profile (officer)")
             return redirect('profile_update_officer')  # redirect to the same update page
         except Exception as e:
             print("Error updating profile:", e)  # for debugging
             messages.error(request, 'Failed to update your profile')
+            audit_logger.exception(f"Failed to update profile for user {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) (officer): {e}")
             return redirect('profile_update_officer')
     
     return render(request, 'officer/profile.html') 
@@ -126,6 +129,7 @@ def MEMBER_EVENT_REG(request):
     # ✅ If no active event found
     if not event:
         messages.error(request, "There are currently no active events available for registration.")
+        audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) attempted officer event registration but no active event exists")
         return render(request, 'officer/member_event_reg.html', {'event': None})
 
     if request.method == 'POST':
@@ -144,6 +148,7 @@ def MEMBER_EVENT_REG(request):
 
         if already_registered:
             messages.warning(request, "You are already registered for this event.")
+            audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) attempted duplicate officer registration for event id={getattr(event, 'id', None)}")
             return redirect('member_event_reg_officer')
 
         try:
@@ -156,10 +161,12 @@ def MEMBER_EVENT_REG(request):
             )
 
             messages.success(request, "Registration successful!")
+            audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) registered (officer) for event id={getattr(event, 'id', None)} title={getattr(event, 'title', None)} member_id={getattr(member_obj, 'id', None)}")
             return redirect('member_event_reg_officer')
 
         except Exception as e:
             messages.error(request, f"An error occurred: {e}")
+            audit_logger.exception(f"Error registering officer user {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) for event id={getattr(event, 'id', None)}: {e}")
             return redirect('member_event_reg_officer')
     context = {'event': event}
     return render(request, 'officer/member_event_reg.html', context)
@@ -439,6 +446,7 @@ def UPLOAD_BULK_EVENT_REG(request):
             preview_rows = []
 
         messages.success(request, f'File uploaded: {filename}. Parsed {len(preview_rows)} rows with last_name for preview.')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) uploaded officer bulk event file {filename} parsed_rows={len(preview_rows)}")
         return render(request, 'officer/bulk_event_reg.html', {
             'preview_rows': preview_rows,
             'event': Event.objects.filter(status='active').order_by('-date').first()
@@ -525,10 +533,12 @@ def SAVE_BULK_EVENT_REG(request):
                     continue
     except Exception as e:
         messages.error(request, f'Failed to save registrations: {e}')
+        audit_logger.exception(f"Failed to save officer bulk registrations for user {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}): {e}")
         return redirect('bulk_event_reg_officer')
 
     # Do not modify event.available_slots when saving bulk registrations.
     messages.success(request, f'Saved {saved} registrations. Skipped {skipped}.')
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) saved officer bulk registrations for event id={getattr(event, 'id', None)} saved={saved} skipped={skipped}")
     return redirect('bulk_event_reg_officer')
 
 

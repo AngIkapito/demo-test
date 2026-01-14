@@ -1,0 +1,4 @@
+2026-01-14 20:07:56,408 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-01-14 20:16:26,573 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-01-14 20:25:19,504 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-01-14 20:26:20,732 | INFO | User jon01 (id=2) added event id=9 title=adsasdasd

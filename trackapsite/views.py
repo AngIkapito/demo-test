@@ -13,6 +13,7 @@ from django.core.mail import send_mail, BadHeaderError
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
+from app.audit import audit_logger, log
 import random
 import string
 from django.db import transaction
@@ -215,8 +216,12 @@ def doLogin(request):
         next_url = request.POST.get('next') or request.GET.get('next')
         user = authenticate(request=request, username=username, password=password)
 
+        # capture client ip for audit
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+
         if user is not None:
             login(request, user)
+            audit_logger.info(f"User {getattr(user, 'username', None)} logged in (id={getattr(user, 'id', None)}) ip={ip}")
             user_type = user.user_type
             
             # Set session expiry based on "Remember Me" checkbox
@@ -242,10 +247,18 @@ def doLogin(request):
                 messages.error(request, 'Invalid user type.')
                 return redirect('login')
         else:
+            audit_logger.warning(f"Failed login attempt for username={username} ip={ip}")
             messages.error(request, 'Email and Password are Invalid, or Wait for the Admin to approve your Membership.')
             return redirect('login')
             
 def doLogout(request):
+    # capture client ip for audit and log logout action
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR'))
+    try:
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) logged out ip={ip}")
+    except Exception:
+        pass
+
     # Log the user out (clears auth data) and ensure the session is fully flushed
     try:
         logout(request)

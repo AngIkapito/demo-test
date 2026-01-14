@@ -190,3 +190,32 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'jtiongco.work@gmail.com'  # Replace with your Gmail address
 EMAIL_HOST_PASSWORD = 'fepc ztbt rugq wzob'        # Replace with your Gmail App Password
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER  # Default sender email
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+
+    'formatters': {
+        'audit_formatter': {
+            'format': '{asctime} | {levelname} | {message}',
+            'style': '{',
+        },
+    },
+
+    'handlers': {
+        'audit_file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': str(BASE_DIR / 'logs' / 'audit.log'),
+            'formatter': 'audit_formatter',
+        },
+    },
+
+    'loggers': {
+        'audit': {
+            'handlers': ['audit_file'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}

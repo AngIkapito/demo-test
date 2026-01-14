@@ -16,6 +16,7 @@ import os
 import qrcode
 from django.conf import settings
 from django.utils.crypto import get_random_string
+from app.audit import audit_logger, log
 import datetime
 import os
 from django.db import transaction
@@ -426,6 +427,7 @@ def GENERATE_REPORT(request):
     filename = f"members_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
     response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) generated members report filename={filename} sy_start={sy_start_id} sy_end={sy_end_id}")
     return response
 
 
@@ -704,9 +706,10 @@ def PROFILE_UPDATE(request):
                 customuser.save()
 
             messages.success(request, 'Your profile was updated successfully!')
+            audit_logger.info(f"User {request.user.username} (id={request.user.id}) updated profile")
             return redirect('profile_update_hoo')  # redirect to the same update page
         except Exception as e:
-            print("Error updating profile:", e)  # for debugging
+            audit_logger.exception(f"Profile update failed for user id={getattr(request.user, 'id', None)}: {e}")
             messages.error(request, 'Failed to update your profile')
             return redirect('profile_update_hoo')
     
@@ -737,6 +740,7 @@ def CHANGE_PASSWORD(request):
         # Check current password
         if not check_password(current_password, user.password):
             messages.error(request, "Current password is incorrect.")
+            audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) provided incorrect current password when changing password")
             return redirect('change_password')
 
         # Check new password requirements
@@ -761,6 +765,7 @@ def CHANGE_PASSWORD(request):
         user.set_password(new_password)
         user.save()
         messages.success(request, "Your password has been changed successfully.")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) changed password successfully")
         return redirect('login')
 
     return render(request, 'change_password.html')
@@ -784,6 +789,7 @@ def ADD_SCHOOLYEAR(request):
         school_year.save()
 
         messages.success(request, 'Cycle successfully added and set as Active!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added school year id={school_year.id} sy_start={sy_start} sy_end={sy_end}")
         return redirect('add_schoolyear')
 
     return render(request, 'hoo/add_schoolyear.html')
@@ -822,12 +828,14 @@ def UPDATE_SCHOOLYEAR(request):
         schoolyear.save()
         
         messages.success(request, "Cycle successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated school year id={id} sy_start={sy_start} sy_end={sy_end}")
         return redirect('view_schoolyear')
     return render(request, 'hoo/edit_schoolyear.html')
 
 def DELETE_SCHOOLYEAR(request, id):
     schoolyear = School_Year.objects.get(id = id)
     schoolyear.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted school year id={id}")
     messages.success(request, 'Cycle successfully deleted')
     return redirect('view_schoolyear')
 
@@ -922,7 +930,7 @@ def ADD_MEMBER(request):
             
             # member.set_password(password)
             member.save()
-            
+            audit_logger.info(f"User {request.user.username} (id={request.user.id}) added member {user.username} (id={user.id})")
             messages.success(request,user.first_name + " " + user.last_name + " is successfully added")
             return redirect('add_member')
     
@@ -1051,7 +1059,9 @@ def UPDATE_MEMBER(request):
 
 def DELETE_MEMBER(request, id):
     customuser = CustomUser.objects.get(id = id)
+    deleted_username = getattr(customuser, 'username', None)
     customuser.delete()
+    audit_logger.info(f"User {request.user.username} (id={request.user.id}) deleted member {deleted_username} (id={id})")
     messages.success(request, 'Member successfully deleted')
     return redirect('viewall_member')
 
@@ -1089,6 +1099,7 @@ def ADD_REGION(request):
         )
         region.save()
         messages.success(request, 'Region/Chapter successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added region id={region.id} name={region.name}")
         return redirect('add_region')
     return render(request, 'hoo/add_region.html')
 
@@ -1115,12 +1126,14 @@ def UPDATE_REGION(request):
         region.save()
         
         messages.success(request, "Region/Chapter successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated region id={region.id} name={region.name}")
         return redirect('view_region')
     return render(request, 'hoo/edit_region.html')
 
 def DELETE_REGION(request, id):
     region = Region.objects.get(id = id)
     region.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted region id={id}")
     messages.success(request, 'Region/Chapter successfully deleted')
     return redirect('view_region')
 
@@ -1147,12 +1160,15 @@ def ADD_OFFICERTYPE(request):
         )
         officertype.save()
         messages.success(request, 'OfficerType successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added officertype id={officertype.id} name={officertype.name}")
         return redirect('add_officertype')
     return render(request, 'hoo/add_officertype.html')
 
 def DELETE_OFFICERTYPE(request, id):
     officertype = OfficerType.objects.get(id = id)
+    name = getattr(officertype, 'name', None)
     officertype.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted officertype id={id} name={name}")
     messages.success(request, 'OfficerType successfully deleted')
     return redirect('view_officertype')
 
@@ -1179,6 +1195,7 @@ def UPDATE_OFFICERTYPE(request):
         officertype.save()
         
         messages.success(request, "OfficerType successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated officertype id={officertype.id} name={officertype.name}")
         return redirect('view_officertype')
     return render(request, 'hoo/edit_officertype.html')
 
@@ -1207,12 +1224,15 @@ def ADD_MEMBERSHIPTYPE(request):
         )
         membershiptype.save()
         messages.success(request, 'MembershipType successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added membershiptype id={membershiptype.id} name={membershiptype.name}")
         return redirect('view_membershiptype')
     return render(request, 'hoo/add_membershiptype.html')
 
 def DELETE_MEMBERSHIPTYPE(request, id):
     membershiptype = MembershipType.objects.get(id = id)
+    name = getattr(membershiptype, 'name', None)
     membershiptype.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted membershiptype id={id} name={name}")
     messages.success(request, 'MembershipType successfully deleted')
     return redirect('view_membershiptype')
 
@@ -1241,6 +1261,7 @@ def UPDATE_MEMBERSHIPTYPE(request):
         membershiptype.save()
         
         messages.success(request, "MembershipType successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated membershiptype id={membershiptype.id} name={membershiptype.name}")
         return redirect('view_membershiptype')
     return render(request, 'hoo/edit_membershiptype.html')
 
@@ -1268,12 +1289,15 @@ def ADD_MEMBERTYPE(request):
         )
         membertype.save()
         messages.success(request, 'MemberType successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added membertype id={membertype.id} name={membertype.name}")
         return redirect('view_membertype')
     return render(request, 'hoo/add_membertype.html')
 
 def DELETE_MEMBERTYPE(request, id):
     membertype = MemberType.objects.get(id = id)
+    name = getattr(membertype, 'name', None)
     membertype.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted membertype id={id} name={name}")
     messages.success(request, 'MemberType successfully deleted')
     return redirect('view_membertype')
 
@@ -1300,6 +1324,7 @@ def UPDATE_MEMBERTYPE(request):
         membertype.save()
         
         messages.success(request, "MemberType successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated membertype id={membertype.id} name={membertype.name}")
         return redirect('view_membertype')
     return render(request, 'hoo/edit_membertype.html')
 
@@ -1332,12 +1357,15 @@ def ADD_ORGANIZATION(request):
         )
         organization.save()
         messages.success(request, 'Organization successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added organization id={organization.id} name={organization.name}")
         return redirect('view_organization')
     return render(request, 'hoo/add_organization.html')
 
 def DELETE_ORGANIZATION(request, id):
     organization = Organization.objects.get(id = id)
+    name = getattr(organization, 'name', None)
     organization.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted organization id={id} name={name}")
     messages.success(request, 'Organization successfully deleted')
     return redirect('view_organization')
 
@@ -1372,6 +1400,7 @@ def UPDATE_ORGANIZATION(request):
         organization.save()
         
         messages.success(request, "Organization successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated organization id={organization.id} name={organization.name}")
         return redirect('view_organization')
     return render(request, 'hoo/edit_organization.html')
 
@@ -1410,12 +1439,15 @@ def ADD_ANNOUNCEMENT(request):
         
         
         messages.success(request, 'Announcement successfully added!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added announcement id={announcement.id} title={announcement.title}")
         return redirect('view_announcement')
     return render(request, 'hoo/add_announcement.html')
 
 def DELETE_ANNOUNCEMENT(request, id):
     announcement = Announcement.objects.get(id = id)
+    title = getattr(announcement, 'title', None)
     announcement.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted announcement id={id} title={title}")
     messages.success(request, 'Announcement successfully deleted')
     return redirect('view_announcement')
 
@@ -1466,6 +1498,7 @@ def UPDATE_ANNOUNCEMENT(request):
         announcement.save()
         
         messages.success(request, "Announcement successfully updated")
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated announcement id={announcement.id} title={announcement.title}")
         return redirect('view_announcement')
     return render(request, 'hoo/edit_announcement.html')
 
@@ -1556,6 +1589,7 @@ def MEMBERSHIP_APPROVAL(request):
                                     )
                                 except Exception as e:
                                     email_failed[str(mid)] = str(e)
+                                    audit_logger.warning(f"Membership approval email failed for member id={mid} user={getattr(user, 'username', None)}: {e}")
                             else:
                                 from_email = getattr(settings, 'EMAIL_HOST_USER', 'yourgmail@gmail.com')
                                 try:
@@ -1572,9 +1606,11 @@ def MEMBERSHIP_APPROVAL(request):
                                     )
                                 except Exception as e:
                                     email_failed[str(mid)] = str(e)
+                                    audit_logger.warning(f"Membership renewal approval email failed for member id={mid} user={getattr(user, 'username', None)}: {e}")
                         except Exception:
                             pass
                         approved.append(mid)
+                        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) approved membership for member id={mid} user={getattr(user, 'username', None)}")
 
                     elif action == 'decline':
                         membership.status = 'DECLINED'
@@ -1594,14 +1630,17 @@ def MEMBERSHIP_APPROVAL(request):
                                     recipient_list=[getattr(user, 'email', '')],
                                     fail_silently=False,
                                 )
+                                audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) declined membership for member id={mid} user={getattr(user, 'username', None)}")
                             except Exception as e:
                                 email_failed[str(mid)] = str(e)
+                                audit_logger.warning(f"Membership decline email failed for member id={mid} user={getattr(user, 'username', None)}: {e}")
                         except Exception:
                             pass
                         declined.append(mid)
 
                 except Exception as e:
                     failed[str(mid)] = str(e)
+                    audit_logger.exception(f"Failed processing membership id={mid} action={action} by user {getattr(request.user, 'username', None)}: {e}")
 
             # Add single summary messages for the HOO page reload
             try:
@@ -1613,6 +1652,14 @@ def MEMBERSHIP_APPROVAL(request):
                     messages.error(request, f"{len(failed)} membership(s) failed to process.")
                 if email_failed:
                     messages.warning(request, f"{len(email_failed)} email(s) failed to send.")
+            except Exception:
+                pass
+
+            # Audit summary for bulk operation
+            try:
+                audit_logger.info(
+                    f"Membership bulk action by {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}): action={action} approved={len(approved)} declined={len(declined)} failed={len(failed)} email_failed={len(email_failed)} ids={ids}"
+                )
             except Exception:
                 pass
 
@@ -1679,6 +1726,7 @@ def MEMBERSHIP_APPROVAL(request):
                     request,
                     f"Membership for {user.first_name} {user.last_name} approved, user activated, and email with credentials sent."
                 )
+                audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) approved membership for member id={member.id} user={getattr(user, 'username', None)}")
             else:
                 # Renewal: do not generate a new password. Send a simple approval notification.
                 send_mail(
@@ -1698,6 +1746,7 @@ def MEMBERSHIP_APPROVAL(request):
                     request,
                     f"Membership renewal for {user.first_name} {user.last_name} approved; user retains existing credentials."
                 )
+                audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) approved membership renewal for member id={member.id} user={getattr(user, 'username', None)}")
 
         elif action == "decline":
             membership.status = "DECLINED"
@@ -1720,10 +1769,12 @@ def MEMBERSHIP_APPROVAL(request):
                 )
             except Exception as e:
                 messages.error(request, f"Failed to send decline email: {e}")
+                audit_logger.warning(f"Membership decline email failed for member id={member.id} user={getattr(user, 'username', None)}: {e}")
 
             messages.warning(
                 request, f"Membership for {user.first_name} {user.last_name} declined."
             )
+            audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) declined membership for member id={member.id} user={getattr(user, 'username', None)}")
         else:
             messages.error(request, "Invalid action.")
 
@@ -1833,10 +1884,12 @@ def SEND_INVITATIONS(request):
 
     if not member_ids:
         messages.error(request, 'No members selected for invitations.')
+        audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) attempted to send invitations but no members selected")
         return redirect('hoo_event_invitations')
 
     if not subject or not body:
         messages.error(request, 'Subject and message body are required.')
+        audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) attempted to send invitations with missing subject/body member_ids={member_ids}")
         return redirect('hoo_event_invitations')
 
     # Resolve recipients
@@ -1845,6 +1898,7 @@ def SEND_INVITATIONS(request):
 
     if not recipients:
         messages.error(request, 'Selected members do not have email addresses.')
+        audit_logger.warning(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) attempted to send invitations but selected members have no emails member_ids={member_ids}")
         return redirect('hoo_event_invitations')
 
     # Get active event (if any)
@@ -1946,8 +2000,14 @@ def SEND_INVITATIONS(request):
 
         msg.send(fail_silently=False)
         messages.success(request, f'Invitations sent to {len(recipients)} recipients.')
+        audit_logger.info(
+            f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) sent invitations to {len(recipients)} recipients; member_ids={member_ids}; event_id={getattr(event, 'id', None)}; event_title={event_title}"
+        )
     except Exception as e:
         messages.error(request, f'Failed to send invitations: {str(e)}')
+        audit_logger.exception(
+            f"Failed to send invitations by user {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) member_ids={member_ids} recipients_count={len(recipients) if 'recipients' in locals() else 0} error={e}"
+        )
 
     return redirect('hoo_event_invitations')
 
@@ -2084,6 +2144,7 @@ def ADD_EVENT(request):
             request,
             f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!'
         )
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added event id={event.id} title={event.title}")
         return redirect('viewall_event')
 
     # Fetch dropdown data
@@ -2115,7 +2176,9 @@ def ADD_EVENT(request):
 
 def DELETE_EVENT(request, id):
     event = Event.objects.get(id = id)
+    title = getattr(event, 'title', None)
     event.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted event id={id} title={title}")
     messages.success(request, 'event successfully deleted')
     return redirect('viewall_event')
 
@@ -2137,6 +2200,7 @@ def EDIT_EVENT(request, id):
 
         event.save()
         messages.success(request, f'Event "{event.title}" updated successfully!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated event id={event.id} title={event.title}")
         return redirect('viewall_event')
 
     if request.headers.get('x-requested-with') == 'XMLHttpRequest':
