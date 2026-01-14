@@ -77,10 +77,42 @@
 						<div id="pie_chart"></div>
 					</div>
 				</div>
+
+				<!-- Static column chart card (demo) placed under pie chart -->
+				<div class="card shadow-sm text-center mt-3">
+					<div class="card-body">
+						<h6 class="text-muted mb-2">Overall, how satisfied were you with the event?</h6>
+						<div id="column_chart" style="min-height:320px;"></div>
+					</div>
+				</div>
+
+				<!-- Q2 column chart (expectations) placed under Q1 -->
+				<div class="card shadow-sm text-center mt-3">
+					<div class="card-body">
+						<h6 class="text-muted mb-2">How well did the event meet your expectations?</h6>
+						<div id="column_chart_q2" style="min-height:320px;"></div>
+					</div>
+				</div>
+
+				<!-- Q3 column chart (organization) placed under Q2 -->
+				<div class="card shadow-sm text-center mt-3">
+					<div class="card-body">
+						<h6 class="text-muted mb-2">How would you rate the organization and logistics of the event?</h6>
+						<div id="column_chart_q3" style="min-height:320px;"></div>
+					</div>
+				</div>
+
+				<!-- NPS column chart (recommendation 1..10) placed under Q3 -->
+				<div class="card shadow-sm text-center mt-3">
+					<div class="card-body">
+						<h6 class="text-muted mb-2">How likely are attendees to recommend this event? (1–10)</h6>
+						<div id="column_chart_nps" style="min-height:360px;"></div>
+					</div>
+				</div>
 			</div>
 		</div>
 
-		<div class="col-lg-6">
+			<div class="col-lg-6">
 			<div class="row g-3">
 				<div class="col-6 col-md-3">
 					<div class="card chart-card metric-card p-2">
@@ -275,6 +307,230 @@
 	<!-- ApexCharts chart for organization initials -->
 	<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 	<script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+
+<!-- Q1 (satisfaction) column chart: shows counts of q1_rating (4..1) per selected event -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+		var el = document.querySelector('#column_chart');
+		if(!el || typeof ApexCharts === 'undefined') return;
+
+		// categories: show numeric value + label (4 -> Very satisfied ... 1 -> Very dissatisfied)
+		var categories = ['4 — Very satisfied', '3 — Satisfied', '2 — Dissatisfied', '1 — Very dissatisfied'];
+
+		var q1Options = {
+				series: [{ name: 'Count', data: [0,0,0,0] }],
+				chart: { type: 'bar', height: 320 },
+				plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 6 } },
+				dataLabels: { enabled: false },
+				xaxis: { categories: categories },
+				yaxis: { title: { text: 'Count' } },
+				tooltip: { y: { formatter: function(val){ return String(val); } } }
+		};
+
+		window.q1Chart = new ApexCharts(el, q1Options);
+		window.q1Chart.render();
+
+		// Update function: fetch counts for given eventId and update chart
+		function updateQ1Chart(eventId){
+				if(!eventId){
+						window.q1Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+						return;
+				}
+
+				// Expecting backend endpoint to return JSON: { counts: { '1': n1, '2': n2, '3': n3, '4': n4 } }
+				fetch('/hoo/Event/Q1Counts/' + eventId + '/')
+						.then(function(res){ if(!res.ok) throw new Error('no data'); return res.json(); })
+						.then(function(data){
+								var counts = (data && data.counts) ? data.counts : data;
+								// normalize into array [count4, count3, count2, count1]
+								var c4 = Number(counts['4'] || counts[4] || 0);
+								var c3 = Number(counts['3'] || counts[3] || 0);
+								var c2 = Number(counts['2'] || counts[2] || 0);
+								var c1 = Number(counts['1'] || counts[1] || 0);
+								window.q1Chart.updateSeries([{ name: 'Count', data: [c4, c3, c2, c1] }]);
+						})
+						.catch(function(){
+								// fallback: zeroes
+								window.q1Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+						});
+		}
+
+		// hook into event selection changes (reuse existing select with id `event_select`)
+		var eventSelect = document.getElementById('event_select');
+		if(eventSelect){
+				eventSelect.addEventListener('change', function(e){
+						var sel = e.target.selectedOptions[0];
+						var id = sel ? sel.value : null;
+						updateQ1Chart(id);
+				});
+		}
+
+		// initial load: try active event id from server context
+		try{
+				var activeEventId = '{{ event.id|default:"" }}';
+				if(activeEventId) updateQ1Chart(activeEventId);
+		}catch(e){/* ignore template absence */}
+});
+</script>
+
+<!-- Q2 (expectations) column chart: shows counts of q2_rating (4..1) per selected event -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+	var el = document.querySelector('#column_chart_q2');
+	if(!el || typeof ApexCharts === 'undefined') return;
+
+	var categories = ['4 — Very satisfied', '3 — Satisfied', '2 — Dissatisfied', '1 — Very dissatisfied'];
+
+	var q2Options = {
+		series: [{ name: 'Count', data: [0,0,0,0] }],
+		chart: { type: 'bar', height: 320 },
+		plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 6 } },
+		dataLabels: { enabled: false },
+		xaxis: { categories: categories },
+		yaxis: { title: { text: 'Count' } },
+		tooltip: { y: { formatter: function(val){ return String(val); } } }
+	};
+
+	window.q2Chart = new ApexCharts(el, q2Options);
+	window.q2Chart.render();
+
+	function updateQ2Chart(eventId){
+		if(!eventId){
+			window.q2Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+			return;
+		}
+
+		fetch('/hoo/Event/Q2Counts/' + eventId + '/')
+			.then(function(res){ if(!res.ok) throw new Error('no data'); return res.json(); })
+			.then(function(data){
+				var counts = (data && data.counts) ? data.counts : data;
+				var c4 = Number(counts['4'] || counts[4] || 0);
+				var c3 = Number(counts['3'] || counts[3] || 0);
+				var c2 = Number(counts['2'] || counts[2] || 0);
+				var c1 = Number(counts['1'] || counts[1] || 0);
+				window.q2Chart.updateSeries([{ name: 'Count', data: [c4, c3, c2, c1] }]);
+			})
+			.catch(function(){
+				window.q2Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+			});
+	}
+
+	var eventSelect = document.getElementById('event_select');
+	if(eventSelect){
+		eventSelect.addEventListener('change', function(e){
+			var sel = e.target.selectedOptions[0];
+			var id = sel ? sel.value : null;
+			updateQ2Chart(id);
+		});
+	}
+
+	try{
+		var activeEventId = '{{ event.id|default:"" }}';
+		if(activeEventId) updateQ2Chart(activeEventId);
+	}catch(e){}
+});
+</script>
+
+<!-- Q3 (organization) column chart: shows counts of q3_rating (4..1) per selected event -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+	var el = document.querySelector('#column_chart_q3');
+	if(!el || typeof ApexCharts === 'undefined') return;
+
+	var categories = ['4 — Very satisfied', '3 — Satisfied', '2 — Dissatisfied', '1 — Very dissatisfied'];
+
+	var q3Options = {
+		series: [{ name: 'Count', data: [0,0,0,0] }],
+		chart: { type: 'bar', height: 320 },
+		plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 6 } },
+		dataLabels: { enabled: false },
+		xaxis: { categories: categories },
+		yaxis: { title: { text: 'Count' } },
+		tooltip: { y: { formatter: function(val){ return String(val); } } }
+	};
+
+	window.q3Chart = new ApexCharts(el, q3Options);
+	window.q3Chart.render();
+
+	function updateQ3Chart(eventId){
+		if(!eventId){
+			window.q3Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+			return;
+		}
+
+		fetch('/hoo/Event/Q3Counts/' + eventId + '/')
+			.then(function(res){ if(!res.ok) throw new Error('no data'); return res.json(); })
+			.then(function(data){
+				var counts = (data && data.counts) ? data.counts : data;
+				var c4 = Number(counts['4'] || counts[4] || 0);
+				var c3 = Number(counts['3'] || counts[3] || 0);
+				var c2 = Number(counts['2'] || counts[2] || 0);
+				var c1 = Number(counts['1'] || counts[1] || 0);
+				window.q3Chart.updateSeries([{ name: 'Count', data: [c4, c3, c2, c1] }]);
+			})
+			.catch(function(){
+				window.q3Chart.updateSeries([{ name: 'Count', data: [0,0,0,0] }]);
+			});
+	}
+
+	var eventSelect = document.getElementById('event_select');
+	if(eventSelect){
+		eventSelect.addEventListener('change', function(e){
+			var sel = e.target.selectedOptions[0];
+			var id = sel ? sel.value : null;
+			updateQ3Chart(id);
+		});
+	}
+
+	try{
+		var activeEventId = '{{ event.id|default:"" }}';
+		if(activeEventId) updateQ3Chart(activeEventId);
+	}catch(e){}
+});
+</script>
+
+<!-- NPS (recommendation 1..10) column chart: shows counts of nps_rating per selected event -->
+<script>
+document.addEventListener('DOMContentLoaded', function(){
+	var el = document.querySelector('#column_chart_nps');
+	if(!el || typeof ApexCharts === 'undefined') return;
+
+	var categories = []; for(var i=1;i<=10;i++){ categories.push(String(i)); }
+
+	var npsOptions = {
+		series: [{ name: 'Count', data: Array(10).fill(0) }],
+		chart: { type: 'bar', height: 360 },
+		plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 6 } },
+		dataLabels: { enabled: false },
+		xaxis: { categories: categories, title: { text: 'Recommendation (1 = least likely, 10 = most likely)' } },
+		yaxis: { title: { text: 'Count' } },
+		tooltip: { y: { formatter: function(val){ return String(val); } } }
+	};
+
+	window.npsChart = new ApexCharts(el, npsOptions);
+	window.npsChart.render();
+
+	function updateNPSChart(eventId){
+		if(!eventId){ window.npsChart.updateSeries([{ name: 'Count', data: Array(10).fill(0) }]); return; }
+		fetch('/hoo/Event/NPSCounts/' + eventId + '/')
+			.then(function(res){ if(!res.ok) throw new Error('no data'); return res.json(); })
+			.then(function(data){
+				var counts = (data && data.counts) ? data.counts : data;
+				var arr = [];
+				for(var i=1;i<=10;i++){ arr.push(Number(counts[String(i)] || counts[i] || 0)); }
+				window.npsChart.updateSeries([{ name: 'Count', data: arr }]);
+			})
+			.catch(function(){ window.npsChart.updateSeries([{ name: 'Count', data: Array(10).fill(0) }]); });
+	}
+
+	var eventSelect = document.getElementById('event_select');
+	if(eventSelect){
+		eventSelect.addEventListener('change', function(e){ var sel = e.target.selectedOptions[0]; var id = sel ? sel.value : null; updateNPSChart(id); });
+	}
+
+	try{ var activeEventId = '{{ event.id|default:"" }}'; if(activeEventId) updateNPSChart(activeEventId); }catch(e){}
+});
+</script>
 	<script>
 	document.addEventListener('DOMContentLoaded', function(){
 		var orgs = [];

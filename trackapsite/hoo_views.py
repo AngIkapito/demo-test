@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, Intetrested_Topics, IT_Topics
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, Intetrested_Topics, IT_Topics, Event_Evaluation
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 import json
@@ -661,8 +661,133 @@ def GET_EVENT_COMPETITOR_COUNTS(request, id):
         return JsonResponse({'labels': [], 'series': []})
 
 
+@login_required(login_url='/')
+def GET_EVENT_Q1_COUNTS(request, id):
+    """Return counts of Event_Evaluation.q1_rating for the given event id.
+
+    Response JSON: { "counts": { "4": n4, "3": n3, "2": n2, "1": n1 } }
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    try:
+        # Aggregate counts grouped by q1_rating
+        grouped = Event_Evaluation.objects.filter(event_id=ev_id).values('q1_rating').annotate(count=Count('id'))
+        # initialize zeros
+        result = {'4': 0, '3': 0, '2': 0, '1': 0}
+        for row in grouped:
+            q = row.get('q1_rating')
+            if q is None:
+                continue
+            k = str(q)
+            if k in result:
+                result[k] = row.get('count', 0)
+        return JsonResponse({'counts': result})
+    except Exception:
+        return JsonResponse({'counts': {'4': 0, '3': 0, '2': 0, '1': 0}})
+
+
+@login_required(login_url='/')
+def GET_EVENT_NPS_COUNTS(request, id):
+    """Return counts of Event_Evaluation.nps_rating (1..10) for given event id.
+
+    Response JSON: { "counts": { "1": n1, "2": n2, ..., "10": n10 } }
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    try:
+        grouped = Event_Evaluation.objects.filter(event_id=ev_id).values('nps_rating').annotate(count=Count('id'))
+        # initialize 1..10 zeros
+        result = {str(i): 0 for i in range(1, 11)}
+        for row in grouped:
+            q = row.get('nps_rating')
+            if q is None:
+                continue
+            k = str(q)
+            if k in result:
+                result[k] = row.get('count', 0)
+        return JsonResponse({'counts': result})
+    except Exception:
+        return JsonResponse({'counts': {str(i): 0 for i in range(1, 11)}})
+
+
 
 #for the profile
+
+
+@login_required(login_url='/')
+def GET_EVENT_Q2_COUNTS(request, id):
+    """Return counts of Event_Evaluation.q2_rating for the given event id.
+
+    Response JSON: { "counts": { "4": n4, "3": n3, "2": n2, "1": n1 } }
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    try:
+        # Aggregate counts grouped by q2_rating
+        grouped = Event_Evaluation.objects.filter(event_id=ev_id).values('q2_rating').annotate(count=Count('id'))
+        # initialize zeros
+        result = {'4': 0, '3': 0, '2': 0, '1': 0}
+        for row in grouped:
+            q = row.get('q2_rating')
+            if q is None:
+                continue
+            k = str(q)
+            if k in result:
+                result[k] = row.get('count', 0)
+        return JsonResponse({'counts': result})
+    except Exception:
+        return JsonResponse({'counts': {'4': 0, '3': 0, '2': 0, '1': 0}})
+    
+
+@login_required(login_url='/')
+def GET_EVENT_Q3_COUNTS(request, id):
+    """Return counts of Event_Evaluation.q3_rating for the given event id.
+
+    Response JSON: { "counts": { "4": n4, "3": n3, "2": n2, "1": n1 } }
+    """
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        raise Http404('Invalid request')
+
+    try:
+        ev_id = int(id)
+    except Exception:
+        return JsonResponse({'error': 'invalid id'}, status=400)
+
+    try:
+        # Aggregate counts grouped by q3_rating
+        grouped = Event_Evaluation.objects.filter(event_id=ev_id).values('q3_rating').annotate(count=Count('id'))
+        # initialize zeros
+        result = {'4': 0, '3': 0, '2': 0, '1': 0}
+        for row in grouped:
+            q = row.get('q3_rating')
+            if q is None:
+                continue
+            k = str(q)
+            if k in result:
+                result[k] = row.get('count', 0)
+        return JsonResponse({'counts': result})
+    except Exception:
+        return JsonResponse({'counts': {'4': 0, '3': 0, '2': 0, '1': 0}})
+
+
 @login_required(login_url='/')
 def PROFILE(request):
     user = CustomUser.objects.get(id = request.user.id)
