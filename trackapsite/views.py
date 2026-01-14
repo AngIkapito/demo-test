@@ -795,8 +795,31 @@ def SUBMIT_RATING(request):
     if already:
         return JsonResponse({'success': False, 'message': 'Feedback already submitted for this event with this email'}, status=409)
 
-    # Save evaluation
+    # Save evaluation (include q1_rating mapped from satisfaction text)
     try:
+        # Map textual satisfaction to numeric q1_rating per requested mapping
+        satisfaction_raw = (payload.get('satisfaction') or payload.get('satisfactionLevel') or '').strip()
+        expectations_raw = (payload.get('expectations') or '').strip()
+        organization_raw = (payload.get('organization') or '').strip()
+        satisfaction_map = {
+            'very_satisfied': 4,
+            'satisfied': 3,
+            'dissatisfied': 2,
+            'very_dissatisfied': 1,
+        }
+        q1_val = satisfaction_map.get(satisfaction_raw)
+        q2_val = satisfaction_map.get(expectations_raw)
+        q3_val = satisfaction_map.get(organization_raw)
+        # recommendation is expected to be a number 1..10 (NPS-like)
+        recommendation_raw = payload.get('recommendation') or payload.get('recommendationValue') or ''
+        try:
+            nps_val = int(recommendation_raw) if recommendation_raw not in (None, '') else None
+        except Exception:
+            nps_val = None
+        # ensure within 1..10
+        if nps_val is not None and not (1 <= nps_val <= 10):
+            nps_val = None
+
         Event_Evaluation.objects.create(
             event=ev,
             rating=rating,
@@ -804,6 +827,10 @@ def SUBMIT_RATING(request):
             last_name=last_name or None,
             first_name=first_name or None,
             email=email,
+            q1_rating=q1_val,
+            q2_rating=q2_val,
+            q3_rating=q3_val,
+            nps_rating=nps_val,
         )
 
         # Send a thank-you email to the submitter (do not fail the request on email errors)
