@@ -147,6 +147,7 @@ urlpatterns = [
     #This is a table for the approval 
     path('hoo/MembershipRegistration/Approve', hoo_views.MEMBERSHIP_APPROVAL, name='membership_approval'),
     path('hoo/Event/Comments/<int:event_id>/', hoo_views.GET_EVENT_COMMENTS, name='event_comments'),
+    path('hoo/Certificate/Generate/<int:member_id>/', hoo_views.MEMBERSHIP_CERTIFICATE, name='generate_certificate'),
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),

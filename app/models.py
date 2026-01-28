@@ -161,6 +161,7 @@ class Membership(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     processed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
+    file_path = models.CharField(max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.member.admin.first_name} {self.member.admin.last_name} - {self.membertype.name} ({self.school_year})"

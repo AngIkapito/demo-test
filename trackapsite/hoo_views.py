@@ -1,3 +1,5 @@
+# --- Membership Certificate View ---
+from django.utils import timezone
 from django.shortcuts import render,redirect, HttpResponse, get_object_or_404
 from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
@@ -3339,4 +3341,66 @@ def ABSENT_MEMBER_EVENT_REG(request, reg_id):
         pass
 
     return JsonResponse({'success': True, 'id': reg.id})
+
+
+
+
+@login_required(login_url='/')
+def MEMBERSHIP_CERTIFICATE(request, member_id):
+    """
+    Render a membership certificate for a given member.
+    - member_full_name: member.admin.first_name + ' ' + member.admin.last_name
+    - membership_type: member.membershiptype.name
+    - membership_id: member.membership_id
+    - school_name: member.organization.name
+    - validity period: membership.school_year.sy_start – sy_end (latest membership for member)
+    - president_name: CustomUser with user_type=1 (first_name + last_name)
+    - issue_date: today
+    - tracking_number: (optional, can be member.membership_id or generated)
+    """
+    from app.models import Member, Membership, School_Year, Organization, MembershipType, CustomUser
+    member = get_object_or_404(Member, id=member_id)
+
+    # Get admin (CustomUser)
+    admin = getattr(member, 'admin', None)
+    member_full_name = f"{admin.first_name} {admin.last_name}" if admin else ""
+
+    # Membership type
+    membership_type = getattr(getattr(member, 'membershiptype', None), 'name', '')
+
+    # Membership ID
+    membership_id = getattr(member, 'membership_id', '')
+
+    # School name
+    school_name = getattr(getattr(member, 'organization', None), 'name', '')
+
+    # Get latest membership for this member (by school_year or id)
+    membership = Membership.objects.filter(member_id=member.id).order_by('-school_year__sy_start', '-id').first()
+    validity_start = validity_end = ''
+    if membership and membership.school_year:
+        validity_start = membership.school_year.sy_start.strftime('%Y') if membership.school_year.sy_start else ''
+        validity_end = membership.school_year.sy_end.strftime('%Y') if membership.school_year.sy_end else ''
+
+    # President name (CustomUser with user_type=1)
+    president = CustomUser.objects.filter(user_type=1).order_by('id').first()
+    president_name = f"{president.first_name} {president.last_name}" if president else ''
+
+    # Issue date (today)
+    issue_date = timezone.now().strftime('%B %d, %Y')
+
+    # Tracking number (use membership_id or generate)
+    tracking_number = membership_id or f"TRK-{member.id}-{timezone.now().strftime('%Y%m%d')}"
+
+    context = {
+        'member_full_name': member_full_name,
+        'membership_type': membership_type,
+        'membership_id': membership_id,
+        'school_name': school_name,
+        'membership_start': validity_start,
+        'membership_end': validity_end,
+        'president_name': president_name,
+        'issue_date': issue_date,
+        'tracking_number': tracking_number,
+    }
+    return render(request, 'hoo/certificate.html', context)
 

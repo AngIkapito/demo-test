@@ -1,0 +1,137 @@
+@page {
+    size: A4 landscape;
+    margin: 0;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: #f2f2f2;
+    font-family: "Times New Roman", serif;
+}
+
+.certificate {
+    width: 1123px;
+    height: 794px;
+    background: #ffffff;
+    margin: auto;
+    padding: 50px 70px;
+    border: 12px solid #0b5ed7;
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* HEADER */
+.certificate-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 3px solid #ffc107;
+    padding-bottom: 15px;
+}
+
+.logo {
+    width: 120px;
+    margin-right: 20px;
+}
+
+.header-text h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #0b5ed7;
+    text-transform: uppercase;
+}
+
+.header-text h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #555;
+}
+
+/* TITLE */
+.certificate-title {
+    text-align: center;
+    margin: 40px 0 20px;
+}
+
+.certificate-title h1 {
+    font-size: 42px;
+    letter-spacing: 3px;
+    color: #000;
+}
+
+/* BODY */
+.certificate-body {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.intro-text {
+    font-size: 20px;
+}
+
+.member-name {
+    font-size: 40px;
+    font-weight: bold;
+    margin: 20px 0;
+    text-transform: uppercase;
+    border-bottom: 2px solid #000;
+    display: inline-block;
+    padding: 5px 30px;
+}
+
+.body-text {
+    font-size: 20px;
+    margin: 15px 80px;
+    line-height: 1.6;
+}
+
+.membership-details {
+    margin-top: 25px;
+    font-size: 18px;
+}
+
+/* SIGNATURE */
+.certificate-signatures.single-signature {
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+    ;
+}
+
+.signature {
+    text-align: center;
+}
+
+.signature .name {
+    font-weight: bold;
+    font-size: 18px;
+    margin-bottom: 6px;
+}
+
+.signature .line {
+    width: 260px;
+    border-top: 2px solid #000;
+    margin: 0 auto 6px;
+}
+
+.signature .position {
+    font-size: 16px;
+    color: #555;
+}
+
+/* FOOTER (BOTTOM-RIGHT) */
+.certificate-footer {
+    position: absolute;
+    bottom: 10px;
+    right: 60px;
+    font-size: 14px;
+    color: #666;
+}
+
+.tracking-number {
+    position: relative;
+    bottom: 23px;
+    right: 60px;
+    font-size: 14px;
+    color: #666;
+}
