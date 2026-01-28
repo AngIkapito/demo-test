@@ -2799,6 +2799,25 @@ def APPROVE_MEMBER_EVENT_REG(request, reg_id):
     return JsonResponse({'success': True, 'id': reg.id})
 
 
+# --- Event Comments API for Analytics ---
+from django.views.decorators.csrf import csrf_exempt
+
+@login_required(login_url='/')
+@require_http_methods(["GET"])
+def GET_EVENT_COMMENTS(request, event_id):
+    """Return all non-empty comments for the given event as JSON list."""
+    if not (request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET'):
+        return JsonResponse({'comments': []})
+
+    try:
+        # Only fetch non-empty, non-null comments for the event
+        comments_qs = Event_Evaluation.objects.filter(event_id=event_id).exclude(comments__isnull=True).exclude(comments__exact='')
+        comments = list(comments_qs.values_list('comments', flat=True))
+    except Exception:
+        comments = []
+    return JsonResponse({'comments': comments})
+
+
 @login_required(login_url='/')
 @require_http_methods(["POST"])
 def APPROVE_MEMBER_EVENT_REGS_VIEW(request):
@@ -3320,3 +3339,4 @@ def ABSENT_MEMBER_EVENT_REG(request, reg_id):
         pass
 
     return JsonResponse({'success': True, 'id': reg.id})
+

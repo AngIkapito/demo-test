@@ -161,6 +161,14 @@
 					<div id="grouped_chart" style="height:380px;"></div>
 				</div>
 			</div>
+
+			<!-- Comments card under competitor breakdown -->
+			<div class="card shadow-sm mt-3">
+				<div class="card-body" style="min-height:180px; max-height:300px; overflow-y:auto;">
+					<h6 class="text-muted mb-2">Comments</h6>
+					<ul id="event_comments_list" class="list-group list-group-flush small"></ul>
+				</div>
+			</div>
 		</div>
 	</div>
 
@@ -618,6 +626,53 @@ document.addEventListener('DOMContentLoaded', function(){
 			if(activeEventId){ updateGroupedChart(activeEventId); }
 		}catch(e){}
 	});
+
+// Comments fetcher and renderer
+document.addEventListener('DOMContentLoaded', function(){
+	function renderComments(comments){
+		var list = document.getElementById('event_comments_list');
+		if(!list) return;
+		list.innerHTML = '';
+		if(Array.isArray(comments) && comments.length){
+			comments.forEach(function(c){
+				var li = document.createElement('li');
+				li.className = 'list-group-item';
+				li.textContent = c;
+				list.appendChild(li);
+			});
+		}else{
+			var li = document.createElement('li');
+			li.className = 'list-group-item text-muted';
+			li.textContent = 'No comments yet.';
+			list.appendChild(li);
+		}
+	}
+
+	function fetchComments(eventId){
+		if(!eventId){ renderComments([]); return; }
+		fetch('/hoo/Event/Comments/' + eventId + '/')
+			.then(function(res){ return res.json(); })
+			.then(function(data){
+				var comments = Array.isArray(data.comments) ? data.comments : [];
+				renderComments(comments);
+			})
+			.catch(function(){ renderComments([]); });
+	}
+
+	var eventSelect = document.getElementById('event_select');
+	if(eventSelect){
+		eventSelect.addEventListener('change', function(e){
+			var sel = e.target.selectedOptions[0];
+			var id = sel ? sel.value : null;
+			fetchComments(id);
+		});
+	}
+
+	try{
+		var activeEventId = '{{ event.id|default:"" }}';
+		if(activeEventId) fetchComments(activeEventId);
+	}catch(e){}
+});
 	</script>
 
 	<!-- Lightweight metrics updater: fetch competitor counts and compute conversion -->
