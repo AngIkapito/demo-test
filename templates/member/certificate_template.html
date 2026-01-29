@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PSITE Membership Certificate</title>
+    <link rel="stylesheet" href="{% static 'css/cert.css' %}">
+</head>
+<body>
+<div class="certificate">
+    <div class="certificate-header">
+        <img src="PSITECL logo png.png" alt="PSITE Logo" class="logo">
+        <div class="header-text">
+            <h1>Philippine Society of Information Technology Educators</h1>
+            <h2>Central Luzon Region</h2>
+        </div>
+    </div>
+    <div class="certificate-title">
+        <h1>CERTIFICATE OF MEMBERSHIP</h1>
+    </div>
+    <div class="certificate-body">
+        <p class="intro-text">This is to certify that</p>
+        <p class="member-name">
+            {{ member_full_name }}
+        </p>
+        <p class="body-text">
+            is a <strong>{{ membership_type }}</strong> member of the
+            <strong>Philippine Society of Information Technology Educators – Central Luzon Region (PSITE-CL)</strong>.
+        </p>
+        <p class="body-text">
+            This certificate is issued in recognition of the member’s active participation
+            and commitment to the advancement of Information Technology education.
+        </p>
+        <p class="membership-details">
+            Membership ID: <strong>{{ membership_id }}</strong><br>
+            School / Institution: <strong>{{ school_name }}</strong><br>
+            Validity Period: <strong>{{ membership_start }} – {{ membership_end }}</strong>
+        </p>
+    </div>
+    <div class="certificate-signatures single-signature">
+        <div class="signature">
+            <p class="name">{{ president_name }}</p>
+            <div class="line"></div>
+            <p class="position">PSITE-CL President</p>
+        </div>
+    </div>
+    <div class="certificate-footer">
+        Issued on {{ issue_date }} • Generated via <strong>TracKaPSITE</strong>
+    </div>
+    <div class="tracking-number">
+        Tracking No.: <strong>{{ tracking_number }}</strong>
+    </div>
+</div>
+</body>
+</html>

@@ -176,5 +176,5 @@ urlpatterns = [
     path('member/Event/BulkRegistration', member_views.BULK_EVENT_REG, name='bulk_event_reg_member'),
     path('member/Event/BulkRegistration/Upload', member_views.UPLOAD_BULK_EVENT_REG, name='upload_bulk_event_reg_member'),
     path('member/Event/BulkRegistration/Save', member_views.SAVE_BULK_EVENT_REG, name='save_bulk_event_reg_member'),
-    
+    path('member/Certificate/Generate/<int:membership_id>/', member_views.generate_membership_certificate, name='member_generate_certificate'),
 ]+ static(settings.MEDIA_URL,document_root = settings.MEDIA_ROOT)

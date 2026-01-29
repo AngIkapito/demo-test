@@ -119,6 +119,9 @@
                                                 {% endfor %}
                                             </ul>
                                         {% endif %}
+                                        <form method="get" action="{% url 'member_generate_certificate' te.id %}" style="display:inline;">
+                                            <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Generate</button>
+                                        </form>
                                     </div>
                                 </li>
                             {% endfor %}

@@ -1,3 +1,8 @@
+from django.template.loader import render_to_string
+from django.http import HttpResponse, FileResponse, Http404
+from xhtml2pdf import pisa
+import io
+from app.models import Membership, Member, MemberType, Organization, School_Year
 from django.shortcuts import render,redirect, HttpResponse
 from django.urls import path, include
 from django.contrib.auth.decorators import login_required
@@ -107,6 +112,63 @@ def home(request):
     context['timeline_entries'] = timeline_entries
     return render(request,'member/home.html', context)
 
+@login_required(login_url='/')
+def generate_membership_certificate(request, membership_id):
+    try:
+        membership = Membership.objects.select_related('member', 'member__admin', 'member__organization', 'member__membershiptype', 'school_year').get(id=membership_id)
+    except Membership.DoesNotExist:
+        raise Http404("Membership not found")
+
+    member = membership.member
+    user = member.admin
+    org = getattr(member, 'organization', None)
+    school_year = membership.school_year
+    membertype = getattr(member, 'membershiptype', None)
+
+    # President name (static or from OfficerType/CustomUser if available)
+    president_name = "PSITE-CL President"
+
+    # Compose context for the certificate
+    context = {
+        'member_full_name': f"{user.first_name} {user.last_name}",
+        'membership_type': membertype.name if membertype else '',
+        'membership_id': membership.id,
+        'school_name': org.name if org else '',
+        'membership_start': school_year.sy_start.strftime('%b %d, %Y') if school_year and school_year.sy_start else '',
+        'membership_end': school_year.sy_end.strftime('%b %d, %Y') if school_year and school_year.sy_end else '',
+        'president_name': president_name,
+        'issue_date': io.StringIO().getvalue() or '',  # fallback, will set below
+        'tracking_number': f"MEM-{membership.id:06d}",
+    }
+    from datetime import datetime
+    context['issue_date'] = datetime.now().strftime('%b %d, %Y')
+
+    # Render HTML
+    html = render_to_string('member/certificate_template.html', context)
+
+    # Generate PDF
+    result = io.BytesIO()
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode('utf-8')), result, encoding='utf-8')
+    if pdf.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    # Save PDF to media/certificates
+    import os
+    from django.conf import settings
+    cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+    os.makedirs(cert_dir, exist_ok=True)
+    cert_filename = f"membership_certificate_{membership.id}.pdf"
+    cert_path = os.path.join(cert_dir, cert_filename)
+    with open(cert_path, 'wb') as f:
+        f.write(result.getvalue())
+
+    # Save file path to membership.file_path
+    rel_path = f"certificates/{cert_filename}"
+    membership.file_path = rel_path
+    membership.save(update_fields=['file_path'])
+
+    # Return PDF as download
+    return FileResponse(open(cert_path, 'rb'), as_attachment=True, filename=cert_filename)
 
 @login_required(login_url='/')
 def PROFILE(request):
