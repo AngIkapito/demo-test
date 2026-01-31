@@ -8,3 +8,7 @@
 2026-01-28 21:34:48,986 | INFO | User jordan (id=11) declined membership for member id=7 user=joshua
 2026-01-29 11:23:03,663 | INFO | User jordan logged in (id=11) ip=127.0.0.1
 2026-01-29 11:24:43,587 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-01-31 10:38:50,762 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-01-31 10:40:01,870 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-01-31 14:34:03,496 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-01-31 15:24:43,944 | INFO | User jordan logged in (id=11) ip=127.0.0.1

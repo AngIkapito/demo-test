@@ -1,7 +1,9 @@
 from django.template.loader import render_to_string
 from django.http import HttpResponse, FileResponse, Http404
 from xhtml2pdf import pisa
+from django.contrib.staticfiles import finders
 import io
+import base64
 from app.models import Membership, Member, MemberType, Organization, School_Year
 from django.shortcuts import render,redirect, HttpResponse
 from django.urls import path, include
@@ -126,7 +128,15 @@ def generate_membership_certificate(request, membership_id):
     membertype = getattr(member, 'membershiptype', None)
 
     # President name (static or from OfficerType/CustomUser if available)
+    # Try to resolve the current president from CustomUser.user_type == 1
     president_name = "PSITE-CL President"
+    try:
+        prez = CustomUser.objects.filter(user_type=1).order_by('-id').first()
+        if prez:
+            president_name = f"{getattr(prez, 'first_name', '')} {getattr(prez, 'last_name', '')}".strip()
+    except Exception:
+        # keep default if lookup fails
+        pass
 
     # Compose context for the certificate
     context = {
@@ -144,20 +154,93 @@ def generate_membership_certificate(request, membership_id):
     context['issue_date'] = datetime.now().strftime('%b %d, %Y')
 
     # Render HTML
+    # Try to embed the logo as a base64 data URI so xhtml2pdf always sees it
+    logo_data_uri = ''
+    try:
+        logo_rel = 'img/psitelogo.jpg'
+        logo_path = finders.find(logo_rel)
+        if not logo_path and getattr(settings, 'STATIC_ROOT', None):
+            candidate = os.path.join(settings.STATIC_ROOT, logo_rel)
+            if os.path.exists(candidate):
+                logo_path = candidate
+        if not logo_path:
+            # try project static folder
+            base_static = getattr(settings, 'BASE_DIR', '')
+            candidate = os.path.join(base_static, 'static', logo_rel)
+            if os.path.exists(candidate):
+                logo_path = candidate
+
+        if logo_path and os.path.exists(logo_path):
+            with open(logo_path, 'rb') as lf:
+                data = lf.read()
+            encoded = base64.b64encode(data).decode('utf-8')
+            logo_data_uri = f"data:image/jpeg;base64,{encoded}"
+    except Exception:
+        logo_data_uri = ''
+
+    context['logo_data_uri'] = logo_data_uri
+    # Embed footer/design image as base64 as well
+    footer_design_data_uri = ''
+    try:
+        ft_rel = 'img/ftdesign.jpg'
+        ft_path = finders.find(ft_rel)
+        if not ft_path and getattr(settings, 'STATIC_ROOT', None):
+            candidate = os.path.join(settings.STATIC_ROOT, ft_rel)
+            if os.path.exists(candidate):
+                ft_path = candidate
+        if not ft_path:
+            base_static = getattr(settings, 'BASE_DIR', '')
+            candidate = os.path.join(base_static, 'static', ft_rel)
+            if os.path.exists(candidate):
+                ft_path = candidate
+
+        if ft_path and os.path.exists(ft_path):
+            with open(ft_path, 'rb') as ff:
+                fdata = ff.read()
+            fencoded = base64.b64encode(fdata).decode('utf-8')
+            footer_design_data_uri = f"data:image/jpeg;base64,{fencoded}"
+    except Exception:
+        footer_design_data_uri = ''
+    context['footer_design_uri'] = footer_design_data_uri
     html = render_to_string('member/certificate_template.html', context)
 
-    # Generate PDF
+    # Generate PDF with a link_callback so xhtml2pdf can resolve static/media files
     result = io.BytesIO()
-    pdf = pisa.pisaDocument(io.BytesIO(html.encode('utf-8')), result, encoding='utf-8')
+
+    def link_callback(uri, rel):
+        """Convert HTML URIs to absolute system paths so xhtml2pdf can access them.
+
+        Handles `MEDIA_URL` and `STATIC_URL` and falls back to the staticfiles finders.
+        """
+        # Media files
+        if uri.startswith(getattr(settings, 'MEDIA_URL', '/media/')):
+            path = os.path.join(getattr(settings, 'MEDIA_ROOT', ''), uri.replace(settings.MEDIA_URL, '').lstrip('/'))
+            return path
+
+        # Static files: try finders first
+        static_path = finders.find(uri)
+        if static_path:
+            return static_path
+
+        # If uri is prefixed with STATIC_URL, try to build path from STATIC_ROOT
+        if uri.startswith(getattr(settings, 'STATIC_URL', '/static/')):
+            path = os.path.join(getattr(settings, 'STATIC_ROOT', ''), uri.replace(settings.STATIC_URL, '').lstrip('/'))
+            return path
+
+        return uri
+
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode('utf-8')), result, link_callback=link_callback)
     if pdf.err:
         return HttpResponse('Error generating PDF', status=500)
 
     # Save PDF to media/certificates
-    import os
-    from django.conf import settings
     cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
     os.makedirs(cert_dir, exist_ok=True)
-    cert_filename = f"membership_certificate_{membership.id}.pdf"
+    # Use tracking number as filename to match generated document label
+    tracking = context.get('tracking_number', f"MEM-{membership.id:06d}")
+    # sanitize filename (remove any unexpected slashes)
+    safe_name = tracking.replace('/', '_')
+    cert_filename = f"{safe_name}.pdf"
     cert_path = os.path.join(cert_dir, cert_filename)
     with open(cert_path, 'wb') as f:
         f.write(result.getvalue())

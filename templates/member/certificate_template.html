@@ -1,55 +1,154 @@
 {% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>PSITE Membership Certificate</title>
-    <link rel="stylesheet" href="{% static 'css/cert.css' %}">
+
+    <!-- Inline styles for PDF rendering and positioning -->
+    <style>
+        /* Page sizing for PDF */
+        @page { size: A4 landscape; margin: 0; }
+        html, body { margin: 0; padding: 0; }
+
+        /* Colors */
+        .certificate{ border-color: #072b5a; }
+        .certificate-header{ border-bottom-color: #d4af37; }
+        .header-text h1, .certificate-title h1, .member-name, .signature .name{ color: #072b5a; }
+        .member-name{ border-bottom-color: #d4af37; }
+        .signature .line{ border-top-color: #072b5a; }
+
+        /* Tight layout so content fits one printed page */
+        .certificate {
+            width: 1123px; /* A4 landscape approximation used elsewhere */
+            /* remove fixed height so PDF layout can flow correctly */
+            padding: 12px 18px; /* further reduced padding to save vertical space */
+            box-sizing: border-box;
+            overflow: hidden;
+            page-break-inside: avoid;
+            page-break-after: avoid;
+            max-height: 760px;
+        }
+
+        /* Header/table layout */
+        .certificate-header-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+        .certificate-header-table td { vertical-align: middle; }
+        .logo { width: 220px; height: auto; }
+        /* Reduce top spacing so the region subtitle sits closer to the main title */
+        .header-text { text-align: center; padding-top: 6px; }
+        .header-text h1 { margin: 0 0 2px; font-size: 20px; line-height: 1.05; padding-top: 30px; }
+        .header-text h2 { margin: 0; font-size: 14px; color: #333; }
+
+        /* Title and typography scaled down */
+        .certificate-title { text-align: center; margin: 12px 0 4px; }
+        .certificate-title h1 { font-size: 30px; margin: 0; }
+
+        .certificate-body { text-align: center; margin-top: 8px; }
+        .intro-text { font-size: 14px; margin: 2px 0; }
+        .member-name { font-size: 32px; padding: 2px 14px; display: inline-block; }
+        .body-text { font-size: 15px; margin: 6px 36px; line-height: 1.3; }
+        .membership-details { margin-top: 12px; font-size: 11px; }
+
+        /* Signature table to force right alignment in PDF */
+        .signature-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .signature-cell { text-align: right; padding-right: 18px; vertical-align: top; }
+        .signature { display: inline-block; text-align: center; }
+        .signature .name { font-size: 12px; margin: 0 0 2px; }
+        .signature .line { width: 180px; border-top-width: 2px; }
+
+        /* Footer/tracking positioned at bottom-right */
+        .certificate-footer { position: absolute; bottom: 8px; right: 24px; font-size: 11px; color: #6b6b6b; white-space: nowrap; padding-top: 30px}
+        .tracking-number { position: absolute; bottom: 8px; right: 220px; font-size: 11px; color: #6b6b6b; white-space: nowrap; padding-top: 30px}
+        /* Decorative footer design sizing */
+        .footer-design { width: 1200px; max-width: 36%; height: 55; display: block; margin: 6px auto 0; padding-top: 20px}
+    </style>
 </head>
 <body>
 <div class="certificate">
-    <div class="certificate-header">
-        <img src="PSITECL logo png.png" alt="PSITE Logo" class="logo">
-        <div class="header-text">
-            <h1>Philippine Society of Information Technology Educators</h1>
-            <h2>Central Luzon Region</h2>
-        </div>
-    </div>
+
+    <!-- HEADER -->
+    <table class="certificate-header-table" role="presentation">
+        <tr>
+            <td style="width:240px;">
+                <img src="{{ logo_data_uri }}" alt="PSITE Logo" class="logo">
+            </td>
+            <td>
+                <div class="header-text">
+                    <h1>Philippine Society of Information Technology Educators</h1>
+                    <h2>Central Luzon Region</h2>
+                </div>
+            </td>
+            <td style="width:240px;"></td>
+        </tr>
+    </table>
+    <!-- Optional decorative design under header -->
+   
+    <!-- TITLE -->
     <div class="certificate-title">
         <h1>CERTIFICATE OF MEMBERSHIP</h1>
     </div>
+
+    <!-- BODY -->
     <div class="certificate-body">
         <p class="intro-text">This is to certify that</p>
+
         <p class="member-name">
             {{ member_full_name }}
         </p>
+
         <p class="body-text">
-            is a <strong>{{ membership_type }}</strong> member of the
+            is an <strong>{{ membership_type }}</strong> member of the
             <strong>Philippine Society of Information Technology Educators – Central Luzon Region (PSITE-CL)</strong>.
         </p>
+
         <p class="body-text">
             This certificate is issued in recognition of the member’s active participation
             and commitment to the advancement of Information Technology education.
         </p>
+
         <p class="membership-details">
-            Membership ID: <strong>{{ membership_id }}</strong><br>
             School / Institution: <strong>{{ school_name }}</strong><br>
             Validity Period: <strong>{{ membership_start }} – {{ membership_end }}</strong>
         </p>
     </div>
-    <div class="certificate-signatures single-signature">
-        <div class="signature">
-            <p class="name">{{ president_name }}</p>
-            <div class="line"></div>
-            <p class="position">PSITE-CL President</p>
-        </div>
+
+    <!-- SIGNATURE -->
+    <table class="signature-table" role="presentation">
+        <tr>
+            <td class="signature-cell">
+                <div class="signature">
+                    <p class="name">{{ president_name }} ,DIT,PhD</p>
+                    <div class="line"></div>
+                    <p class="position">PSITE-CL President</p>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- FOOTER/TRACKING (combined) -->
+    <div class="bottom-right-info">
+        <span class="tracking-number">Tracking No.: <strong>{{ tracking_number }}</strong></span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <span class="certificate-footer">Issued on {{ issue_date }} • Generated via <strong>TracKaPSITE</strong></span>
+         {% if footer_design_uri %}
+    <div style="text-align:center; margin-top:0px; page-break-inside: avoid;">
+        <img src="{{ footer_design_uri }}" alt="design" class="footer-design">
     </div>
-    <div class="certificate-footer">
-        Issued on {{ issue_date }} • Generated via <strong>TracKaPSITE</strong>
+    {% endif %}
     </div>
-    <div class="tracking-number">
-        Tracking No.: <strong>{{ tracking_number }}</strong>
-    </div>
+
+
 </div>
+
 </body>
 </html>

@@ -12,3 +12,4 @@ sqlparse==0.5.4
 pandas==2.2.3
 openpyxl==3.1.5
 tzdata==2025.2
+WeasyPrint==59.0
