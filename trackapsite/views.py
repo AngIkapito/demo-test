@@ -853,3 +853,41 @@ def SUBMIT_RATING(request):
         return JsonResponse({'success': False, 'message': f'Failed to save evaluation: {e}'}, status=500)
 
     return JsonResponse({'success': True, 'message': 'Thank you for your feedback'})
+
+
+def VERICERT(request):
+    context = {}
+    if request.method == 'POST':
+        tracking_no = (request.POST.get('tracking_no') or '').strip()
+        username = (request.POST.get('username') or '').strip()
+        password = request.POST.get('password') or ''
+
+        if not tracking_no or not username or not password:
+            messages.error(request, 'Please provide tracking number, username and password.')
+            return render(request, 'vericert.html', context)
+
+        # Find membership by file_path containing the tracking number
+        membership = Membership.objects.filter(file_path__icontains=tracking_no).select_related('member__admin').first()
+        if not membership:
+            messages.error(request, 'Tracking number not found.')
+            return render(request, 'vericert.html', context)
+
+        custom_user = getattr(membership.member, 'admin', None)
+        if not custom_user:
+            messages.error(request, 'No user associated with this membership.')
+            return render(request, 'vericert.html', context)
+
+        # Verify username and password against the stored user
+        if custom_user.username != username or not custom_user.check_password(password):
+            messages.error(request, 'Invalid username or password for this tracking number.')
+            return render(request, 'vericert.html', context)
+
+        # Successful verification — provide membership and user in context
+        messages.success(request, 'Verification successful.')
+        context.update({
+            'verified': True,
+            'membership': membership,
+            'verified_user': custom_user,
+        })
+
+    return render(request, 'vericert.html', context)

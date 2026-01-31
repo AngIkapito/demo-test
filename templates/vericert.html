@@ -1,5 +1,50 @@
 {% extends "base.html" %}
+{% load static %}
 {% block content %}
 
-<!--ADD MORE CONTENTS HERE, DYNAMIC -->
+<div class="container mt-0">
+  <div class="row justify-content-center">
+    <div class="col-md-6 sticky-top" style="top:0; z-index:1020;">
+			<div class="card shadow-sm">
+				<div class="card-header">
+                    {% include "includes/messages.html" %}
+					<h5 class="mb-0">Verify Certificate</h5>
+				</div>
+				<div class="card-body">
+					<form method="post" action="">
+						{% csrf_token %}
+						<div class="mb-3">
+							<label for="tracking_no" class="form-label">Tracking No</label>
+							<input type="text" class="form-control" id="tracking_no" name="tracking_no" placeholder="Enter tracking number">
+						</div>
+						<div class="mb-3">
+							<label for="username" class="form-label">Username</label>
+							<input type="text" class="form-control" id="username" name="username" placeholder="Enter username">
+						</div>
+						<div class="mb-3">
+							<label for="password" class="form-label">Password</label>
+							<input type="password" class="form-control" id="password" name="password" placeholder="Enter password">
+						</div>
+						<button type="submit" class="btn btn-primary">Verify</button>
+					</form>
+				</div>
+			</div>
+
+			{% if verified %}
+			<div class="card mt-3">
+				<div class="card-header">
+					<h6 class="mb-0">Certificate Details</h6>
+				</div>
+				<div class="card-body">
+					<p><strong>Full Name:</strong> {{ membership.member.admin.first_name }} {{ membership.member.admin.last_name }}</p>
+						<p><strong>Validity:</strong> {{ membership.school_year.sy_start|date:"F j, Y" }} &mdash; {{ membership.school_year.sy_end|date:"F j, Y" }}</p>
+						<div class="d-flex align-items-center mt-2">
+							<div><strong>Issued By:</strong> TracKaPSITE <img src="{% static 'img/trackapsitelogo.png' %}" alt="TracKaPSITE" class="me-3" style="max-height:36px; width:auto;"></div>
+						</div>
+				</div>
+			</div>
+			{% endif %}
+		</div>
+	</div>
+</div>
 {% endblock content %}

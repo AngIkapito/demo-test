@@ -20,6 +20,7 @@ urlpatterns = [
     path('forgot_password/', views.FORGOT_PASSWORD, name='forgot_password'),
     path('registration_event/', views.REG_EVENT, name='registration_event'),
     path('submit_rating/', views.SUBMIT_RATING, name='submit_rating'),
+    path('vericert/', views.VERICERT, name='vericert'),
 
     #Login
     path('login', views.LOGIN,name='login'),
