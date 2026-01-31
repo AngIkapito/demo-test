@@ -148,10 +148,16 @@
 
     var renewBtn = document.getElementById('renew-btn-modal');
     var closeBtn = document.getElementById('modal-close-btn');
+
+    // Determine if user has no active school year subscription (active when syStatus === '1')
+    var noActiveSchoolYear = !(syStatus && String(syStatus) === '1');
+
+    // Show renew action if renewal is needed or no active subscription
+    var showModal = showRenew || noActiveSchoolYear;
+
     if (renewBtn) {
-      renewBtn.style.display = showRenew ? 'inline-block' : 'none';
-      if (showRenew) {
-        // Hide close button until renewed (if desired behavior)
+      renewBtn.style.display = showModal ? 'inline-block' : 'none';
+      if (showModal) {
         if (closeBtn) closeBtn.style.display = 'none';
         renewBtn.addEventListener('click', function() {
           if (closeBtn) closeBtn.style.display = '';
@@ -161,8 +167,8 @@
       }
     }
 
-    // Open modal automatically only when renewal/expiry action is needed
-    if (showRenew && window.bootstrap && bootstrap.Modal) {
+    // Open modal automatically when renewal/expiry action is needed or when there's no active school year
+    if (showModal && window.bootstrap && bootstrap.Modal) {
       var modal = new bootstrap.Modal(document.getElementById('subscriptionStatusModal'), {
         backdrop: 'static',
         keyboard: false
