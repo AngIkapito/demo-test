@@ -119,9 +119,16 @@
                                                 {% endfor %}
                                             </ul>
                                         {% endif %}
-                                        <form method="get" action="{% url 'member_generate_certificate' te.id %}" style="display:inline;">
-                                            <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Generate</button>
-                                        </form>
+                                        {% comment %} Only allow generation when membership status is neither DECLINED nor PENDING {% endcomment %}
+                                        {% if te.status != 'DECLINED' and te.status != 'PENDING' %}
+                                            <form method="get" action="{% url 'member_generate_certificate' te.id %}" style="display:inline;">
+                                                <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Generate</button>
+                                            </form>
+                                        {% elif te.status == 'PENDING' %}
+                                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled title="Membership is pending approval">Generate (Pending)</button>
+                                        {% else %}
+                                            <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled>Generate (Declined)</button>
+                                        {% endif %}
                                     </div>
                                 </li>
                             {% endfor %}
