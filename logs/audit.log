@@ -35,3 +35,22 @@
 2026-02-03 18:55:40,660 | INFO | User jordan logged in (id=11) ip=127.0.0.1
 2026-02-03 18:59:30,157 | INFO | User jordan (id=11) declined membership for member id=7 user=joshua
 2026-02-03 19:05:21,947 | INFO | User jordan (id=11) added event id=8 title=feb 3 event
+2026-02-03 19:45:36,076 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 19:49:28,232 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-03 19:49:34,422 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 19:51:00,388 | INFO | User jordan (id=11) registered (officer) for event id=8 title=feb 3 event member_id=5
+2026-02-03 19:51:24,116 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 19:52:09,995 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 19:52:23,454 | INFO | User jordan (id=11) uploaded officer bulk event file Bulk_Registration_Templatesfinal.xlsx parsed_rows=2
+2026-02-03 19:52:27,879 | INFO | User jordan (id=11) saved officer bulk registrations for event id=8 saved=2 skipped=0
+2026-02-03 19:53:04,762 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 20:03:21,534 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 20:06:52,645 | INFO | User jordan (id=11) added event id=9 title=feb 3 testting 2
+2026-02-03 20:15:15,725 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 20:15:25,671 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 20:40:13,396 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 20:40:18,741 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 20:43:01,400 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 21:11:32,207 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 21:11:38,157 | INFO | User jordan (id=11) registered (officer) for event id=9 title=feb 3 testting 2 member_id=5
+2026-02-03 21:11:48,542 | INFO | User jon01 logged in (id=2) ip=127.0.0.1

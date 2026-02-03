@@ -3,7 +3,7 @@ from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -15,6 +15,7 @@ import json
 from django.db import transaction
 from django.conf import settings
 import os
+import qrcode
 import pandas as pd
 from openpyxl import load_workbook
 from app.audit import audit_logger
@@ -113,6 +114,123 @@ def VIEWALL_EVENT(request):
 
 
 @login_required(login_url='/')
+def ADD_EVENT(request):
+    if request.method == 'POST':
+        title = request.POST.get('title')
+        theme = request.POST.get('theme')
+        date = request.POST.get('date')
+        location = request.POST.get('location')
+        max_attendees = request.POST.get('max_attendees')
+        registration_fee = request.POST.get('registration_fee')
+        chair_id = request.POST.get('chair')
+        co_chair_id = request.POST.get('co_chair')
+        evaluation_link = request.POST.get('evaluation_link')
+
+        banner = request.FILES.get('banner')
+        tag_id = request.POST.get('tag')
+
+        try:
+            active_schoolyear = School_Year.objects.get(status=1)
+        except School_Year.DoesNotExist:
+            messages.error(request, "No active school year found. Please activate a school year first.")
+            return redirect('add_event')
+
+        Event.objects.filter(status='active').update(status='inactive')
+
+        try:
+            max_attendees_val = int(max_attendees) if max_attendees not in (None, '') else 0
+        except Exception:
+            max_attendees_val = 0
+        try:
+            registration_fee_val = float(registration_fee) if registration_fee not in (None, '') else 0.0
+        except Exception:
+            registration_fee_val = 0.0
+
+        event = Event(
+            title=title,
+            theme=theme,
+            date=date,
+            location=location,
+            max_attendees=max_attendees_val,
+            registration_fee=registration_fee_val,
+            chair_id=chair_id,
+            co_chair_id=co_chair_id,
+            evaluation_link=evaluation_link,
+            banner=banner,
+            created_by_id=request.user.id,
+            created_at=timezone.now(),
+            updated_at=timezone.now(),
+            school_year=active_schoolyear,
+            status='active',
+            available_slots=max_attendees_val,
+            tags_id=tag_id if tag_id not in (None, '') else None
+        )
+        event.save()
+
+        try:
+            reg_path = reverse('registration_event') + f'?event_id={event.id}'
+            registration_url = request.build_absolute_uri(reg_path)
+            event.registration_link = registration_url
+            event.save()
+        except Exception as e:
+            print('Failed to set registration_link for event', event.id, e)
+
+        try:
+            qr_data = event.registration_link if event.registration_link else f"EVENT:{event.id}"
+            img = qrcode.make(qr_data)
+            qr_dir = os.path.join(settings.MEDIA_ROOT, 'qr_codes')
+            os.makedirs(qr_dir, exist_ok=True)
+            filename = f"event_{event.id}_qr.png"
+            dest_path = os.path.join(qr_dir, filename)
+            img.save(dest_path)
+            event.qr_code = os.path.join('qr_codes', filename).replace('\\', '/')
+            event.save()
+        except Exception as e:
+            print('Failed to generate QR code for event', event.id, e)
+
+        bulk_template = request.FILES.get('bulk_template')
+        if bulk_template:
+            try:
+                dest_dir = os.path.join(settings.MEDIA_ROOT, 'bulk_template')
+                os.makedirs(dest_dir, exist_ok=True)
+                timestamp = timezone.now().strftime('%Y%m%d%H%M%S')
+                filename = f"{timestamp}_{bulk_template.name}"
+                dest_path = os.path.join(dest_dir, filename)
+                with open(dest_path, 'wb+') as dst:
+                    for chunk in bulk_template.chunks():
+                        dst.write(chunk)
+                event.template_path = os.path.join('bulk_template', filename).replace('\\', '/')
+                event.save()
+            except Exception as e:
+                print('Failed to save bulk_template:', e)
+
+        messages.success(request, f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added event id={event.id} title={event.title}")
+        return redirect('viewall_event')
+
+    members = Member.objects.all()
+    officertypes = OfficerType.objects.all()
+    custom_users = CustomUser.objects.filter(user_type__in=[1, 2], is_superuser=0)
+    tags = Tags.objects.all()
+
+    for user in custom_users:
+        try:
+            member = members.get(admin_id=user.id)
+            officer_type = officertypes.get(id=member.officertype_id)
+            user.officertype_name = officer_type.name
+        except (Member.DoesNotExist, OfficerType.DoesNotExist):
+            user.officertype_name = "N/A"
+
+    active_schoolyear = School_Year.objects.filter(status=1).first()
+
+    return render(request, 'officer/add_event.html', {
+        'members': members,
+        'custom_users': custom_users,
+        'officertypes': officertypes,
+        'active_schoolyear': active_schoolyear,
+        'tags': tags
+    })
+    
 def MEMBER_EVENT_REG(request):
     """
     Handles the Member Event Registration form:

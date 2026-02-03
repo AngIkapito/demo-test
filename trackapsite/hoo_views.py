@@ -2212,7 +2212,7 @@ def ADD_EVENT(request):
             # registration_link will be generated after saving (absolute URL to registration page)
             evaluation_link=evaluation_link,
             banner=banner,
-            created_by=request.user,
+            created_by_id=request.user.id,
             created_at=timezone.now(),
             updated_at=timezone.now(),
             school_year=active_schoolyear,
