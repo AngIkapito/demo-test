@@ -277,10 +277,27 @@ def MEMBERSHIP_APPROVAL(request):
                 membership.processed_by_id = None
             membership.save()
 
+            # Send decline email notification (logic adapted from hoo_views.py)
+            try:
+                send_mail(
+                    subject="Membership Declined",
+                    message=(
+                        f"Dear {user.first_name} {user.last_name},\n\n"
+                        f"We regret to inform you that your membership application has been declined.\n\n"
+                        f"If you have questions or believe this is a mistake, please contact the organization.\n\n"
+                        f"Thank you."
+                    ),
+                    from_email="yourgmail@gmail.com",  # Replace with your EMAIL_HOST_USER
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+            except Exception as e:
+                audit_logger.exception(f"Failed to send decline email to {user.email}: {e}")
+
             processor_id = getattr(request.user, 'id', 'unknown')
             messages.warning(
                 request,
-                f"Membership for {user.first_name} {user.last_name} declined. Processed by id: {processor_id}"
+                f"Membership for {user.first_name} {user.last_name} declined. Processed by id: {processor_id} and email sent."
             )
         else:
             messages.error(request, "Invalid action.")

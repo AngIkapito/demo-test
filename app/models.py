@@ -202,6 +202,7 @@ class Event(models.Model):
     tags = models.ForeignKey(Tags, on_delete=models.SET_NULL, null=True, blank=True)
     is_full = models.BooleanField(default=False)
     template_path = models.CharField(max_length=255, blank=True, null=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_events')
     STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),

@@ -24,3 +24,14 @@
 2026-02-02 20:14:11,442 | WARNING | Failed login attempt for username=fernand01 ip=127.0.0.1
 2026-02-02 20:14:43,753 | WARNING | Failed login attempt for username=admin ip=127.0.0.1
 2026-02-02 20:14:50,130 | WARNING | Failed login attempt for username=admin ip=127.0.0.1
+2026-02-03 18:49:39,219 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 18:49:46,253 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 18:50:10,198 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 18:50:17,006 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-03 18:51:43,384 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 18:54:23,049 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-03 18:54:34,045 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 18:55:20,320 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-03 18:55:40,660 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-03 18:59:30,157 | INFO | User jordan (id=11) declined membership for member id=7 user=joshua
+2026-02-03 19:05:21,947 | INFO | User jordan (id=11) added event id=8 title=feb 3 event
