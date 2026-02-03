@@ -18,3 +18,9 @@
 2026-01-31 16:58:03,835 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
 2026-01-31 17:04:11,047 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
 2026-01-31 17:06:38,598 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-02 16:02:38,205 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-02 16:02:47,215 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-02 20:13:42,395 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-02 20:14:11,442 | WARNING | Failed login attempt for username=fernand01 ip=127.0.0.1
+2026-02-02 20:14:43,753 | WARNING | Failed login attempt for username=admin ip=127.0.0.1
+2026-02-02 20:14:50,130 | WARNING | Failed login attempt for username=admin ip=127.0.0.1
