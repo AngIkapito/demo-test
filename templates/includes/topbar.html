@@ -3,6 +3,20 @@
                <!-- Topbar -->
                 <nav class="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
 
+                    <!-- Dashboard title (left) based on user type -->
+                    <div class="d-none d-sm-block me-3">
+                        <span class="h5 mb-0 text-gray-800">
+                            {% if user.is_authenticated %}
+                                {% if user.user_type == 1 or user.user_type == '1' %}President Dashboard
+                                {% elif user.user_type == 2 or user.user_type == '2' %}Officer Dashboard
+                                {% elif user.user_type == 3 or user.user_type == '3' %}Member Dashboard
+                                {% else %}Dashboard{% endif %}
+                            {% else %}
+                                Dashboard
+                            {% endif %}
+                        </span>
+                    </div>
+
                     <!-- Sidebar Toggle (Topbar) -->
                     <button id="sidebarToggleTop" class="btn btn-link d-md-none rounded-circle mr-3">
                         <i class="fa fa-bars"></i>

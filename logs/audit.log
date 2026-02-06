@@ -73,3 +73,6 @@
 2026-02-06 21:03:46,498 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
 2026-02-06 21:06:27,036 | INFO | User jordan logged in (id=11) ip=127.0.0.1
 2026-02-06 21:19:28,132 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 21:36:57,508 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-06 21:37:04,719 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-06 21:37:12,184 | INFO | User jordan logged in (id=11) ip=127.0.0.1

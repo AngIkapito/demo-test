@@ -163,6 +163,7 @@ urlpatterns = [
     path('officer/Event/BulkRegistration/Save', officer_views.SAVE_BULK_EVENT_REG, name='save_bulk_event_reg_officer'),
     path('officer/MembershipApproval', officer_views.MEMBERSHIP_APPROVAL, name='membership_approval_officer'),
     path('officer/Event/Add', officer_views.ADD_EVENT, name='add_event_officer'),
+    path('officer/Event/Attendees', officer_views.LIST_ATTENDEES_OFFICER, name='list_attendees_officer'),
     
     #officer event List
     path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),

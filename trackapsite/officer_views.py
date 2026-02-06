@@ -654,6 +654,60 @@ def BULK_EVENT_REG(request):
         'event': active_event
     })
 
+
+@login_required(login_url='/')
+def LIST_ATTENDEES_OFFICER(request):
+    """Officer-facing attendee list (same as HOO list)"""
+    event_param = request.GET.get('event')
+    event_id = None
+    if event_param:
+        try:
+            event_id = int(event_param)
+        except Exception:
+            event_id = None
+
+    if event_id:
+        active_event = Event.objects.filter(id=event_id).select_related('school_year').first()
+    else:
+        active_event = Event.objects.filter(status__in=['active', 'full']).order_by('-date').first()
+
+    attendees = []
+    regs_qs = Member_Event_Registration.objects.filter(status='registered')
+    if event_id:
+        regs_qs = regs_qs.filter(event_id=event_id)
+    elif active_event:
+        regs_qs = regs_qs.filter(event=active_event)
+
+    regs = regs_qs.select_related('member_id__admin')
+    for reg in regs:
+        member_obj = getattr(reg, 'member_id', None)
+        user = getattr(member_obj, 'admin', None) if member_obj else None
+        if not user and member_obj:
+            try:
+                user = CustomUser.objects.filter(id=getattr(member_obj, 'admin_id', None)).first()
+            except Exception:
+                user = None
+
+        first = getattr(user, 'first_name', '') or ''
+        last = getattr(user, 'last_name', '') or ''
+        email = getattr(user, 'email', '') or ''
+        org_name = ''
+        try:
+            if member_obj and getattr(member_obj, 'organization', None):
+                org_name = member_obj.organization.name or ''
+            else:
+                org_id = getattr(member_obj, 'organization_id', None) if member_obj else None
+                if org_id:
+                    org = Organization.objects.filter(id=org_id).first()
+                    org_name = getattr(org, 'name', '') or ''
+        except Exception:
+            org_name = ''
+
+        attendees.append({'first_name': first, 'last_name': last, 'email': email, 'organization': org_name})
+
+    events = Event.objects.all().order_by('-date')
+    return render(request, 'officer/list_attendees.html', {'attendees': attendees, 'event': active_event, 'events': events})
+
 @login_required(login_url='/')
 
 def UPLOAD_BULK_EVENT_REG(request):
