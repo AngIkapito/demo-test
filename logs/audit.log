@@ -56,3 +56,20 @@
 2026-02-03 21:11:48,542 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
 2026-02-06 12:39:45,295 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
 2026-02-06 19:07:20,821 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-06 20:16:36,039 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-06 20:16:41,854 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
+2026-02-06 20:16:49,548 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 20:37:11,398 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 20:50:16,419 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-06 20:53:16,854 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-06 20:54:10,786 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-06 20:56:13,612 | INFO | User jon01 (id=2) approved membership renewal for member id=3 user=thon01
+2026-02-06 20:56:35,988 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-06 20:58:56,254 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 20:59:16,247 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-06 20:59:33,142 | INFO | User jon01 (id=2) approved membership renewal for member id=5 user=jordan
+2026-02-06 20:59:46,798 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 21:03:40,464 | WARNING | Failed login attempt for username=thon01 ip=127.0.0.1
+2026-02-06 21:03:46,498 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-06 21:06:27,036 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-06 21:19:28,132 | INFO | User jordan logged in (id=11) ip=127.0.0.1

@@ -19,6 +19,12 @@ import qrcode
 import pandas as pd
 from openpyxl import load_workbook
 from app.audit import audit_logger
+from django.template.loader import render_to_string
+from django.http import FileResponse, Http404
+from django.contrib.staticfiles import finders
+from xhtml2pdf import pisa
+import io
+import base64
 
 @login_required(login_url='/')
 def home(request):
@@ -49,7 +55,184 @@ def home(request):
         'membership_expiry': membership_expiry,
         'membership_sy_status': membership_status,
     }
+    # Build timeline entries from this member's Membership records (same behavior as member_views.home)
+    timeline_entries = []
+    try:
+        if 'member' in locals() and member:
+            mem_qs = Membership.objects.filter(member=member).select_related('school_year').order_by('-school_year__sy_start')
+            for m in mem_qs:
+                sy = getattr(m, 'school_year', None)
+                created = getattr(m, 'created_at', None)
+                date_str = None
+                year = None
+                if created:
+                    try:
+                        date_str = created.strftime('%b %d, %Y')
+                        year = getattr(created, 'year', None)
+                    except Exception:
+                        date_str = str(created)
+                        try:
+                            year = int(str(created)[:4])
+                        except Exception:
+                            year = None
+                else:
+                    if sy and getattr(sy, 'sy_start', None):
+                        try:
+                            year = getattr(sy.sy_start, 'year', None) or int(str(sy.sy_start)[:4])
+                        except Exception:
+                            year = None
+
+                joined_events = []
+                try:
+                    if member and sy:
+                        regs = Member_Event_Registration.objects.filter(
+                            member_id=member,
+                            event__school_year=sy,
+                            is_present=True,
+                        ).select_related('event')
+                        for r in regs:
+                            ev = getattr(r, 'event', None)
+                            joined_events.append({
+                                'title': getattr(ev, 'title', '') if ev else '',
+                                'date': getattr(ev, 'date', None).strftime('%b %d, %Y') if getattr(ev, 'date', None) else '',
+                                'id': getattr(ev, 'id', None) if ev else None,
+                            })
+                except Exception:
+                    joined_events = []
+
+                timeline_entries.append({
+                    'year': year,
+                    'date': date_str,
+                    'school_year_display': f"{getattr(sy, 'sy_start', '') and sy.sy_start.year}-{getattr(sy, 'sy_end', '') and sy.sy_end.year}" if sy and getattr(sy, 'sy_start', None) and getattr(sy, 'sy_end', None) else '',
+                    'status': getattr(m, 'status', ''),
+                    'id': getattr(m, 'id', None),
+                    'notes': '',
+                    'school_year_id': getattr(sy, 'id', None) if sy else None,
+                    'joined_events': joined_events,
+                })
+    except Exception:
+        timeline_entries = []
+
+    context['timeline_entries'] = timeline_entries
     return render(request, 'officer/home.html', context)
+
+
+@login_required(login_url='/')
+def generate_membership_certificate(request, membership_id):
+    try:
+        membership = Membership.objects.select_related('member', 'member__admin', 'member__organization', 'member__membershiptype', 'school_year').get(id=membership_id)
+    except Membership.DoesNotExist:
+        raise Http404("Membership not found")
+
+    member = membership.member
+    user = member.admin
+    org = getattr(member, 'organization', None)
+    school_year = membership.school_year
+    membertype = getattr(member, 'membershiptype', None)
+
+    president_name = "PSITE-CL President"
+    try:
+        prez = CustomUser.objects.filter(user_type=1).order_by('-id').first()
+        if prez:
+            president_name = f"{getattr(prez, 'first_name', '')} {getattr(prez, 'last_name', '')}".strip()
+    except Exception:
+        pass
+
+    context = {
+        'member_full_name': f"{user.first_name} {user.last_name}",
+        'membership_type': membertype.name if membertype else '',
+        'membership_id': membership.id,
+        'school_name': org.name if org else '',
+        'membership_start': school_year.sy_start.strftime('%b %d, %Y') if school_year and school_year.sy_start else '',
+        'membership_end': school_year.sy_end.strftime('%b %d, %Y') if school_year and school_year.sy_end else '',
+        'president_name': president_name,
+        'issue_date': io.StringIO().getvalue() or '',
+        'tracking_number': f"MEM-{membership.id:06d}",
+    }
+    from datetime import datetime
+    context['issue_date'] = datetime.now().strftime('%b %d, %Y')
+
+    logo_data_uri = ''
+    try:
+        logo_rel = 'img/psitelogo.jpg'
+        logo_path = finders.find(logo_rel)
+        if not logo_path and getattr(settings, 'STATIC_ROOT', None):
+            candidate = os.path.join(settings.STATIC_ROOT, logo_rel)
+            if os.path.exists(candidate):
+                logo_path = candidate
+        if not logo_path:
+            base_static = getattr(settings, 'BASE_DIR', '')
+            candidate = os.path.join(base_static, 'static', logo_rel)
+            if os.path.exists(candidate):
+                logo_path = candidate
+
+        if logo_path and os.path.exists(logo_path):
+            with open(logo_path, 'rb') as lf:
+                data = lf.read()
+            encoded = base64.b64encode(data).decode('utf-8')
+            logo_data_uri = f"data:image/jpeg;base64,{encoded}"
+    except Exception:
+        logo_data_uri = ''
+
+    context['logo_data_uri'] = logo_data_uri
+
+    footer_design_data_uri = ''
+    try:
+        ft_rel = 'img/ftdesign.jpg'
+        ft_path = finders.find(ft_rel)
+        if not ft_path and getattr(settings, 'STATIC_ROOT', None):
+            candidate = os.path.join(settings.STATIC_ROOT, ft_rel)
+            if os.path.exists(candidate):
+                ft_path = candidate
+        if not ft_path:
+            base_static = getattr(settings, 'BASE_DIR', '')
+            candidate = os.path.join(base_static, 'static', ft_rel)
+            if os.path.exists(candidate):
+                ft_path = candidate
+
+        if ft_path and os.path.exists(ft_path):
+            with open(ft_path, 'rb') as ff:
+                fdata = ff.read()
+            fencoded = base64.b64encode(fdata).decode('utf-8')
+            footer_design_data_uri = f"data:image/jpeg;base64,{fencoded}"
+    except Exception:
+        footer_design_data_uri = ''
+    context['footer_design_uri'] = footer_design_data_uri
+
+    html = render_to_string('certificate_template.html', context)
+
+    result = io.BytesIO()
+
+    def link_callback(uri, rel):
+        if uri.startswith(getattr(settings, 'MEDIA_URL', '/media/')):
+            path = os.path.join(getattr(settings, 'MEDIA_ROOT', ''), uri.replace(settings.MEDIA_URL, '').lstrip('/'))
+            return path
+        static_path = finders.find(uri)
+        if static_path:
+            return static_path
+        if uri.startswith(getattr(settings, 'STATIC_URL', '/static/')):
+            path = os.path.join(getattr(settings, 'STATIC_ROOT', ''), uri.replace(settings.STATIC_URL, '').lstrip('/'))
+            return path
+        return uri
+
+    pdf = pisa.pisaDocument(io.BytesIO(html.encode('utf-8')), result, link_callback=link_callback)
+    if pdf.err:
+        return HttpResponse('Error generating PDF', status=500)
+
+    cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
+    os.makedirs(cert_dir, exist_ok=True)
+    tracking = context.get('tracking_number', f"MEM-{membership.id:06d}")
+    safe_name = tracking.replace('/', '_')
+    cert_filename = f"{safe_name}.pdf"
+    cert_path = os.path.join(cert_dir, cert_filename)
+    with open(cert_path, 'wb') as f:
+        f.write(result.getvalue())
+
+    rel_path = f"certificates/{cert_filename}"
+    membership.file_path = rel_path
+    membership.save(update_fields=['file_path'])
+
+    return FileResponse(open(cert_path, 'rb'), as_attachment=True, filename=cert_filename)
 
 
 @login_required(login_url='/')
@@ -230,7 +413,6 @@ def ADD_EVENT(request):
         'active_schoolyear': active_schoolyear,
         'tags': tags
     })
-    
 def MEMBER_EVENT_REG(request):
     """
     Handles the Member Event Registration form:

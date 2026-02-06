@@ -202,7 +202,7 @@ def generate_membership_certificate(request, membership_id):
     except Exception:
         footer_design_data_uri = ''
     context['footer_design_uri'] = footer_design_data_uri
-    html = render_to_string('member/certificate_template.html', context)
+    html = render_to_string('certificate_template.html', context)
 
     # Generate PDF with a link_callback so xhtml2pdf can resolve static/media files
     result = io.BytesIO()

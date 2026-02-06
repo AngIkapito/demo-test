@@ -152,6 +152,7 @@ urlpatterns = [
     
     #Officer Panel
     path('officer/home', officer_views.home, name='officer_home'),
+    path('officer/Certificate/Generate/<int:membership_id>/', officer_views.generate_membership_certificate, name='officer_generate_certificate'),
     
     path('officer/profile', officer_views.PROFILE, name='profile_officer'),
     path('officer/profile/update',officer_views.PROFILE_UPDATE, name='profile_update_officer'),
