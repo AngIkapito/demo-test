@@ -54,3 +54,5 @@
 2026-02-03 21:11:32,207 | INFO | User jordan logged in (id=11) ip=127.0.0.1
 2026-02-03 21:11:38,157 | INFO | User jordan (id=11) registered (officer) for event id=9 title=feb 3 testting 2 member_id=5
 2026-02-03 21:11:48,542 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-06 12:39:45,295 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-06 19:07:20,821 | INFO | User jon01 logged in (id=2) ip=127.0.0.1

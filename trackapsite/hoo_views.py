@@ -2344,61 +2344,69 @@ def EDIT_EVENT(request, id):
     return redirect('viewall_event')
 
 @login_required(login_url='/')
-def ATTENDANCE_EVENT(request):
-    """Render attendance page for the currently active event.
+def LIST_ATTENDEES(request):
+    """Render a simple table of attendee first and last names for a selected event.
 
-        Builds an `attendees` list with dictionaries containing:
-            - id: registration id
-            - first_name, last_name: from CustomUser
-            - school: from Member.organization.name (if any)
-            - present: current `Member_Event_Registration.is_present` (True/False) or None
-
-    The template receives `attendees` and `event` in context.
+    If the GET parameter `event` (event id) is provided, use that event; otherwise
+    fall back to the active event (most recent active/full). Also include the
+    list of events for the dropdown in the template.
     """
-    # Get the active event (most recent by date)
-    active_event = Event.objects.filter(status__in=['active', 'full']).order_by('-date').first()
+    # Optional event id from querystring
+    event_param = request.GET.get('event')
+    event_id = None
+    if event_param:
+        try:
+            event_id = int(event_param)
+        except Exception:
+            event_id = None
+
+    # Resolve active_event for display (if event_id provided use that, else fallback)
+    if event_id:
+        active_event = Event.objects.filter(id=event_id).select_related('school_year').first()
+    else:
+        active_event = Event.objects.filter(status__in=['active', 'full']).order_by('-date').first()
 
     attendees = []
-    if active_event:
-        # Get registrations for the active event (registered status)
-        # Use `member_id` relationship (FK to Member) and related admin/user/org
-        regs = Member_Event_Registration.objects.filter(event=active_event, status='registered').select_related('member_id__admin', 'member_id__organization')
-        for reg in regs:
-            member_obj = getattr(reg, 'member_id', None)
-            user = getattr(member_obj, 'admin', None) if member_obj else None
-            first = user.first_name if user else ''
-            last = user.last_name if user else ''
+    # Build registration queryset filtered by event_id when provided, otherwise by active_event
+    regs_qs = Member_Event_Registration.objects.filter(status='registered')
+    if event_id:
+        regs_qs = regs_qs.filter(event_id=event_id)
+    elif active_event:
+        regs_qs = regs_qs.filter(event=active_event)
 
-            # Member's organization name
-            school_name = ''
+    regs = regs_qs.select_related('member_id__admin')
+    for reg in regs:
+        member_obj = getattr(reg, 'member_id', None)
+        user = getattr(member_obj, 'admin', None) if member_obj else None
+        # Fallback: if member_obj exists but admin relation not loaded or is None,
+        # try to fetch CustomUser by admin_id
+        if not user and member_obj:
             try:
-                if member_obj and getattr(member_obj, 'organization', None):
-                    school_name = member_obj.organization.name
+                user = CustomUser.objects.filter(id=getattr(member_obj, 'admin_id', None)).first()
             except Exception:
-                school_name = ''
-                school_name = ''
+                user = None
 
-            # Use the registration's `is_present` flag as the current attendance status
-            # `is_present` is expected to be 1 (present), 0 (absent), or maybe None
-            present = None
-            try:
-                present = True if getattr(reg, 'is_present', None) == 1 else (False if getattr(reg, 'is_present', None) == 0 else None)
-            except Exception:
-                present = None
+        first = getattr(user, 'first_name', '') or ''
+        last = getattr(user, 'last_name', '') or ''
+        email = getattr(user, 'email', '') or ''
+        # Resolve organization name from Member.organization or organization_id
+        org_name = ''
+        try:
+            if member_obj and getattr(member_obj, 'organization', None):
+                org_name = member_obj.organization.name or ''
+            else:
+                org_id = getattr(member_obj, 'organization_id', None) if member_obj else None
+                if org_id:
+                    org = Organization.objects.filter(id=org_id).first()
+                    org_name = getattr(org, 'name', '') or ''
+        except Exception:
+            org_name = ''
 
-            attendees.append({
-                'id': reg.id,
-                'first_name': first,
-                'last_name': last,
-                'school': school_name,
-                'present': present,
-            })
+        attendees.append({'first_name': first, 'last_name': last, 'email': email, 'organization': org_name})
 
-    context = {
-        'attendees': attendees,
-        'event': active_event,
-    }
-    return render(request, 'hoo/attendance_event.html', context)
+    events = Event.objects.all().order_by('-date')
+
+    return render(request, 'hoo/list_attendees.html', {'attendees': attendees, 'event': active_event, 'events': events})
 
 
 @login_required(login_url='/')
