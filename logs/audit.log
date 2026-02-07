@@ -87,3 +87,15 @@
 2026-02-07 11:48:29,646 | INFO | User jordan logged in (id=11) ip=127.0.0.1
 2026-02-07 11:49:51,681 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
 2026-02-07 11:54:23,881 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 14:43:50,763 | INFO | User president (id=2) added event id=10 title=Regional Assembly on Information Technology Education 2025
+2026-02-07 15:03:01,705 | INFO | User president (id=2) approved membership for member id=8 user=jgarcia25
+2026-02-07 15:03:01,705 | INFO | Membership bulk action by president (id=2): action=approve approved=1 declined=0 failed=0 email_failed=0 ids=['8']
+2026-02-07 16:28:12,519 | INFO | User president (id=2) added event id=11 title=International Research Conference om Information Technology Education 2026
+2026-02-07 16:36:29,907 | INFO | User president (id=2) approved membership for member id=8 user=jgarcia25
+2026-02-07 16:36:29,907 | INFO | Membership bulk action by president (id=2): action=approve approved=1 declined=0 failed=0 email_failed=0 ids=['8']
+2026-02-07 17:04:58,339 | INFO | User president (id=2) sent invitations to 2 recipients; member_ids=['2', '8']; event_id=11; event_title=International Research Conference om Information Technology Education 2026
+2026-02-07 17:23:24,365 | INFO | User jgarcia25 (id=16) uploaded officer bulk event file Bulk_Registration_Templatesfinal.xlsx parsed_rows=2
+2026-02-07 17:24:42,650 | INFO | User jgarcia25 (id=16) saved officer bulk registrations for event id=11 saved=2 skipped=0
+2026-02-07 17:42:58,446 | INFO | User president (id=2) updated event id=11 title=International Research Conference on Information Technology Education 2026
+2026-02-07 18:29:45,152 | INFO | User president (id=2) approved membership for member id=7 user=officer
+2026-02-07 18:29:45,152 | INFO | Membership bulk action by president (id=2): action=approve approved=1 declined=0 failed=0 email_failed=0 ids=['7']

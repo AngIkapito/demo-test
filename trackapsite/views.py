@@ -780,8 +780,19 @@ def SUBMIT_RATING(request):
     if ev.status != 'active':
         return JsonResponse({'success': False, 'message': 'Event is not active'}, status=400)
 
-    # Verify the email is registered for this event in Bulk_Event_Reg
+    # Verify the email is registered for this event either via Bulk_Event_Reg
+    # or as a Member via Member_Event_Registration -> member -> admin (CustomUser)
     registered = Bulk_Event_Reg.objects.filter(event_id=ev.id, email__iexact=email).exists()
+    member_user = None
+    if not registered:
+        mer = Member_Event_Registration.objects.filter(event_id=ev.id, member_id__admin__email__iexact=email).select_related('member_id__admin').first()
+        if mer:
+            registered = True
+            try:
+                member_user = getattr(mer.member_id, 'admin', None)
+            except Exception:
+                member_user = None
+
     if not registered:
         return JsonResponse({'success': False, 'message': 'Email not found for this event registration'}, status=403)
 
@@ -831,7 +842,9 @@ def SUBMIT_RATING(request):
         # Send a thank-you email to the submitter (do not fail the request on email errors)
         try:
             subject = f"Thank you for your feedback on {ev.title}"
-            display_name = (first_name + ' ' + last_name).strip() if (first_name or last_name) else email
+            # prefer using the member's registered email (CustomUser) when available
+            recipient_email = (getattr(member_user, 'email', None) or email).strip()
+            display_name = (first_name + ' ' + last_name).strip() if (first_name or last_name) else recipient_email
             body = (
                 f"Hello {display_name},\n\n"
                 f"Thank you for rating the event \"{ev.title}\". We received your rating of {rating} out of 5.\n\n"
@@ -840,7 +853,7 @@ def SUBMIT_RATING(request):
                 "Regards,\n"
                 f"{settings.DEFAULT_FROM_EMAIL}"
             )
-            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [email], fail_silently=True)
+            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [recipient_email], fail_silently=True)
         except Exception:
             # Swallow email errors so user still receives feedback success
             pass
