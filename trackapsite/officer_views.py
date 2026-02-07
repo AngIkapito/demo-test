@@ -55,6 +55,19 @@ def home(request):
         'membership_expiry': membership_expiry,
         'membership_sy_status': membership_status,
     }
+    # Add members and events querysets so templates can use {{ members.count }} and {{ events.count }}
+    try:
+        context['members'] = Member.objects.all()
+    except Exception:
+        context['members'] = []
+    try:
+        context['events'] = Event.objects.all()
+    except Exception:
+        context['events'] = []
+    try:
+        context['pending_approvals_count'] = Membership.objects.filter(status__iexact='PENDING').count()
+    except Exception:
+        context['pending_approvals_count'] = 0
     # Build timeline entries from this member's Membership records (same behavior as member_views.home)
     timeline_entries = []
     try:
@@ -114,6 +127,62 @@ def home(request):
         timeline_entries = []
 
     context['timeline_entries'] = timeline_entries
+    # Build simple events JSON for client-side calendar (same shape used by hoo/home)
+    try:
+        events_json = []
+        for ev in Event.objects.all():
+            date_iso = None
+            if getattr(ev, 'date', None):
+                try:
+                    d = ev.date
+                    if hasattr(d, 'date'):
+                        date_iso = d.date().isoformat()
+                    else:
+                        date_iso = d.isoformat()
+                except Exception:
+                    date_iso = str(ev.date)
+
+            banner_url = None
+            try:
+                b = getattr(ev, 'banner', None)
+                if b:
+                    banner_url = getattr(b, 'url', str(b))
+            except Exception:
+                banner_url = None
+
+            chair_name = None
+            co_chair_name = None
+            try:
+                if getattr(ev, 'chair_id', None):
+                    cu = CustomUser.objects.filter(id=ev.chair_id).first()
+                    if cu:
+                        chair_name = f"{getattr(cu,'first_name','')} {getattr(cu,'last_name','')}".strip()
+                if getattr(ev, 'co_chair_id', None):
+                    cu2 = CustomUser.objects.filter(id=ev.co_chair_id).first()
+                    if cu2:
+                        co_chair_name = f"{getattr(cu2,'first_name','')} {getattr(cu2,'last_name','')}".strip()
+            except Exception:
+                chair_name = chair_name or None
+                co_chair_name = co_chair_name or None
+
+            events_json.append({
+                'id': getattr(ev, 'id', None),
+                'title': getattr(ev, 'title', '') or '',
+                'theme': getattr(ev, 'theme', '') or '',
+                'date': date_iso,
+                'banner_url': banner_url,
+                'chair_id': getattr(ev, 'chair_id', None),
+                'chair_name': chair_name,
+                'co_chair_id': getattr(ev, 'co_chair_id', None),
+                'co_chair_name': co_chair_name,
+                'max_attendees': getattr(ev, 'max_attendees', None),
+                'available_slots': getattr(ev, 'available_slots', None),
+                'status': getattr(ev, 'status', None),
+            })
+    except Exception:
+        events_json = []
+
+    context['events_json'] = events_json
     return render(request, 'officer/home.html', context)
 
 

@@ -15,40 +15,40 @@
 <!-- Stats Cards -->
  <div class="row mb-4">
     <div class="col-12 col-md-4 mb-3">
-        <div class="card border-left-success shadow h-100 py-2">
-            <div class="card-body">
-                <div class="row no-gutters align-items-center">
-                    <div class="col mr-2">
-                        <div class="text-l font-weight-bold text-success text-uppercase mb-1">
-                            Registered Members</div>
-                        <div class="h5 mb-0 font-weight-bold text-gray-800">246</div>
-                    </div>
-                    <div class="col-auto">
-                        <i class="fas fa-users fa-2x text-gray-300"></i>
-                        <span class="badge bg-success">1</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-        <div class="col-12 col-md-4 mb-3">
-          <div class="card text-bg-light  shadow h-100">
-            <div class="card-body">
-              <h5 class="card-title">Upcoming Events</h5>
-              <p class="card-text fs-3 fw-bold text-success">3</p>
-            </div>
+      <div class="card text-bg-light shadow h-100">
+        <div class="card-body d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted">Total Registered Members</h6>
+            <h4 class="text-success">{{ members.count }} Active</h4>
           </div>
-        </div>
-        <div class="col-12 col-md-4 mb-3">
-          <div class="card text-bg-light shadow h-100">
-            <div class="card-body">
-              <h5 class="card-title">Pending Approvals</h5>
-              <p class="card-text fs-3 fw-bold text-danger">5</p>
-            </div>
-          </div>
+          <i class="fas fa-users fa-2x text-secondary"></i>
         </div>
       </div>
+    </div>
+
+    <div class="col-12 col-md-4 mb-3">
+      <div class="card text-bg-light shadow h-100">
+        <a href="{% url 'viewall_event2' %}">
+        <div class="card-body d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="text-muted">Total Events Conducted</h6>
+            <h4 class="text-primary">{{ events.count }}</h4>
+          </div>
+          <i class="fas fa-calendar-check fa-2x text-secondary"></i>
+        </div>
+         </a>
+      </div>
+    </div>
+    
+    <div class="col-12 col-md-4 mb-3">
+      <div class="card text-bg-light shadow h-100">
+        <div class="card-body">
+          <h5 class="card-title">Pending Approvals</h5>
+          <p class="card-text fs-3 fw-bold text-danger">{{ pending_approvals_count }}</p>
+        </div>
+      </div>
+    </div>
+  </div>
       <div class="col-12 col-md-4 mb-3">
         <div class="card text-bg-light shadow h-100">
           <div class="card-body" id="subscription-status-card">
@@ -58,6 +58,216 @@
         </div>
       </div>
 
+  <!-- Calendar (copied from hoo/home) -->
+  <div class="card shadow mb-4">
+    <div class="card-header bg-info text-white">Calendar</div>
+    <div class="card-body">
+      <div id="calendar" class="text-center">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <button id="prevMonth" class="btn btn-sm btn-outline-secondary">&lt;</button>
+          <h5 id="calendarTitle" class="mb-0"></h5>
+          <button id="nextMonth" class="btn btn-sm btn-outline-secondary">&gt;</button>
+        </div>
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th class="text-center">Sun</th>
+              <th class="text-center">Mon</th>
+              <th class="text-center">Tue</th>
+              <th class="text-center">Wed</th>
+              <th class="text-center">Thu</th>
+              <th class="text-center">Fri</th>
+              <th class="text-center">Sat</th>
+            </tr>
+          </thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+        <div id="calendarLegend" class="mt-3 small"></div>
+      </div>
+    </div>
+  </div>
+
+  {{ events_json|json_script:"events-data" }}
+
+  <script>
+  (function(){
+    // Simple calendar renderer copied from hoo/home.html
+    const calTitle = document.getElementById('calendarTitle');
+    const calBody = document.getElementById('calendarBody');
+    const prevBtn = document.getElementById('prevMonth');
+    const nextBtn = document.getElementById('nextMonth');
+    let today = new Date();
+    let currMonth = today.getMonth();
+    let currYear = today.getFullYear();
+    let activeEventModal = null;
+
+    const rawEvents = document.getElementById('events-data') ? JSON.parse(document.getElementById('events-data').textContent) : [];
+    const eventMap = {};
+    function parseDateOnlyString(s){
+      if(!s) return null;
+      const parts = s.split('-');
+      if(parts.length >= 3){
+        const y = parseInt(parts[0],10);
+        const m = parseInt(parts[1],10) - 1;
+        const d = parseInt(parts[2],10);
+        return new Date(y,m,d);
+      }
+      const fallback = new Date(s);
+      return isNaN(fallback) ? null : fallback;
+    }
+    rawEvents.forEach(ev => {
+      if(!ev || !ev.date) return;
+      const d = parseDateOnlyString(ev.date);
+      if(!d) return;
+      const key = d.toISOString().slice(0,10);
+      if(!eventMap[key]) eventMap[key] = [];
+      eventMap[key].push(ev);
+    });
+
+    document.addEventListener('click', function(e){
+      const dot = e.target.closest && e.target.closest('.event-dot');
+      if(dot){
+        const evId = dot.dataset.eventId;
+        if(evId){
+          e.stopPropagation();
+          openEventModal(evId);
+        }
+      }
+    });
+
+    if(calBody){
+      calBody.addEventListener('click', function(e){
+        const td = e.target.closest && e.target.closest('td[data-date]');
+        if(!td) return;
+        const dateKey = td.dataset.date;
+        if(!dateKey) return;
+        highlightDate(dateKey);
+        const evs = eventMap[dateKey];
+        if(evs && evs.length){ openEventModal(evs[0].id); }
+      });
+    }
+
+    function renderCalendar(month, year){
+      if(!calTitle || !calBody) return;
+      calTitle.textContent = new Date(year, month).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+      calBody.innerHTML = '';
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      let date = 1;
+      for(let i=0;i<6;i++){
+        const row = document.createElement('tr');
+        for(let j=0;j<7;j++){
+          const cell = document.createElement('td');
+          cell.className = 'align-middle text-center';
+          if(i===0 && j<firstDay){ cell.innerHTML = ''; }
+          else if(date>daysInMonth){ cell.innerHTML = ''; }
+          else {
+            const cellDate = new Date(year, month, date);
+            const cellKey = cellDate.toISOString().slice(0,10);
+            let dateHtml = '';
+            if(date === today.getDate() && month === today.getMonth() && year === today.getFullYear()){
+              dateHtml = '<div class="badge bg-primary text-white rounded-pill px-2">'+date+'</div>';
+            } else { dateHtml = '<div>'+date+'</div>'; }
+
+            let markerHtml = '';
+            if(eventMap[cellKey] && eventMap[cellKey].length){
+              markerHtml = '<div class="mt-1">';
+              eventMap[cellKey].slice(0,3).forEach(ev => {
+                const evId = ev.id;
+                const evTitleEsc = (ev.title || '').replace(/\"/g, '&quot;');
+                markerHtml += `<span class="d-inline-block event-dot bg-success rounded-circle me-1" data-event-id="${evId}" style="width:8px;height:8px;cursor:pointer;" title="${evTitleEsc}"></span>`;
+              });
+              if(eventMap[cellKey].length > 3) markerHtml += '<span class="small text-muted">+'+(eventMap[cellKey].length-3)+'</span>';
+              markerHtml += '</div>';
+              const titles = eventMap[cellKey].map(e=>e.title).join(', ');
+              cell.setAttribute('title', titles);
+            }
+
+            cell.setAttribute('data-date', cellKey);
+            cell.classList.add('calendar-cell');
+            cell.innerHTML = `<div class="cell-inner">${dateHtml}${markerHtml}</div>`;
+            date++;
+          }
+          row.appendChild(cell);
+        }
+        calBody.appendChild(row);
+        if(date>daysInMonth) break;
+      }
+      renderLegend(month, year);
+    }
+
+    if(prevBtn) prevBtn.addEventListener('click', function(){ currMonth--; if(currMonth<0){ currMonth=11; currYear--; } renderCalendar(currMonth, currYear); });
+    if(nextBtn) nextBtn.addEventListener('click', function(){ currMonth++; if(currMonth>11){ currMonth=0; currYear++; } renderCalendar(currMonth, currYear); });
+
+    function highlightDate(dateKey){
+      document.querySelectorAll('#calendar td.legend-selected').forEach(el => el.classList.remove('legend-selected'));
+      const cell = document.querySelector(`#calendar td[data-date="${dateKey}"]`);
+      if(cell){ cell.classList.add('legend-selected'); try{ cell.scrollIntoView({behavior:'smooth', block:'center', inline:'nearest'}); } catch(e){} }
+    }
+
+    function openEventModal(eventId){
+      if(!eventId) return;
+      const ev = rawEvents.find(x => String(x.id) === String(eventId));
+      if(!ev) return;
+      const bannerEl = document.getElementById('eventModalBanner');
+      const infoEl = document.getElementById('eventModalInfo');
+      if(bannerEl){ bannerEl.innerHTML = ev.banner_url ? `<img src="${ev.banner_url}" class="img-fluid rounded" alt="${(ev.title||'')}">` : '<div class="text-muted">No banner</div>'; }
+      if(infoEl){
+        const parts = [];
+        parts.push(`<h5>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${ev.title || ''}</h5>`);
+        if(ev.theme) parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Theme:</strong> ${ev.theme}</div>`);
+        if(ev.date) parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Date:</strong> ${ev.date}</div>`);
+        if(ev.chair_name) parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Chair:</strong> ${ev.chair_name}</div>`);
+        parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Max Attendees:</strong> ${ev.max_attendees == null ? 'N/A' : ev.max_attendees}</div>`);
+        parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Available Slots:</strong> ${ev.available_slots == null ? 'N/A' : ev.available_slots}</div>`);
+        parts.push(`<div><strong>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Status:</strong> ${ev.status || ''}</div>`);
+        infoEl.innerHTML = parts.join('');
+      }
+      try{
+        const modalEl = document.getElementById('eventModal');
+        const bsModal = new bootstrap.Modal(modalEl);
+        bsModal.show();
+        activeEventModal = bsModal;
+        modalEl.addEventListener('hidden.bs.modal', function(){ activeEventModal = null; });
+      }catch(e){ console.warn('Bootstrap modal show failed', e); }
+    }
+
+    function renderLegend(month, year){
+      const legendEl = document.getElementById('calendarLegend');
+      if(!legendEl) return;
+      const items = rawEvents
+        .map(ev => { if(!ev || !ev.date) return null; const d = parseDateOnlyString(ev.date); if(!d) return null; return {ev: ev, dateObj: d}; })
+        .filter(x => x && x.dateObj.getMonth() === month && x.dateObj.getFullYear() === year)
+        .sort((a,b) => a.dateObj - b.dateObj);
+      if(items.length === 0){ legendEl.innerHTML = '<div class="text-muted">No events this month.</div>'; return; }
+      let html = '<ul class="list-unstyled mb-0">';
+      items.forEach(item => {
+        const day = item.dateObj.getDate();
+        const title = item.ev.title || 'Untitled';
+        const key = item.dateObj.toISOString().slice(0,10);
+        const evId = item.ev.id;
+        html += `<li><a href="#" class="legend-item" data-date="${key}" data-event-id="${evId}"><span class="d-inline-block bg-success rounded-circle me-2" style="width:8px;height:8px;"></span> <strong>${day}</strong> — ${title}</a></li>`;
+      });
+      html += '</ul>';
+      legendEl.innerHTML = html;
+      legendEl.querySelectorAll('.legend-item').forEach(a => {
+        a.addEventListener('click', function(e){
+          e.preventDefault();
+          const dateKey = this.dataset.date;
+          const evId = this.dataset.eventId;
+          if(!dateKey) return;
+          const d = parseDateOnlyString(dateKey);
+          if(!d) return;
+          currMonth = d.getMonth(); currYear = d.getFullYear(); renderCalendar(currMonth, currYear);
+          setTimeout(() => { highlightDate(dateKey); if(evId) openEventModal(evId); }, 120);
+        });
+      });
+    }
+
+    renderCalendar(currMonth, currYear);
+  })();
+  </script>
+      {% comment "" %}
       <!-- Notifications / Approvals -->
       <div class="card mb-4 shadow">
         <div class="card-header">
@@ -69,7 +279,7 @@
           <li class="list-group-item">Attendance for AI Forum has been finalized</li>
         </ul>
       </div>
-
+      {% endcomment %}
         <!-- Timeline Card (redesigned) -->
         <div class="card mb-4 shadow timeline-card">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -146,7 +356,7 @@
             .timeline-body{padding-left:0}
           }
         </style>
-
+      {% comment "" %}
         <!-- Chart Placeholder -->
         <div class="card  shadow">
         <div class="card-header">
@@ -156,7 +366,7 @@
           [Analytics Chart Placeholder]
         </div>
         </div>
-
+        {% endcomment %}
     <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
 <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
 </div>

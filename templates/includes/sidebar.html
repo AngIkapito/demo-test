@@ -207,8 +207,6 @@
         <div id="collapseOverviewOfficer" class="collapse" aria-labelledby="headingOverviewOfficer" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="{% url "officer_home" %}">Dashboard</a>
-                <a class="collapse-item" href="{% url "officer_home" %}">Home</a>
-                <a class="collapse-item" href="{% url "hoo_event_analytics" %}">Event Analytics</a>
             </div>
         </div>
     </li>
@@ -286,25 +284,10 @@
         <div id="collapseOverviewMember" class="collapse" aria-labelledby="headingOverviewMember" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="{% url "member_home" %}">Dashboard</a>
-                <a class="collapse-item" href="{% url "member_home" %}">Home</a>
-                <a class="collapse-item" href="{% url "hoo_event_analytics" %}">Event Analytics</a>
             </div>
         </div>
     </li>
 
-    <li class="nav-item">
-        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
-            aria-expanded="true" aria-controls="collapseTwo">
-            <i class="fas fa-users"></i>
-            <span>Membership</span>
-        </a>
-        <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
-            <div class="bg-white py-2 collapse-inner rounded">
-                {% comment %}<a class="collapse-item" href="buttons.html">Add Member</a>{% endcomment %}
-                <a class="collapse-item" href="">View Membership</a>
-            </div>
-        </div>
-    </li>
 
     <!-- EVENTS Nav Item - Utilities Collapse Menu -->
     <li class="nav-item">

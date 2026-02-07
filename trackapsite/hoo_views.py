@@ -100,6 +100,12 @@ def home(request):
         'school_years': school_years,
     }
 
+    # Pending approvals count (case-insensitive match for 'PENDING')
+    try:
+        context['pending_approvals_count'] = Membership.objects.filter(status__iexact='PENDING').count()
+    except Exception:
+        context['pending_approvals_count'] = 0
+
     # Serialize events for the client-side calendar (ISO date strings)
     events_json = []
     for ev in events:

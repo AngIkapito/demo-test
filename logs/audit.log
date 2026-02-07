@@ -76,3 +76,14 @@
 2026-02-06 21:36:57,508 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
 2026-02-06 21:37:04,719 | WARNING | Failed login attempt for username=jordan ip=127.0.0.1
 2026-02-06 21:37:12,184 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 10:45:22,372 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 10:50:42,439 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-07 10:54:09,558 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 11:01:23,815 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 11:17:10,768 | WARNING | Failed login attempt for username=jon01 ip=127.0.0.1
+2026-02-07 11:17:57,135 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-07 11:24:00,672 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-07 11:33:51,901 | INFO | User jon01 logged in (id=2) ip=127.0.0.1
+2026-02-07 11:48:29,646 | INFO | User jordan logged in (id=11) ip=127.0.0.1
+2026-02-07 11:49:51,681 | INFO | User thon01 logged in (id=4) ip=127.0.0.1
+2026-02-07 11:54:23,881 | INFO | User jordan logged in (id=11) ip=127.0.0.1
