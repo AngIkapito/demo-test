@@ -88,33 +88,35 @@ WSGI_APPLICATION = 'trackapsite.wsgi.application'
 # }
 #}
 #
-#DATABASES = {
-#   'default': {
-#       'ENGINE': 'django.db.backends.mysql',
-#       'NAME': 'trackaps_demo',
-#       'HOST': '178.128.112.85',
-#       'PORT': '3306',
-#       'USER': 'trackaps_demo1',
-#        'PASSWORD': 'KGL?8O1d^M@#',
-#    }
-# }   
+DATABASES = {
+   'default': {
+       'ENGINE': 'django.db.backends.mysql',
+       'NAME': 'Trackaps_db',
+       'HOST': '178.128.112.85',
+       'PORT': '3306',
+       'USER': 'Trackaps_db',
+        'PASSWORD': 'nL7#OytDdSWrcl](',
+    }
+}   
 
 
 
 #xampp Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'trackapsite_db',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
-        'USER': 'root',
-        'PASSWORD': '',
-        'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES,STRICT_ALL_TABLES'"
-        },
-    }
-}  
+#DATABASES = {
+ #   'default': {
+  #      'ENGINE': 'django.db.backends.mysql',
+   #     'NAME': 'trackapsite_db',
+    #    'HOST': '127.0.0.1',
+     #   'PORT': '3306',
+      #  'USER': 'root',
+       # 'PASSWORD': '',
+        
+        #'OPTIONS': {
+         
+         #   'init_command': "SET sql_mode='STRICT_TRANS_TABLES,STRICT_ALL_TABLES'"
+        #},
+    #}
+#}  
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
