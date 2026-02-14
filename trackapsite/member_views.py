@@ -1,6 +1,8 @@
 from django.template.loader import render_to_string
 from django.http import HttpResponse, FileResponse, Http404
-from xhtml2pdf import pisa
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.utils import ImageReader
 from django.contrib.staticfiles import finders
 import io
 import base64
@@ -247,55 +249,129 @@ def generate_membership_certificate(request, membership_id):
     except Exception:
         footer_design_data_uri = ''
     context['footer_design_uri'] = footer_design_data_uri
-    html = render_to_string('certificate_template.html', context)
-
-    # Generate PDF with a link_callback so xhtml2pdf can resolve static/media files
+    # Use ReportLab to generate a nicer certificate PDF from context
     result = io.BytesIO()
+    try:
+        page_size = landscape(A4)
+        c = canvas.Canvas(result, pagesize=page_size)
+        w, h = page_size
+        margin = 48
 
-    def link_callback(uri, rel):
-        """Convert HTML URIs to absolute system paths so xhtml2pdf can access them.
+        # Draw border
+        c.setLineWidth(2)
+        c.rect(margin / 2, margin / 2, w - margin, h - margin)
 
-        Handles `MEDIA_URL` and `STATIC_URL` and falls back to the staticfiles finders.
-        """
-        # Media files
-        if uri.startswith(getattr(settings, 'MEDIA_URL', '/media/')):
-            path = os.path.join(getattr(settings, 'MEDIA_ROOT', ''), uri.replace(settings.MEDIA_URL, '').lstrip('/'))
-            return path
+        # Draw logo (if available) at top-left
+        try:
+            if context.get('logo_data_uri'):
+                logo_uri = context.get('logo_data_uri')
+                b64 = logo_uri.split(',', 1)[1] if ',' in logo_uri else logo_uri
+                img = ImageReader(io.BytesIO(base64.b64decode(b64)))
+                img_w = 120
+                img_h = 120
+                c.drawImage(img, margin + 10, h - margin - img_h + 10, width=img_w, height=img_h, preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
 
-        # Static files: try finders first
-        static_path = finders.find(uri)
-        if static_path:
-            return static_path
+        # Header lines (organization title + region)
+        c.setFont('Helvetica-Bold', 14)
+        c.drawCentredString(w / 2, h - margin - 6, 'Philippine Society of Information Technology Educators')
+        c.setFont('Helvetica', 12)
+        c.drawCentredString(w / 2, h - margin - 24, 'Central Luzon Region')
 
-        # If uri is prefixed with STATIC_URL, try to build path from STATIC_ROOT
-        if uri.startswith(getattr(settings, 'STATIC_URL', '/static/')):
-            path = os.path.join(getattr(settings, 'STATIC_ROOT', ''), uri.replace(settings.STATIC_URL, '').lstrip('/'))
-            return path
+        # Main certificate heading
+        c.setFont('Times-Bold', 28)
+        c.drawCentredString(w / 2, h - margin - 64, 'CERTIFICATE OF MEMBERSHIP')
 
-        return uri
+        # Intro line
+        c.setFont('Helvetica', 12)
+        c.drawCentredString(w / 2, h / 2 + 120, 'This is to certify that')
 
-    pdf = pisa.pisaDocument(io.BytesIO(html.encode('utf-8')), result, link_callback=link_callback)
-    if pdf.err:
+        # Member name (uppercase, prominent)
+        c.setFont('Times-Bold', 34)
+        name_y = h / 2 + 84
+        member_name = context.get('member_full_name', '')
+        c.drawCentredString(w / 2, name_y, member_name.upper())
+
+        # Membership statement
+        c.setFont('Helvetica', 12)
+        stmt_y = name_y - 40
+        # Determine membership type name from member.relationship or context
+        try:
+            mtype_obj = getattr(member, 'membershiptype', None)
+            if mtype_obj and getattr(mtype_obj, 'name', None):
+                mtype_name = str(mtype_obj.name).upper()
+            else:
+                mtype_name = context.get('membership_type', '').upper()
+        except Exception:
+            mtype_name = context.get('membership_type', '').upper()
+
+        article = 'an' if mtype_name and mtype_name[:1] in 'AEIOU' else 'a'
+        stmt = f"is {article} {mtype_name} member of the Philippine Society of Information Technology Educators – Central Luzon Region (PSITE-CL)."
+        c.drawCentredString(w / 2, stmt_y, stmt)
+
+        # Recognition paragraph (wrap manually if needed)
+        para = "This certificate is issued in recognition of the member’s active participation and commitment to the advancement of Information Technology education."
+        c.setFont('Helvetica', 10)
+        c.drawCentredString(w / 2, stmt_y - 28, para)
+
+        # School / Institution and Validity Period (centered)
+        c.setFont('Helvetica-Bold', 11)
+        c.drawCentredString(w / 2, stmt_y - 70, f"School / Institution: {context.get('school_name','')}")
+        c.drawCentredString(w / 2, stmt_y - 92, f"Validity Period: {context.get('membership_start','')} – {context.get('membership_end','')}")
+
+        # Signature block (name + title)
+        sig_w = 260
+        sig_x = w - margin - sig_w
+        sig_y = margin + 96
+        c.line(sig_x, sig_y, sig_x + sig_w, sig_y)
+        c.setFont('Times-Bold', 12)
+        pres_name = context.get('president_name', '') or ''
+        try:
+            if pres_name and not any(x in pres_name for x in ['DIT', 'PhD']):
+                pres_name = f"{pres_name}, DIT, PhD"
+        except Exception:
+            pass
+        c.drawCentredString(sig_x + sig_w / 2, sig_y - 18, pres_name)
+        c.setFont('Helvetica', 10)
+        c.drawCentredString(sig_x + sig_w / 2, sig_y - 34, 'PSITE-CL President')
+
+        # Tracking and generator note at bottom
+        c.setFont('Helvetica', 10)
+        c.drawString(margin + 20, margin + 16, f"Tracking No.: {context.get('tracking_number', '')}")
+        c.setFont('Helvetica-Oblique', 8)
+        c.drawRightString(w - margin - 20, margin + 8, 'Generated via TracKaPSITE')
+
+        # Footer design image (if available)
+        try:
+            if context.get('footer_design_uri'):
+                footer_uri = context.get('footer_design_uri')
+                b64f = footer_uri.split(',', 1)[1] if ',' in footer_uri else footer_uri
+                fimg = ImageReader(io.BytesIO(base64.b64decode(b64f)))
+                footer_h = 40
+                c.drawImage(fimg, margin / 2, margin / 2, width=w - margin, height=footer_h, mask='auto')
+        except Exception:
+            pass
+
+        c.showPage()
+        c.save()
+        result.seek(0)
+    except Exception:
         return HttpResponse('Error generating PDF', status=500)
 
-    # Save PDF to media/certificates
     cert_dir = os.path.join(settings.MEDIA_ROOT, 'certificates')
     os.makedirs(cert_dir, exist_ok=True)
-    # Use tracking number as filename to match generated document label
     tracking = context.get('tracking_number', f"MEM-{membership.id:06d}")
-    # sanitize filename (remove any unexpected slashes)
     safe_name = tracking.replace('/', '_')
     cert_filename = f"{safe_name}.pdf"
     cert_path = os.path.join(cert_dir, cert_filename)
     with open(cert_path, 'wb') as f:
         f.write(result.getvalue())
 
-    # Save file path to membership.file_path
     rel_path = f"certificates/{cert_filename}"
     membership.file_path = rel_path
     membership.save(update_fields=['file_path'])
 
-    # Return PDF as download
     return FileResponse(open(cert_path, 'rb'), as_attachment=True, filename=cert_filename)
 
 @login_required(login_url='/')
