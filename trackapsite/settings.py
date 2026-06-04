@@ -91,12 +91,12 @@ DATABASES = {
 #DATABASES = {
  #  'default': {
   #     'ENGINE': 'django.db.backends.mysql',
-   #    'NAME': 'Trackaps_db',
-    #   'HOST': 'localhost',
+    #   'NAME': 'Trackaps_db',
+   #    'HOST': 'localhost',
      #  'PORT': '3306',
-       #'USER': 'Trackaps_db',
-      #  'PASSWORD': 'nL7#OytDdSWrcl](',
-   # }
+      # 'USER': 'Trackaps_db',
+       #'PASSWORD': 'nL7#OytDdSWrcl](',
+    #}
 #}   
 
 
