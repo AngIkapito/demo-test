@@ -81,23 +81,23 @@ WSGI_APPLICATION = 'trackapsite.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # DB for local testing
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.sqlite3',
-#        'NAME': BASE_DIR / 'db.sqlite3',
-# }
-#}
-#
 DATABASES = {
-   'default': {
-       'ENGINE': 'django.db.backends.mysql',
-       'NAME': 'Trackaps_db',
-       'HOST': 'localhost',
-       'PORT': '3306',
-       'USER': 'Trackaps_db',
-        'PASSWORD': 'nL7#OytDdSWrcl](',
-    }
-}   
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+ }
+}
+#
+#DATABASES = {
+ #  'default': {
+  #     'ENGINE': 'django.db.backends.mysql',
+   #    'NAME': 'Trackaps_db',
+    #   'HOST': 'localhost',
+     #  'PORT': '3306',
+       #'USER': 'Trackaps_db',
+      #  'PASSWORD': 'nL7#OytDdSWrcl](',
+   # }
+#}   
 
 
 
