@@ -1,266 +1,540 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
+
+
 <head>
+
 {% load static %}
+
     <meta charset="utf-8">
+
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
     <meta name="description" content="">
+
     <meta name="author" content="">
+
+
 
     <title>TracKaPSITE | Member Registration </title>
 
+
+
     <!-- Custom fonts for this template-->
+
     <link href="vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
+
     <link
+
         href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+
         rel="stylesheet">
 
+
+
     <!-- Custom styles for this template-->
+
     <link href="{% static 'css/sb-admin-2.css' %}" rel="stylesheet">
+
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
 </head>
 
+
+
 <body class="bg-gradient-primary">
-    <div class="card" style="position: absolute; top: 10%; left: 30%; right: 30%; transform: translate(0%, 0%);">
-        <div class="card-body p-0">
-            <div class="row">
-                <div class="col-lg-12">
+
+    <div class="container py-5">
+
+        <div class="row justify-content-center">
+
+            <div class="col-12 col-md-11 col-lg-10">
+
+                <div class="card">
+
+                    <div class="card-body p-0">
+
+                        <div class="row">
+
+                            <div class="col-12">
+
                     <a href="{% url 'login' %}" class="btn btn-secondary" title="Go Back">
+
                         <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
+
                     <div class="p-5">
+
                         <div class="text-center">
+
                             <h1 class="h4 text-gray-900 mb-4">Membership Renewal</h1>
+
                             {% for sy in school_year %}
+
                                 {% if sy.id == active_school_year_id and sy.status == 1 %}
+
                                     <div class="form-group">
+
                                         <label>School Year:</label>
+
                                         <span><b>{{ sy.sy_start }} - {{ sy.sy_end }}</b></span>
+
                                     </div>
+
                                 {% endif %}
+
                             {% endfor %}
+
                         </div>
+
                         <form class="user" method="post" action="{% url 'registration_renew' %}" enctype="multipart/form-data" onsubmit="return validateForm()">
+
                             {% csrf_token %}
+
                             {% include 'includes/messages.html' %}
+
                             <input type="hidden" class="form-control text-uppercase" id="membertype_id" name="membertype_id" value="1" required/> 
+
                             <input type="hidden" class="form-control text-uppercase" id="school_year_id" name="school_year_id" value="{{active_school_year_id}}" required/>
+
                             <!-- Personal Information -->
+
                             <fieldset class="border rounded p-3 mb-4">
+
                                 <legend class="w-auto px-2" style="font-size:1.1rem;">Personal Information</legend>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="salutation_id">Salutation</label>
+
                                         <select class="form-control" id="salutation_id" name="salutation_id" disabled>
+
                                             <option value="" disabled selected>SELECT SALUTATION</option>
+
                                             {% for salutation in salutations %}
+
                                                 <option value="{{ salutation.id }}" {% if member and member.salutation_id == salutation.id %}selected{% endif %}>{{ salutation.name }}</option>
+
                                             {% endfor %}
+
                                         </select>
+
                                         {% if member and member.salutation_id %}
+
                                             <!-- disabled select won't submit, so provide hidden input to keep salutation unchanged -->
+
                                             <input type="hidden" name="salutation_id" value="{{ member.salutation_id }}" />
+
                                         {% endif %}
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="position">Position</label>
+
                                         <input type="text" class="form-control text-uppercase" id="position" placeholder="Position" name="position" value="{% if member %}{{ member.position }}{% endif %}" required readonly/>
+
                                     </div>
+
                                 </div>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-4">
+
                                         <label for="first_name">First Name</label>
+
                                         <input type="text" class="form-control text-uppercase" id="first_name" placeholder="First Name" name="first_name" value="{% if request.user.first_name %}{{ request.user.first_name }}{% endif %}" required readonly/>
+
                                     </div>
+
                                     <div class="form-group col-md-4">
+
                                         <label for="last_name">Last Name</label>
+
                                         <input type="text" class="form-control text-uppercase" id="last_name" placeholder="Last Name" name="last_name" value="{% if request.user.last_name %}{{ request.user.last_name }}{% endif %}" required readonly/>
+
                                     </div>
+
                                     <div class="form-group col-md-4">
+
                                         <label for="middle_name">Middle Name</label>
+
                                         <input type="text" style="text-transform: uppercase;" class="form-control" id="middle_name" placeholder="Middle Name" name="middle_name" value="{% if member and member.middle_name %}{{ member.middle_name }}{% endif %}" readonly/>
+
                                     </div>
+
                                 </div>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="birthdate">Birthdate</label>
+
                                         <input type="date" class="form-control" id="birthdate" name="birthdate" value="{% if member and member.birthdate %}{{ member.birthdate }}{% endif %}" required readonly/>
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="email">Email Address</label>
+
                                         <input type="email" class="form-control text-lowercase" id="email" placeholder="Email Address" name="email" value="{% if request.user.email %}{{ request.user.email }}{% endif %}" required readonly/>
+
                                     </div>
+
                                 </div>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="contact_no">Contact Number</label>
+
                                         <input type="tel" class="form-control" id="contact_no" placeholder="eg. 09123456789" name="contact_no" maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number." value="{% if member and member.contact_no %}{{ member.contact_no }}{% endif %}" readonly/>                        
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="facebook_profile_link">Facebook Profile Link:</label>
+
                                         <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" value="{% if member and member.facebook_profile_link %}{{ member.facebook_profile_link }}{% endif %}" required readonly />
+
                                     </div>
+
                                 </div>
+
                                 <!-- Removed extra position row, now beside salutation above -->
+
                             </fieldset>
+
                             <!-- Account Information -->
+
                             <fieldset class="border rounded p-3 mb-4">
+
                                 <legend class="w-auto px-2" style="font-size:1.1rem;">Account Information</legend>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="membershiptype_id">Membership Type
+
                                             <i class="fas fa-info-circle" data-toggle="tooltip" title="Your current membership type is shown."></i>
+
                                         </label>
+
                                         <select class="form-control" id="membershiptype_id" name="membershiptype_id" required disabled>
+
                                             <option value="" disabled>Select Membership Type</option>
+
                                             {% for membershiptype in membershiptypes %}
+
                                                 <option value="{{ membershiptype.id }}" {% if member and member.membershiptype_id == membershiptype.id %}selected{% endif %}>{{ membershiptype.name }} - {{membershiptype.price}} PESOS</option>
+
                                             {% endfor %}
+
                                         </select>
+
                                         {% if member and member.membershiptype_id %}
+
                                             <input type="hidden" name="membershiptype_id" value="{{ member.membershiptype_id }}" />
+
                                         {% endif %}
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="organization_id">School/Organization</label>
+
                                         <select class="form-control" id="organization_id" name="organization_id" required disabled>
+
                                             <option value="" disabled>Select School / Organization</option>
+
                                             {% for organization in organizations %}
+
                                                 <option value="{{ organization.id }}" {% if member and member.organization_id == organization.id %}selected{% endif %}>{{ organization.name }}</option>
+
                                             {% endfor %}
+
                                         </select>
+
                                         {% if member and member.organization_id %}
+
                                             <input type="hidden" name="organization_id" value="{{ member.organization_id }}" />
+
                                         {% endif %}
+
                                     </div>
+
                                 </div>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="username">Username (Auto-generated)</label>
+
                                         <input type="text" class="form-control" id="username" name="username" required placeholder="Username will be auto-generated or make a custom" value="{{ request.user.username }}" readonly/>
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="officertype_id" style="display:none;">PSITE CL Officer?</label>
+
                                         <select class="form-control" id="officertype_id" name="officertype_id" required style="display:none;">
+
                                             <option value="1" selected>MEMBER ONLY</option>
+
                                             {% for officertype in officertypes %}
+
                                                 {% if officertype.id != 1 and officertype.id != customuser.officertype_id %}
+
                                                     <option value="{{ officertype.id }}">{{ officertype.name }}</option>
+
                                                 {% endif %}
+
                                             {% endfor %}
+
                                         </select>
+
                                     </div>
+
                                 </div>
+
                             </fieldset>
+
                             <!-- Payment Information (shown for renewals) -->
+
                             <fieldset class="border rounded p-3 mb-4">
+
                                 <legend class="w-auto px-2" style="font-size:1.1rem;">Payment Information</legend>
+
                                 <div class="form-row">
+
                                     <div class="form-group col-md-6">
+
                                         <label for="proof_of_payment">Proof of Payment:</label>
+
                                         <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf, .jpg, .jpeg, .png">
+
                                     </div>
+
                                     <div class="form-group col-md-6">
+
                                         <label for="payment_date">Payment Date:</label>
+
                                         <input type="date" class="form-control" id="payment_date" name="payment_date" value="{% if latest_membership and latest_membership.payment_date %}{{ latest_membership.payment_date }}{% endif %}" required/>
+
                                     </div>
+
                                 </div>
+
                             </fieldset>
+
                             <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
+
                             <div class="form-group mb-3">
+
                                 <div class="custom-control custom-checkbox">
+
                                     <input type="checkbox" class="custom-control-input" id="termsCheckbox" name="terms_accepted" value="true" required>
+
                                     <label class="custom-control-label" for="termsCheckbox">I accept the terms of membership.</label>
+
                                 </div>
+
                                 <div class="agreement mt-2 text-muted" style="font-size:0.95rem;">
+
                                     If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
+
                                 </div>
+
                             </div>
+
                             <button id="registerButton" class="btn btn-primary btn-block py-2 font-weight-bold" type="submit" onclick="return validateForm()">Renew</button>
+
                             <hr>
+
                         </form>
+
                     </div>
+
                 </div>
+
             </div>
+
         </div>
+
     </div>
 
+</div>
+
+
+
 <script>
+
     function validateForm() {
+
         var checkbox = document.getElementById("termsCheckbox");
+
         var notificationArea = document.getElementById("notificationArea");
+
         notificationArea.innerHTML = '';
+
         notificationArea.classList.add('d-none');
+
         if (!checkbox.checked) {
+
             notificationArea.innerHTML += "You must agree to the terms of service before registering.<br>";
+
             notificationArea.classList.remove('d-none');
+
             return false;
+
         }
+
         return true;
+
     }
+
+
 
     document.getElementById('contact_no').addEventListener('input', function (e) {
+
         this.value = this.value.replace(/[^0-9]/g, '');
+
     });
+
+
 
     // Only set birthdate default if the field is empty (do not overwrite existing member data)
+
     (function setDefaultDatesIfEmpty(){
+
         var birthEl = document.getElementById('birthdate');
+
         if (birthEl && (!birthEl.value || birthEl.value.trim() === '')){
+
             const today = new Date();
+
             const year = today.getFullYear();
+
             const month = String(today.getMonth() + 1).padStart(2, '0');
+
             const day = String(today.getDate()).padStart(2, '0');
+
             birthEl.value = `${year}-${month}-${day}`;
+
         }
+
         // set payment_date to today if not present (renewal will usually provide new payment date)
+
         var payEl = document.getElementById('payment_date');
+
         if (payEl && (!payEl.value || payEl.value.trim() === '')){
+
             const today2 = new Date();
+
             const year2 = today2.getFullYear();
+
             const month2 = String(today2.getMonth() + 1).padStart(2, '0');
+
             const day2 = String(today2.getDate()).padStart(2, '0');
+
             payEl.value = `${year2}-${month2}-${day2}`;
+
         }
+
     })();
 
+
+
     document.getElementById("contact_no").addEventListener("input", function() {
+
         const contactNo = this.value;
+
         var errorMessage = document.getElementById("contactError");
+
         if (errorMessage) {
+
             errorMessage.textContent = '';
+
         }
+
         if (contactNo.length > 0 && !/^09[0-9]{9}$/.test(contactNo)) {
+
             if (!errorMessage) {
+
                 const errorDiv = document.createElement("div");
+
                 errorDiv.id = "contactError";
+
                 errorDiv.className = "text-danger";
+
                 this.parentNode.appendChild(errorDiv);
+
                 errorMessage = errorDiv;
+
             }
+
             errorMessage.textContent = "Contact number must start with '09' and be 11 digits long.";
+
         }
+
     });
 
+
+
     // ✅ Auto-generate Username based on first name + last name + random 2-digit number
+
     // For renewal we keep the existing username; do not auto-generate a new one.
+
     // However, if you want to allow changing username, un-comment and adapt the code below.
+
     /*
+
     function generateUsername() {
+
         const firstName = document.getElementById('first_name').value.trim().toLowerCase();
+
         const lastName = document.getElementById('last_name').value.trim().toLowerCase();
+
         if (firstName && lastName) {
+
             const randomNum = Math.floor(Math.random() * 90 + 10); // 10-99
+
             const username = `${firstName.charAt(0)}${lastName}${randomNum}`;
+
             document.getElementById('username').value = username;
+
         }
+
     }
 
+
+
     document.getElementById('first_name').addEventListener('input', generateUsername);
+
     document.getElementById('last_name').addEventListener('input', generateUsername);
+
     */
+
 </script>
 
+
+
 </body>
+
 </html>
+

@@ -125,7 +125,8 @@ class Member(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+    is_dpa_check = models.BooleanField(default=False, null=True)
+
     def __str__(self):
         return self.admin.first_name + " " + self.admin.last_name
     
@@ -149,6 +150,7 @@ class Membership(models.Model):
     school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE)
     proof_of_payment = models.FileField(upload_to='payments/')
     payment_date = models.DateField(null=True, blank=True)
+    payment_method = models.CharField(max_length=50, null=True, blank=True)
 
     # ✅ New status field with default = Pending
     status = models.CharField(

@@ -445,9 +445,11 @@ def REGISTRATION_NEW(request):
 
         proof_of_payment = request.FILES.get('proof_of_payment')
         payment_date = request.POST.get('payment_date')
+        payment_method = request.POST.get('payment_method')
 
         # Terms checkbox
         terms_accepted = request.POST.get('terms_accepted') == 'true' or request.POST.get('terms_accepted') == 'on'
+        is_dpa_check = terms_accepted  # DPA consent is tied to terms acceptance
 
         # ✅ Ensure submitted school_year_id corresponds to an active school year
         school_year_instance = get_object_or_404(School_Year, id=school_year_id, status=1)
@@ -469,6 +471,17 @@ def REGISTRATION_NEW(request):
 
         # ✅ Auto-generate a password
         password = get_random_string(length=10)
+
+        # ✅ Validate foreign key IDs exist
+        try:
+            MembershipType.objects.get(id=membershiptype_id)
+            OfficerType.objects.get(id=officertype_id)
+            Organization.objects.get(id=organization_id)
+            Salutation.objects.get(id=salutation_id)
+            MemberType.objects.get(id=membertype_id)
+        except Exception as e:
+            messages.error(request, f'Invalid selection: {e}')
+            return redirect('registration_new')
 
         # ✅ Create CustomUser
         user = CustomUser(
@@ -496,6 +509,8 @@ def REGISTRATION_NEW(request):
             contact_no=contact_no,
             facebook_profile_link=facebook_profile_link,
             terms_accepted=terms_accepted,
+            is_dpa_check=is_dpa_check,
+            gender='MALE',  # Default value for gender
         )
         member.save()
 
@@ -506,6 +521,7 @@ def REGISTRATION_NEW(request):
             school_year_id=school_year_id,
             payment_date=payment_date,
             proof_of_payment=proof_of_payment,
+            payment_method=payment_method,
         )
         membership.save()
 

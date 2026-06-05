@@ -439,11 +439,11 @@
         var renewBtn = document.getElementById('renew-btn-modal');
         var closeBtn = document.getElementById('modal-close-btn');
 
-        // Determine if user has no active school year subscription (active when syStatus === '1')
-        var noActiveSchoolYear = !(syStatus && String(syStatus) === '1');
+        // Only show modal if there is truly no approved membership (expiry is empty)
+        var noApprovedMembership = !expiry;
 
-        // Show renew action if renewal is needed or no active subscription
-        var showModal = showRenew || noActiveSchoolYear;
+        // Show renew action if expired/expiring soon OR no approved membership at all
+        var showModal = showRenew || noApprovedMembership;
 
         if (renewBtn) {
             renewBtn.style.display = showModal ? 'inline-block' : 'none';

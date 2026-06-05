@@ -29,6 +29,8 @@ admin.site.register(Tags)
 admin.site.register(Event)
 admin.site.register(Bulk_Event_Reg)
 admin.site.register(Member_Event_Registration)
+admin.site.register(IT_Topics)
+admin.site.register(Membership)
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):

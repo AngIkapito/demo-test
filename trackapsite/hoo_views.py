@@ -1914,25 +1914,39 @@ def MEMBERSHIP_APPROVAL(request):
         return redirect("membership_approval")
 
     # --- GET logic ---
-    # Only consider memberships that are either NEW (membertype_id=1) or RENEW (membertype_id=2)
-    memberships = (
+    selected_payment_method = request.GET.get('payment_method', '')
+
+    # Collect all memberships (NEW or RENEW) to build maps and unique methods
+    all_memberships = (
         Membership.objects.filter(membertype_id__in=[1, 2])
         .order_by('-id')
-        .only('member_id', 'status', 'proof_of_payment', 'membertype_id')
+        .only('member_id', 'status', 'proof_of_payment', 'membertype_id', 'payment_method')
     )
 
-    # Build maps using the latest membership per member (ordered by -id above)
+    # Build full maps
     membership_status_map = {}
     membership_payment_map = {}
     membership_type_map = {}
-    for m in memberships:
+    membership_method_map = {}
+    for m in all_memberships:
         if m.member_id not in membership_status_map:
             membership_status_map[m.member_id] = m.status
             membership_payment_map[m.member_id] = m.proof_of_payment
             membership_type_map[m.member_id] = getattr(m, 'membertype_id', None)
+            membership_method_map[m.member_id] = getattr(m, 'payment_method', None)
 
-    # Get only members who have a relevant membership (new or renew)
-    member_ids = list(membership_status_map.keys())
+    # Collect unique payment methods for the filter dropdown
+    unique_payment_methods = sorted(set(v for v in membership_method_map.values() if v))
+
+    # Filter member_ids by payment_method if one is selected
+    if selected_payment_method:
+        member_ids = [
+            mid for mid, method in membership_method_map.items()
+            if method == selected_payment_method
+        ]
+    else:
+        member_ids = list(membership_status_map.keys())
+
     members = Member.objects.select_related('admin', 'organization', 'membershiptype').filter(id__in=member_ids)
 
     # Add dynamic attributes for display using the maps
@@ -1940,16 +1954,19 @@ def MEMBERSHIP_APPROVAL(request):
         member.status = membership_status_map.get(member.id, 'PENDING')
         member.proof_of_payment = membership_payment_map.get(member.id, None)
         member.latest_membertype_id = membership_type_map.get(member.id)
+        member.payment_method = membership_method_map.get(member.id)
 
     context = {
         'schoolyear': School_Year.objects.all(),
         'users': CustomUser.objects.all(),
         'members': members,
         'membership_status_map': membership_status_map,
-        'memberships': memberships,
+        'memberships': all_memberships,
         'membership_types': MembershipType.objects.all(),
         'member_types': MemberType.objects.all(),
         'organization': Organization.objects.all(),
+        'unique_payment_methods': unique_payment_methods,
+        'selected_payment_method': selected_payment_method,
     }
 
     return render(request, 'hoo/membership_approval.html', context)

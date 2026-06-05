@@ -20,13 +20,17 @@
     <!-- Custom styles for this template-->
     <link href="{% static 'css/sb-admin-2.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 
 <body class="bg-gradient-primary">
-    <div class="card" style="position: absolute; top: 10%; left: 30%; right: 30%; transform: translate(0%, 0%);">
-        <div class="card-body p-0">
-            <div class="row">
-                <div class="col-lg-12">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-md-10 col-lg-8">
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="row">
+                            <div class="col-12">
                     <a href="{% url 'login' %}" class="btn btn-secondary" title="Go Back">
                         <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
                     <div class="p-5">
@@ -170,6 +174,23 @@
                                         <input type="date" class="form-control" id="payment_date" name="payment_date" required/>
                                     </div>
                                 </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6">
+                                        <label for="payment_method_type">Payment Method:</label>
+                                        <select class="form-control" id="payment_method_type" name="payment_method_type" required>
+                                            <option value="" disabled selected>Select Payment Method</option>
+                                            <option value="bank">Bank</option>
+                                            <option value="ewallet">E-Wallet</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-md-6" id="payment_option_div" style="display:none;">
+                                        <label for="payment_option">Select Option:</label>
+                                        <select class="form-control" id="payment_option" name="payment_option">
+                                            <option value="" disabled selected>Select Option</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="payment_method" name="payment_method" value="">
                             </fieldset>
                             <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
                             <div class="form-group mb-3">
@@ -189,6 +210,7 @@
             </div>
         </div>
     </div>
+</div>
 
 <script>
     function validateForm() {
@@ -246,6 +268,43 @@
     document.getElementById('first_name').addEventListener('input', generateUsername);
     document.getElementById('last_name').addEventListener('input', generateUsername);
 
+    // Payment Method Dropdown Logic
+    const paymentMethodType = document.getElementById('payment_method_type');
+    const paymentOptionDiv = document.getElementById('payment_option_div');
+    const paymentOption = document.getElementById('payment_option');
+    const paymentMethod = document.getElementById('payment_method');
+
+    paymentMethodType.addEventListener('change', function() {
+        const selectedType = this.value;
+        paymentOption.innerHTML = '<option value="" disabled selected>Select Option</option>';
+        
+        if (selectedType === 'bank') {
+            paymentOptionDiv.style.display = 'block';
+            const bdoOption = document.createElement('option');
+            bdoOption.value = 'BDO';
+            bdoOption.textContent = 'BDO';
+            paymentOption.appendChild(bdoOption);
+        } else if (selectedType === 'ewallet') {
+            paymentOptionDiv.style.display = 'block';
+            const gcashOption = document.createElement('option');
+            gcashOption.value = 'G-Cash';
+            gcashOption.textContent = 'G-Cash';
+            paymentOption.appendChild(gcashOption);
+            
+            const mayaOption = document.createElement('option');
+            mayaOption.value = 'Pay Maya';
+            mayaOption.textContent = 'Pay Maya';
+            paymentOption.appendChild(mayaOption);
+        } else {
+            paymentOptionDiv.style.display = 'none';
+        }
+        paymentMethod.value = '';
+    });
+
+    paymentOption.addEventListener('change', function() {
+        paymentMethod.value = this.value;
+    });
+
     // Multi-select UX for IT Topics: click to toggle without Ctrl and show badges
     document.addEventListener('DOMContentLoaded', function() {
         const select = document.getElementById('it_topic_id');
@@ -301,6 +360,102 @@
 
         // initialize badges if any preselected
         updateBadges();
+    });
+</script>
+
+<!-- Terms and Conditions Modal -->
+<div class="modal fade" id="termsModal" tabindex="-1" role="dialog" aria-labelledby="termsModalLabel" aria-hidden="true" data-backdrop="static" data-keyboard="false">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="termsModalLabel">
+                    <i class="fas fa-info-circle mr-2"></i> About PSITE CL & Terms and Conditions
+                </h5>
+            </div>
+            <div class="modal-body" style="max-height: 65vh; overflow-y: auto;">
+                <h6 class="font-weight-bold text-primary">About PSITE Central Luzon</h6>
+                <p>
+                    The <strong>Philippine Society of Information Technology Educators – Central Luzon (PSITE CL)</strong> is a professional organization dedicated to the advancement of Information Technology education in the Central Luzon region. It serves as a platform for IT educators to collaborate, share knowledge, and promote best practices in teaching and learning.
+                </p>
+                <p>
+                    PSITE CL is committed to providing its members with access to professional development opportunities, networking events, workshops, seminars, and conferences that keep them updated on the latest trends in IT education.
+                </p>
+
+                <hr>
+
+                <h6 class="font-weight-bold text-primary">Membership Terms and Conditions</h6>
+                <ol>
+                    <li class="mb-2">By registering, you acknowledge that all information provided is <strong>true and accurate</strong> to the best of your knowledge.</li>
+                    <li class="mb-2">Membership is subject to <strong>approval by the PSITE CL administration</strong>. You will be notified via email upon approval.</li>
+                    <li class="mb-2">Members are expected to <strong>comply with the By-Laws</strong> and all regulations adopted by the Society.</li>
+                    <li class="mb-2">Membership is valid for the current <strong>School Year</strong> only and must be renewed annually.</li>
+                    <li class="mb-2">Your submitted <strong>proof of payment</strong> will be reviewed before your membership is activated.</li>
+                    <li class="mb-2">PSITE CL reserves the right to <strong>decline or revoke membership</strong> for violation of its code of conduct or By-Laws.</li>
+                    <li class="mb-2">Your personal information will be used solely for <strong>membership management purposes</strong> and will not be shared with third parties without your consent.</li>
+                    <li class="mb-2">Login credentials will be sent to your registered email address after your membership is approved.</li>
+                </ol>
+
+                <hr>
+
+                <h6 class="font-weight-bold text-primary">Data Privacy Act of 2012 (Republic Act No. 10173)</h6>
+                <p>
+                    In compliance with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> of the Philippines, PSITE Central Luzon is committed to protecting your personal data. By registering, you consent to the collection, use, and processing of your personal information for the following purposes:
+                </p>
+                <ul>
+                    <li class="mb-1"><strong>Membership management</strong> — to maintain your membership records and verify eligibility.</li>
+                    <li class="mb-1"><strong>Communication</strong> — to send you important notices, event invitations, and updates related to PSITE CL activities.</li>
+                    <li class="mb-1"><strong>Credential issuance</strong> — to generate and deliver your login credentials upon membership approval.</li>
+                    <li class="mb-1"><strong>Reporting and analytics</strong> — for internal organizational reporting and planning purposes only.</li>
+                </ul>
+                <p>
+                    Your personal data will <strong>not be sold, disclosed, or transferred</strong> to unauthorized third parties without your explicit consent, except as required by law.
+                </p>
+                <p>
+                    You have the right to <strong>access, correct, and object</strong> to the processing of your personal data. For concerns, you may contact the PSITE CL Data Protection Officer.
+                </p>
+
+                <div class="alert alert-warning mt-3">
+                    <i class="fas fa-exclamation-triangle mr-1"></i>
+                    <strong>Note:</strong> Please read and understand all terms before proceeding with registration. Clicking <em>I Agree & Proceed</em> confirms that you have read and accepted these terms and consent to the collection and processing of your personal data in accordance with RA 10173.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="{% url 'login' %}" class="btn btn-secondary">
+                    <i class="fas fa-times mr-1"></i> Decline & Go Back
+                </a>
+                <button type="button" class="btn btn-primary" id="agreeBtn" data-dismiss="modal" disabled title="Please scroll down to read all terms">
+                    <i class="fas fa-check mr-1"></i> I Agree & Proceed
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery, Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // Show terms modal only on fresh page load (not after form errors)
+    $(document).ready(function() {
+        {% if not messages %}
+        $('#termsModal').modal('show');
+        {% endif %}
+
+        // Enable "I Agree" button only when user scrolls to the bottom of the modal body
+        var modalBody = document.querySelector('#termsModal .modal-body');
+        modalBody.addEventListener('scroll', function() {
+            var scrolledToBottom = this.scrollTop + this.clientHeight >= this.scrollHeight - 10;
+            if (scrolledToBottom) {
+                document.getElementById('agreeBtn').disabled = false;
+                document.getElementById('agreeBtn').removeAttribute('title');
+            }
+        });
+
+        // When "I Agree & Proceed" is clicked, check the terms checkbox
+        $('#agreeBtn').on('click', function() {
+            document.getElementById('termsCheckbox').checked = true;
+        });
     });
 </script>
 

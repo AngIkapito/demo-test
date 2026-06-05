@@ -34,7 +34,7 @@ def home(request):
     try:
         member = Member.objects.get(admin=user)
         membership = (
-            Membership.objects.filter(member=member, status='Approved')
+            Membership.objects.filter(member=member, status__iexact='approved')
             .select_related('school_year')
             .order_by('-school_year__sy_end')
             .first()
