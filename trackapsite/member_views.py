@@ -159,6 +159,44 @@ def home(request):
         events_json = []
 
     context['events_json'] = events_json
+
+    # Joined active events (for the Rate card)
+    joined_active_events = []
+    try:
+        if member:
+            regs = (
+                Member_Event_Registration.objects
+                .filter(member_id=member, is_approved=True, event__status='active')
+                .select_related('event', 'event__school_year')
+            )
+            for r in regs:
+                ev = getattr(r, 'event', None)
+                if not ev:
+                    continue
+                banner_url = None
+                try:
+                    b = getattr(ev, 'banner', None)
+                    if b:
+                        banner_url = getattr(b, 'url', str(b))
+                except Exception:
+                    banner_url = None
+                date_str = ''
+                try:
+                    if getattr(ev, 'date', None):
+                        date_str = ev.date.strftime('%b %d, %Y')
+                except Exception:
+                    pass
+                joined_active_events.append({
+                    'id': ev.id,
+                    'title': getattr(ev, 'title', '') or '',
+                    'date': date_str,
+                    'banner_url': banner_url,
+                })
+    except Exception:
+        joined_active_events = []
+
+    context['joined_active_events'] = joined_active_events
+    context['recommend_range'] = range(1, 11)
     return render(request,'member/home.html', context)
 
 @login_required(login_url='/')

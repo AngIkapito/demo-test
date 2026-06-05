@@ -371,6 +371,47 @@
 </body>
 </html> {% endcomment %}
 
+            <!-- My Joined Active Events -->
+            <div class="card mb-4 shadow">
+                <div class="card-header">
+                    <strong>My Joined Events</strong>
+                    <div class="small text-muted">Active events you have registered for</div>
+                </div>
+                <div class="card-body">
+                    {% if joined_active_events %}
+                        <div class="row">
+                            {% for ev in joined_active_events %}
+                            <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                <div class="card h-100 shadow-sm active-event"
+                                     data-title="{{ ev.title }}"
+                                     data-date="{{ ev.date }}"
+                                     data-event-id="{{ ev.id }}">
+                                    {% if ev.banner_url %}
+                                        <img src="{{ ev.banner_url }}" class="card-img-top" alt="{{ ev.title }}" style="height:140px;object-fit:cover;">
+                                    {% else %}
+                                        <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height:140px;">
+                                            <i class="fas fa-calendar-alt fa-2x"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div class="card-body d-flex flex-column">
+                                        <h6 class="card-title fw-bold mb-1">{{ ev.title }}</h6>
+                                        <p class="text-muted small mb-3">{{ ev.date }}</p>
+                                        <button type="button"
+                                                class="btn btn-outline-primary btn-sm mt-auto rate-event-btn"
+                                                data-event-id="{{ ev.id }}">
+                                            <i class="fas fa-star me-1"></i> Rate Event
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No active joined events found.</p>
+                    {% endif %}
+                </div>
+            </div>
+
 <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
 </div>
 </div>
@@ -394,6 +435,262 @@
                 </div>
             </div>
 
+
+<!-- Rate Event Modal -->
+<input type="hidden" id="csrf-token" value="{{ csrf_token }}" />
+<div class="modal fade" id="rateModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Rate Event</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="rateMessage" class="alert d-none mt-2" role="alert" style="display:none;"></div>
+                <h6 id="rateEventTitle" class="mb-1"></h6>
+                <p id="rateEventDate" class="text-muted small mb-3"></p>
+                <form id="rateForm" novalidate>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="rateEmail" class="form-control" required>
+                    </div>
+                    <input type="hidden" id="rateEventId" value="">
+                    <div class="mb-3 row">
+                        <div class="col">
+                            <label class="form-label">First name <small class="text-muted">(optional)</small></label>
+                            <input type="text" id="rateFirstName" class="form-control">
+                        </div>
+                        <div class="col">
+                            <label class="form-label">Last name <small class="text-muted">(optional)</small></label>
+                            <input type="text" id="rateLastName" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Overall, how satisfied were you with the event?</label>
+                        <div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="satisfaction" id="satisfaction1" value="very_satisfied"><label class="form-check-label" for="satisfaction1">Very satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="satisfaction" id="satisfaction2" value="satisfied"><label class="form-check-label" for="satisfaction2">Satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="satisfaction" id="satisfaction4" value="dissatisfied"><label class="form-check-label" for="satisfaction4">Dissatisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="satisfaction" id="satisfaction5" value="very_dissatisfied"><label class="form-check-label" for="satisfaction5">Very dissatisfied</label></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">How well did the event meet your expectations?</label>
+                        <div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="expectations" id="expectations1" value="very_satisfied"><label class="form-check-label" for="expectations1">Very satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="expectations" id="expectations2" value="satisfied"><label class="form-check-label" for="expectations2">Satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="expectations" id="expectations4" value="dissatisfied"><label class="form-check-label" for="expectations4">Dissatisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="expectations" id="expectations5" value="very_dissatisfied"><label class="form-check-label" for="expectations5">Very dissatisfied</label></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">How would you rate the organization and logistics of the event?</label>
+                        <div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="organization" id="organization1" value="very_satisfied"><label class="form-check-label" for="organization1">Very satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="organization" id="organization2" value="satisfied"><label class="form-check-label" for="organization2">Satisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="organization" id="organization4" value="dissatisfied"><label class="form-check-label" for="organization4">Dissatisfied</label></div>
+                            <div class="form-check mb-2"><input class="form-check-input" type="radio" name="organization" id="organization5" value="very_dissatisfied"><label class="form-check-label" for="organization5">Very dissatisfied</label></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">How likely are you to recommend this event?</label>
+                        <div class="rec-wrap">
+                            <div class="rec-steps" id="recSteps">
+                                {% for i in recommend_range %}
+                                <div style="display:flex;align-items:center;">
+                                    <input type="radio" name="recommendation" id="rec{{ i }}" value="{{ i }}" style="display:none;">
+                                    <label class="rec-step" for="rec{{ i }}">{{ i }}</label>
+                                    {% if not forloop.last %}
+                                    <div class="rec-connector" data-index="{{ i }}"></div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div id="recLine" class="rec-line" aria-hidden="true"></div>
+                            <div class="rec-label">Select a number (1 = least likely, 10 = most likely)</div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Feedback</label>
+                        <textarea id="rateComment" class="form-control" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label d-block">Rating</label>
+                        <div id="starWrap" class="d-flex">
+                            <button type="button" class="star" data-value="1" data-emoji="😢">😢</button>
+                            <button type="button" class="star" data-value="2" data-emoji="🙁">🙁</button>
+                            <button type="button" class="star" data-value="3" data-emoji="😐">😐</button>
+                            <button type="button" class="star" data-value="4" data-emoji="🙂">🙂</button>
+                            <button type="button" class="star" data-value="5" data-emoji="😄">😄</button>
+                        </div>
+                        <input type="hidden" id="ratingValue" value="0">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="submitRating">Submit</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .star { font-size:1.8rem; color:#374151; background:transparent; border:none; padding:0 6px; line-height:1; cursor:pointer; }
+    .star.selected { transform:scale(1.25); filter:drop-shadow(0 2px 4px rgba(0,0,0,0.12)); }
+    .star:focus { outline:none; box-shadow:none; }
+    .rec-wrap { position:relative; padding:.5rem 0 1rem; }
+    .rec-steps { display:flex; align-items:center; gap:0.5rem; padding:.5rem 0 0; position:relative; z-index:2; }
+    .rec-connector { flex:1; height:6px; background:#e9ecef; border-radius:4px; transition:background .25s ease; margin:0 4px; }
+    .rec-connector.active { background:linear-gradient(90deg,#0d6efd,#6610f2); }
+    .rec-step { display:flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:50%; background:#fff; border:1px solid #dee2e6; color:#495057; cursor:pointer; transition:transform .18s ease,background .18s ease; }
+    .rec-step.active { background:linear-gradient(180deg,#0d6efd,#6610f2); color:#fff; transform:scale(1.08); border-color:transparent; }
+    .rec-label { font-size:.85rem; color:#6c757d; margin-top:.5rem; text-align:center; }
+    .rec-line { position:absolute; left:0; height:6px; top:0; background:linear-gradient(90deg,#0d6efd,#6610f2); border-radius:4px; width:0; transition:width .25s ease,left .25s ease,top .25s ease; z-index:1; }
+</style>
+
+<script>
+(function(){
+    window.getCsrfToken = function(){ var el = document.getElementById('csrf-token'); return el ? el.value : ''; };
+
+    // Rate button -> open modal
+    document.querySelectorAll('.rate-event-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            var card = this.closest('.active-event');
+            if(!card) return;
+            var title = card.getAttribute('data-title') || '';
+            var date  = card.getAttribute('data-date')  || '';
+            var eid   = card.getAttribute('data-event-id') || '';
+
+            document.getElementById('rateEventTitle').textContent = title;
+            document.getElementById('rateEventDate').textContent  = date;
+            document.getElementById('rateEventId').value          = eid;
+            document.getElementById('rateEmail').value            = '';
+            document.getElementById('rateFirstName').value        = '';
+            document.getElementById('rateLastName').value         = '';
+            document.getElementById('rateComment').value          = '';
+            document.getElementById('ratingValue').value          = '0';
+            document.querySelectorAll('input[name="recommendation"]').forEach(function(i){ i.checked = false; });
+            document.querySelectorAll('#recSteps .rec-step').forEach(function(el){ el.classList.remove('active'); });
+            document.querySelectorAll('#recSteps .rec-connector').forEach(function(el){ el.classList.remove('active'); });
+            var recLine = document.getElementById('recLine');
+            if(recLine){ recLine.style.width='0px'; }
+            document.querySelectorAll('#starWrap .star').forEach(function(s){ s.classList.remove('selected'); s.textContent = s.getAttribute('data-emoji') || s.textContent; });
+
+            var rateMsg = document.getElementById('rateMessage');
+            if(rateMsg){ rateMsg.style.display='none'; rateMsg.className='alert d-none'; }
+
+            var modalEl = document.getElementById('rateModal');
+            new bootstrap.Modal(modalEl).show();
+        });
+    });
+
+    // Star rating
+    document.querySelectorAll('#starWrap .star').forEach(function(star){
+        star.addEventListener('click', function(){
+            var value = parseInt(this.getAttribute('data-value')) || 0;
+            document.getElementById('ratingValue').value = value;
+            document.querySelectorAll('#starWrap .star').forEach(function(s){
+                var sv = parseInt(s.getAttribute('data-value')) || 0;
+                s.classList.toggle('selected', sv === value);
+                s.textContent = s.getAttribute('data-emoji') || s.textContent;
+            });
+        });
+    });
+
+    // Recommendation 1-10 control
+    var recStepsEl = document.getElementById('recSteps');
+    if(recStepsEl){
+        var recLine = document.getElementById('recLine');
+        recStepsEl.addEventListener('click', function(e){
+            var target = e.target.closest('.rec-step');
+            if(!target) return;
+            var steps = Array.from(recStepsEl.querySelectorAll('.rec-step'));
+            var idx = steps.indexOf(target) + 1;
+            var inp = document.getElementById('rec' + idx);
+            if(inp) inp.checked = true;
+            steps.forEach(function(s,i){ s.classList.toggle('active', i < idx); });
+            Array.from(recStepsEl.querySelectorAll('.rec-connector')).forEach(function(c){
+                c.classList.toggle('active', parseInt(c.dataset.index, 10) < idx);
+            });
+            if(recLine){
+                var wrapRect = recStepsEl.parentElement.getBoundingClientRect();
+                var rects = steps.map(function(s){ return s.getBoundingClientRect(); });
+                if(rects.length){
+                    var firstCenter = rects[0].left + rects[0].width/2;
+                    if(idx <= 1){
+                        recLine.style.left = Math.round(firstCenter - wrapRect.left)+'px';
+                        recLine.style.top  = Math.round((rects[0].top+rects[0].bottom)/2 - wrapRect.top - recLine.offsetHeight/2)+'px';
+                        recLine.style.width = '0px';
+                    } else {
+                        var selCenter = rects[idx-1].left + rects[idx-1].width/2;
+                        recLine.style.left  = Math.round(firstCenter - wrapRect.left)+'px';
+                        recLine.style.top   = Math.round((rects[0].top+rects[0].bottom)/2 - wrapRect.top - recLine.offsetHeight/2)+'px';
+                        recLine.style.width = Math.max(0, Math.round(selCenter - firstCenter))+'px';
+                    }
+                }
+            }
+        });
+    }
+
+    // Submit rating
+    var submitBtn = document.getElementById('submitRating');
+    if(submitBtn){
+        submitBtn.addEventListener('click', async function(e){
+            e.preventDefault();
+            var msgEl = document.getElementById('rateMessage');
+            msgEl.style.display = 'none'; msgEl.className = 'alert d-none';
+
+            var ratingVal = String(document.getElementById('ratingValue').value || '');
+            var ratingLabels = {'1':'very_unhappy','2':'unhappy','3':'neutral','4':'happy','5':'very_happy'};
+            var selectedStar = document.querySelector('#starWrap .star[data-value="'+ratingVal+'"]');
+            var ratingEmoji = selectedStar ? (selectedStar.getAttribute('data-emoji') || '') : '';
+
+            var payload = {
+                event_id:       document.getElementById('rateEventId').value,
+                email:          document.getElementById('rateEmail').value,
+                first_name:     document.getElementById('rateFirstName').value,
+                last_name:      document.getElementById('rateLastName').value,
+                satisfaction:   (document.querySelector('input[name="satisfaction"]:checked') || {}).value || '',
+                expectations:   (document.querySelector('input[name="expectations"]:checked') || {}).value || '',
+                organization:   (document.querySelector('input[name="organization"]:checked') || {}).value || '',
+                recommendation: (document.querySelector('input[name="recommendation"]:checked') || {}).value || '',
+                comments:       document.getElementById('rateComment').value,
+                rating:         ratingVal,
+                rating_label:   ratingLabels[ratingVal] || '',
+                rating_emoji:   ratingEmoji
+            };
+
+            try {
+                var res = await fetch("{% url 'submit_rating' %}", {
+                    method: 'POST',
+                    headers: { 'Content-Type':'application/json', 'X-CSRFToken': window.getCsrfToken() },
+                    body: JSON.stringify(payload)
+                });
+                var data = await res.json();
+                if(data && data.success){
+                    msgEl.className = 'alert alert-success';
+                    msgEl.textContent = data.message || 'Thank you for your feedback';
+                    msgEl.style.display = '';
+                    setTimeout(function(){
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('rateModal'));
+                        if(modal) modal.hide();
+                        setTimeout(function(){ msgEl.style.display='none'; msgEl.className='alert d-none'; msgEl.textContent=''; }, 600);
+                    }, 1200);
+                } else {
+                    msgEl.className = 'alert alert-danger';
+                    msgEl.textContent = (data && data.message) || 'Failed to submit rating';
+                    msgEl.style.display = '';
+                }
+            } catch(err) {
+                msgEl.className = 'alert alert-danger';
+                msgEl.textContent = 'Error submitting rating: ' + err;
+                msgEl.style.display = '';
+            }
+        });
+    }
+})();
+</script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
