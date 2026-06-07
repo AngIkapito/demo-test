@@ -1080,24 +1080,187 @@ def ADD_MEMBER(request):
 def VIEWALL_MEMBER(request):
     # customuser = request.user
     customuser = CustomUser.objects.all()
-    members = Member.objects.all()
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids)
+
+    selected_org = request.GET.get('organization', '')
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+
+    selected_mtype = request.GET.get('membershiptype', '')
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+
+    selected_payment = request.GET.get('payment_method', '')
+    if selected_payment:
+        payment_member_ids = Membership.objects.filter(
+            status__iexact='approved',
+            payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_member_ids)
+
+    date_from = request.GET.get('date_from', '')
+    date_to   = request.GET.get('date_to', '')
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
     salutations = Salutation.objects.all()
     membershiptypes = MembershipType.objects.all()
     # membertypes = MemberType.objects.all()
     officertypes = OfficerType.objects.all()
     organizations = Organization.objects.all()
-    
+    payment_methods = (
+        Membership.objects.filter(status__iexact='approved', payment_method__isnull=False)
+        .exclude(payment_method='')
+        .values_list('payment_method', flat=True)
+        .distinct()
+        .order_by('payment_method')
+    )
+
     context = {
         'customuser':customuser,
         'members':members,
-        'salutations': salutations,  # Pass the salutations to the template
+        'salutations': salutations,
         'membershiptypes':membershiptypes,
         # 'membertypes': membertypes,
         'officertypes': officertypes,
         'organizations': organizations,
+        'selected_org': selected_org,
+        'selected_mtype': selected_mtype,
+        'selected_payment': selected_payment,
+        'payment_methods': payment_methods,
+        'date_from': date_from,
+        'date_to': date_to,
     }
     # print(customuser)
     return render(request, 'hoo/viewall_member.html', context)
+
+def EXPORT_MEMBER_PDF(request):
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        payment_member_ids = Membership.objects.filter(
+            status__iexact='approved',
+            payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_member_ids)
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
+    # Revenue breakdown per membership type
+    from collections import defaultdict
+    revenue_map = defaultdict(lambda: {'count': 0, 'price': 0, 'revenue': 0})
+    for m in members:
+        mt = m.membershiptype
+        if mt:
+            key = mt.name
+            price = float(mt.price) if mt.price else 0
+            revenue_map[key]['count']   += 1
+            revenue_map[key]['price']    = price
+            revenue_map[key]['revenue'] += price
+
+    revenue_data = [
+        {'name': k, 'count': v['count'], 'price': v['price'], 'revenue': v['revenue']}
+        for k, v in revenue_map.items()
+    ]
+    total_revenue   = sum(r['revenue'] for r in revenue_data)
+    psite_local     = round(total_revenue * 0.70, 2)
+    psite_national  = round(total_revenue * 0.30, 2)
+
+    # Filter labels for display
+    filter_labels = []
+    if selected_org:
+        try:
+            org = Organization.objects.get(id=selected_org)
+            filter_labels.append(f'Organization: {org.name}')
+        except Exception:
+            pass
+    if selected_mtype:
+        try:
+            mt = MembershipType.objects.get(id=selected_mtype)
+            filter_labels.append(f'Membership Type: {mt.name}')
+        except Exception:
+            pass
+    if selected_payment:
+        filter_labels.append(f'Payment Method: {selected_payment}')
+    if date_from:
+        filter_labels.append(f'From: {date_from}')
+    if date_to:
+        filter_labels.append(f'To: {date_to}')
+
+    user = request.user
+    cu = CustomUser.objects.get(id=user.id)
+    first_name = cu.first_name or ''
+    last_name  = cu.last_name  or ''
+    generated_by = f"{first_name} {last_name}".strip() or cu.username
+    generated_position = ''
+    gen_member = Member.objects.select_related('officertype').filter(admin_id=cu.id).first()
+    if gen_member and gen_member.officertype:
+        generated_position = gen_member.officertype.name
+
+    context = {
+        'members': members,
+        'revenue_data': revenue_data,
+        'total_revenue': total_revenue,
+        'psite_local': psite_local,
+        'psite_national': psite_national,
+        'filter_labels': filter_labels,
+        'generated_by': generated_by,
+        'generated_position': generated_position,
+    }
+    return render(request, 'hoo/export_member_pdf.html', context)
+
+def AUDIT_LOG(request):
+    import re
+    log_path = os.path.join(settings.BASE_DIR, 'logs', 'audit.log')
+    entries = []
+    level_filter  = request.GET.get('level', '').upper()
+    search_filter = request.GET.get('search', '').strip()
+    pattern = re.compile(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}),\d+ \| (\w+) \| (.+)$')
+
+    try:
+        with open(log_path, 'r', encoding='utf-8') as f:
+            raw_lines = f.readlines()
+        for line in reversed(raw_lines):
+            line = line.strip()
+            if not line:
+                continue
+            m = pattern.match(line)
+            if m:
+                dt, level, message = m.group(1), m.group(2), m.group(3)
+            else:
+                dt, level, message = '', 'INFO', line
+
+            if level_filter and level != level_filter:
+                continue
+            if search_filter and search_filter.lower() not in message.lower():
+                continue
+            entries.append({'datetime': dt, 'level': level, 'message': message})
+    except FileNotFoundError:
+        entries = []
+
+    context = {
+        'entries': entries,
+        'level_filter': level_filter,
+        'search_filter': search_filter,
+        'total': len(entries),
+    }
+    return render(request, 'hoo/audit_log.html', context)
 
 def EDIT_MEMBER(request, id):
     salutations = Salutation.objects.all()

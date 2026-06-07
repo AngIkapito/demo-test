@@ -47,6 +47,8 @@ urlpatterns = [
     #add Member
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
     path('hoo/Member/ViewAll', hoo_views.VIEWALL_MEMBER, name='viewall_member'),
+    path('hoo/Member/ExportPDF', hoo_views.EXPORT_MEMBER_PDF, name='export_member_pdf'),
+    path('hoo/AuditLog', hoo_views.AUDIT_LOG, name='audit_log'),
     path('hoo/Event/Invitations', hoo_views.EVENT_INVITATIONS, name='hoo_event_invitations'),
     path('hoo/SendInvitations', hoo_views.SEND_INVITATIONS, name='hoo_send_invitations'),
     path('hoo/Member/Edit/<str:id>', hoo_views.EDIT_MEMBER, name='edit_member'),
