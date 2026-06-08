@@ -3,7 +3,7 @@ from django.contrib.auth import authenticate, logout, login, get_user_model
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.hashers import check_password
-from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration, IT_Topics, Intetrested_Topics, Bulk_Event_Reg, Event_Evaluation
+from app.models import Membership ,CustomUser, School_Year, Salutation, Member, MembershipType, MemberType, Announcement, OfficerType, Organization, Event, Tags, Member_Event_Registration, IT_Topics, Intetrested_Topics, Bulk_Event_Reg, Event_Evaluation, Limit_Insti_Mem
 from django.utils.safestring import mark_safe
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.urls import path, include, reverse
@@ -472,6 +472,15 @@ def REGISTRATION_NEW(request):
         # ✅ Auto-generate a password
         password = get_random_string(length=10)
 
+        # ✅ Limit: max 2 members per organization per school year
+        existing_count = Limit_Insti_Mem.objects.filter(
+            organization_id=organization_id,
+            school_year_id=school_year_id,
+        ).count()
+        if existing_count >= 2:
+            messages.error(request, 'Registration is closed. This institution has already reached the maximum of 2 members for the current school year.')
+            return redirect('registration_new')
+
         # ✅ Validate foreign key IDs exist
         try:
             MembershipType.objects.get(id=membershiptype_id)
@@ -513,6 +522,13 @@ def REGISTRATION_NEW(request):
             gender='MALE',  # Default value for gender
         )
         member.save()
+
+        # ✅ Record in Limit_Insti_Mem
+        Limit_Insti_Mem.objects.create(
+            member=member,
+            organization_id=organization_id,
+            school_year_id=school_year_id,
+        )
 
         # ✅ Create Membership
         membership = Membership(

@@ -46,7 +46,8 @@ class Organization(models.Model):
     name = models.CharField(max_length=200)
     type = models.CharField(max_length=100)
     logo = models.ImageField(upload_to='org_logo/')
-    telephone = models.CharField(max_length=15, blank=True, null=True)  # New telephone field
+    telephone = models.CharField(max_length=15, blank=True, null=True)
+    president = models.CharField(max_length=50, blank=True, null=True)  # New telephone field
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -335,3 +336,13 @@ class Event_Evaluation(models.Model):
     
     def __str__(self):
         return f"Evaluation for {self.event.title} by {self.first_name} {self.last_name}"
+
+
+class Limit_Insti_Mem(models.Model):
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, blank=True, null=True)
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    school_year = models.ForeignKey(School_Year, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.organization.name} - {self.school_year}"
+

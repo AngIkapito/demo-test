@@ -1225,6 +1225,374 @@ def EXPORT_MEMBER_PDF(request):
     }
     return render(request, 'hoo/export_member_pdf.html', context)
 
+def _get_pdf_fonts():
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    try:
+        pdfmetrics.getFont('Arial')
+        return 'Arial', 'Arial-Bold'
+    except KeyError:
+        pass
+    try:
+        pdfmetrics.registerFont(TTFont('Arial', 'C:/Windows/Fonts/arial.ttf'))
+        pdfmetrics.registerFont(TTFont('Arial-Bold', 'C:/Windows/Fonts/arialbd.ttf'))
+        return 'Arial', 'Arial-Bold'
+    except Exception:
+        return 'Helvetica', 'Helvetica-Bold'
+
+
+def _generate_billing_pdf(member, date_str, logo_path):
+    from io import BytesIO
+    from reportlab.pdfgen import canvas as rl_canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+
+    fn, fb = _get_pdf_fonts()
+    use_unicode = (fn != 'Helvetica')
+    php = '\u20b1' if use_unicode else 'PHP'
+
+    salutation      = (member.salutation.name if member.salutation else '').strip()
+    first_name      = (member.admin.first_name or '').strip()
+    last_name       = (member.admin.last_name  or '').strip()
+    org_name        = (member.organization.name      if member.organization else '').strip()
+    org_president   = (member.organization.president  if member.organization else '').strip()
+    officertype_name= (member.officertype.name  if member.officertype  else '').strip()
+    position        = (member.position or officertype_name).strip()
+    mt_name         = (member.membershiptype.name  if member.membershiptype else '').strip()
+    mt_price        = float(member.membershiptype.price) if member.membershiptype and member.membershiptype.price else 0
+    price_str       = f"{php} {mt_price:,.2f}"
+
+    buffer   = BytesIO()
+    c        = rl_canvas.Canvas(buffer, pagesize=A4)
+    pw, ph   = A4   # 595.28, 841.89
+
+    # ── HEADER ──────────────────────────────────────────────────────────
+    header_bottom = ph - 100
+    if os.path.exists(logo_path):
+        try:
+            c.drawImage(logo_path, 20, header_bottom + 5, width=110, height=75,
+                        preserveAspectRatio=True, mask='auto')
+        except Exception:
+            pass
+    c.setFont(fn, 7.5)
+    c.setFillColor(colors.black)
+    c.drawString(140, ph - 45, "PHILIPPINE SOCIETY OF INFORMATION TECHNOLOGY EDUCATORS FOUNDATION, INC.")
+    c.setFont(fb, 11)
+    c.drawString(140, ph - 63, "OFFICE OF THE PSITE CENTRAL LUZON BOARD OF TRUSTEES")
+    c.setStrokeColor(colors.HexColor('#444444'))
+    c.setLineWidth(0.5)
+    c.line(18, header_bottom + 7, pw - 18, header_bottom + 7)
+    c.setStrokeColor(colors.HexColor('#c0392b'))
+    c.setLineWidth(4)
+    c.line(18, header_bottom + 2, pw - 18, header_bottom + 2)
+
+    # ── COLUMNS ─────────────────────────────────────────────────────────
+    lx  = 20          # left column x
+    dvx = 172         # divider x
+    rx  = 178         # right column x
+    re  = pw - 18     # right edge
+    col_top = header_bottom - 8
+
+    c.setStrokeColor(colors.HexColor('#aaaaaa'))
+    c.setLineWidth(0.5)
+    c.line(dvx, col_top, dvx, 65)
+
+    # ── LEFT COLUMN – Board of Trustees ─────────────────────────────────
+    y = col_top
+    c.setFillColor(colors.black)
+    c.setFont(fb, 5.5)
+    c.drawString(lx, y, "BOARD OF TRUSTEES AY 2026-2027")
+    y -= 10
+
+    trustees = [
+        ("Dr. Jonilo C. Mababa",           "President",               "University of the Assumption"),
+        ("Dr. Raquel C. Adriano",           "Vice President \u2013 Internal",  "Bulacan State University"),
+        ("Dr. Rolando L. Sanza",            "Vice President \u2013 External",  "Nueva Ecija University of"),
+        ("",                                "",                         "Science and Technology"),
+        ("Dr. Alma Theresa D. Manaloto",    "Secretary",               "Holy Angel University"),
+        ("Prof. Denise Lou B. Punzalan",    "Assistant Secretary",     "Gordon College"),
+        ("Prof. Eugene S. Perez",           "Treasurer",               "Bulacan State University \u2013 Bustos"),
+        ("Prof. Evelyn A. Villanueva",      "Assistant Treasurer",     "Central Luzon State University"),
+        ("Prof. Jenice Anne Marie B. Visperas","Auditor",              "Angeles University Foundation"),
+        ("Prof. Mark Anthony D. Madallpay", "Public Relations Officer","University of the Assumptions"),
+    ]
+    for name, role, school in trustees:
+        if name:
+            c.setFont(fb, 5.5)
+            c.drawString(lx, y, name)
+            y -= 7
+            c.setFont(fn, 5)
+            c.drawString(lx, y, role)
+            y -= 7
+        c.setFont(fn, 5)
+        c.drawString(lx, y, school)
+        y -= 9
+
+    y -= 4
+    c.setFont(fb, 5.5)
+    c.drawString(lx, y, "AREA COORDINATORS")
+    y -= 9
+
+    coordinators = [
+        ("Mary Ann G. Valentino, PhD",    "NATIONAL UNIVERSITY \u2013 BALIWAG"),
+        ("Prof. Dolores S. Baldedara",    "WESLEYAN UNIVERSITY \u2013 PHILIPPINES"),
+        ("Prof. Kenneth V. Bautista",     "GORDON COLLEGE"),
+        ("Dr. Anthony U. Concepcion",     "BULACAN STATE UNIVERSITY \u2013 BUSTOS"),
+        ("Dr. Jorge Granados",            "SYSTEMS PLUS COLLEGE FOUNDATION"),
+        ("Dr. Marian Minnell S. Cruz",    "BULACAN STATE UNIVERSITY"),
+    ]
+    for name, school in coordinators:
+        c.setFont(fb, 5.5)
+        c.drawString(lx, y, name)
+        y -= 7
+        c.setFont(fn, 5)
+        c.drawString(lx, y, school)
+        y -= 9
+
+    y -= 5
+    for label, value in [
+        ("PSITE Centra Luzon Email Address", "psite.region3@gmail.com"),
+        ("PSITE Central Luzon Website",      "www.psitecl.org"),
+        ("Facebook Group",                   "Official PSITE Central Luzon (Educators Group)"),
+    ]:
+        c.setFont(fb, 5)
+        c.drawString(lx, y, label)
+        y -= 7
+        c.setFont(fn, 5)
+        c.drawString(lx, y, value)
+        y -= 9
+
+    # ── RIGHT COLUMN – Billing Invoice ──────────────────────────────────
+    yr = col_top - 18
+
+    c.setFont(fb, 16)
+    c.setFillColor(colors.black)
+    c.drawString(rx, yr, "BILLING INVOICE")
+    yr -= 20
+
+    c.setFont(fn, 9)
+    c.drawString(rx, yr, f"Date:  {date_str}")
+    yr -= 22
+
+    # Addressee
+    c.drawString(rx, yr, org_president if org_president else f"{salutation} {last_name},")
+    yr -= 13
+    c.drawString(rx, yr, "President")
+    yr -= 13
+    c.drawString(rx, yr, org_name)
+    yr -= 20
+
+    # Thru
+    tc = rx + 55
+    c.drawString(rx, yr, "Thru:")
+    c.drawString(tc, yr, f"{salutation} {first_name} {last_name},")
+    yr -= 13
+    c.drawString(tc, yr, position)
+    yr -= 13
+    c.drawString(tc, yr, org_name)
+    yr -= 22
+
+    # ── TABLE ────────────────────────────────────────────────────────────
+    rh = 20
+    tw = re - rx
+
+    c.setFillColor(colors.HexColor('#2c2c2c'))
+    c.rect(rx, yr - rh + 6, tw, rh, fill=1, stroke=0)
+    c.setFillColor(colors.white)
+    c.setFont(fb, 9)
+    c.drawString(rx + 6, yr - rh + 12, "Details")
+    c.drawRightString(re - 6, yr - rh + 12, "Amount")
+    yr -= rh
+
+    c.setFillColor(colors.white)
+    c.setStrokeColor(colors.HexColor('#cccccc'))
+    c.setLineWidth(0.5)
+    c.rect(rx, yr - rh + 6, tw, rh, fill=1, stroke=1)
+    c.setFillColor(colors.black)
+    c.setFont(fb, 9)
+    c.drawString(rx + 6, yr - rh + 12, f"{mt_name} Membership")
+    c.setFont(fn, 9)
+    c.drawRightString(re - 6, yr - rh + 12, price_str)
+    yr -= rh
+
+    c.rect(rx, yr - rh + 6, tw, rh, fill=1, stroke=1)
+    yr -= rh
+
+    c.setFillColor(colors.HexColor('#f0f0f0'))
+    c.rect(rx, yr - rh + 6, tw, rh, fill=1, stroke=1)
+    c.setFillColor(colors.black)
+    c.setFont(fb, 9)
+    c.drawString(rx + 6, yr - rh + 12, "TOTAL:")
+    c.drawRightString(re - 6, yr - rh + 12, price_str)
+    yr -= rh + 15
+
+    # ── BANK DETAILS ────────────────────────────────────────────────────
+    c.setFont(fb, 9)
+    c.drawString(rx, yr, "BANK DETAILS")
+    yr -= 14
+
+    bv = rx + 90
+    c.setFont(fb, 8)
+    c.drawString(rx, yr, "Account Name:")
+    c.setFont(fn, 8)
+    c.drawString(bv, yr, "Philippine Society of Information Technology Educators (PSITE)")
+    yr -= 11
+    c.drawString(bv, yr, "Foundation, Inc.")
+    yr -= 12
+    for lbl, val in [
+        ("Account No.:", "0731-0206-63 (PESO ACCOUNT)"),
+        ("Bank:",         "Bank of the Philippine Islands"),
+        ("Branch:",       "Angeles Nepo Mart"),
+    ]:
+        c.setFont(fb, 8)
+        c.drawString(rx, yr, lbl)
+        c.setFont(fn, 8)
+        c.drawString(bv, yr, val)
+        yr -= 12
+    yr -= 8
+
+    # ── GCASH ───────────────────────────────────────────────────────────
+    c.setFont(fb, 9)
+    c.drawString(rx, yr, "GCASH PAYMENT DETAILS:")
+    yr -= 14
+    c.setFont(fb, 8)
+    c.drawString(rx, yr, "Note:")
+    c.setFont(fn, 8)
+    c.drawString(rx + 36, yr, "Fill out and sign membership form (Online Registration) using this link:")
+    yr -= 12
+    c.drawString(rx, yr, "Issuance of official receipt will be emailed to the applicant upon validation of the Treasurer.")
+    yr -= 12
+    c.setFont(fn, 7.5)
+    c.drawString(rx, yr, "Issuance of membership certificate and official receipt in hard copy shall be on a request basis.")
+    yr -= 11
+    c.drawString(rx, yr, "However, necessary courier fee shall be shouldered by the recipient.")
+    yr -= 16
+    c.drawString(rx, yr, "For more information, feel free to ask the Treasurer: Mr. Eugene S. Perez PSITE Central Luzon")
+    yr -= 11
+    c.drawString(rx, yr, "Treasurer Email: eugene.perez@bulsu.edu.ph  Contact Number: +639913515007")
+    yr -= 11
+    c.drawString(rx, yr, "Facebook: https://www.facebook.com/EugeneDNapster")
+    yr -= 16
+
+    for lbl, val, label_w in [
+        ("PSITE Email:",     "psite.region3@gmail.com",      75),
+        ("Treasurer Email:", "richmoncarabeo051187@gmail.com", 90),
+    ]:
+        c.setFont(fb, 8)
+        c.drawString(rx, yr, lbl)
+        c.setFont(fn, 8)
+        c.setFillColor(colors.HexColor('#1155CC'))
+        c.drawString(rx + label_w, yr, val)
+        c.setFillColor(colors.black)
+        yr -= 12
+
+    yr -= 20
+    c.setFont(fn, 9)
+    c.drawString(rx, yr, "Very truly yours,")
+    yr -= 35
+    c.setFont(fb, 9)
+    c.drawString(rx, yr, "DR. JONILO C. MABABA, DIT")
+    yr -= 12
+    c.setFont(fn, 8)
+    c.drawString(rx, yr, "President, PSITE - Central Luzon")
+
+    # ── BOTTOM BAR ───────────────────────────────────────────────────────
+    c.setFillColor(colors.HexColor('#c0392b'))
+    c.rect(0, 45, pw, 18, fill=1, stroke=0)
+
+    c.save()
+    buffer.seek(0)
+    return buffer
+
+
+@login_required(login_url='/')
+def SEND_BILLING_PAGE(request):
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids).select_related(
+        'admin', 'organization', 'membershiptype', 'officertype', 'salutation'
+    ).order_by('organization__name', 'admin__last_name')
+
+    selected_org   = request.GET.get('organization', '')
+    selected_mtype = request.GET.get('membershiptype', '')
+
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+
+    organizations   = Organization.objects.filter(
+        id__in=Member.objects.filter(id__in=approved_ids).values_list('organization_id', flat=True)
+    ).order_by('name')
+    membershiptypes = MembershipType.objects.filter(
+        id__in=Member.objects.filter(id__in=approved_ids).values_list('membershiptype_id', flat=True)
+    ).order_by('name')
+
+    context = {
+        'members': members,
+        'organizations': organizations,
+        'membershiptypes': membershiptypes,
+        'selected_org': selected_org,
+        'selected_mtype': selected_mtype,
+    }
+    return render(request, 'hoo/send_billing.html', context)
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def PROCESS_SEND_BILLING(request):
+    member_ids   = request.POST.getlist('member_ids')
+    subject      = request.POST.get('subject', 'PSITE Membership Billing Invoice').strip()
+    body_text    = request.POST.get('body', '').strip()
+    from_email   = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+    logo_path    = os.path.join(settings.BASE_DIR, 'static', 'img', 'psitecl-logo.png')
+    today_str    = datetime.date.today().strftime('%B %d, %Y')
+
+    if not member_ids:
+        messages.error(request, 'No members selected.')
+        return redirect('send_billing')
+
+    members = Member.objects.filter(id__in=member_ids).select_related(
+        'admin', 'organization', 'membershiptype', 'officertype', 'salutation'
+    )
+    sent = failed = 0
+    for member in members:
+        email = getattr(member.admin, 'email', None)
+        if not email:
+            failed += 1
+            continue
+        try:
+            pdf_buf   = _generate_billing_pdf(member, today_str, logo_path)
+            full_name = f"{member.admin.first_name} {member.admin.last_name}".strip()
+            msg_body  = body_text or (
+                f"Dear {full_name},\n\n"
+                "Please find attached your PSITE membership billing invoice.\n\n"
+                "Kindly settle the payment at your earliest convenience.\n\n"
+                "Thank you."
+            )
+            email_msg = EmailMessage(
+                subject=subject, body=msg_body,
+                from_email=from_email, to=[email],
+            )
+            filename = f"billing_{(member.admin.username or member.id)}.pdf"
+            email_msg.attach(filename, pdf_buf.read(), 'application/pdf')
+            email_msg.send()
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            audit_logger.error(f"Billing email failed for member id={member.id}: {exc}")
+
+    if sent:
+        messages.success(request, f'Billing invoice sent to {sent} member(s).')
+    if failed:
+        messages.warning(request, f'Failed to send to {failed} member(s) (no email or error).')
+
+    audit_logger.info(
+        f"User {request.user.username} (id={request.user.id}) sent billing: "
+        f"sent={sent} failed={failed} ids={member_ids}"
+    )
+    return redirect('send_billing')
+
+
 def AUDIT_LOG(request):
     import re
     log_path = os.path.join(settings.BASE_DIR, 'logs', 'audit.log')
