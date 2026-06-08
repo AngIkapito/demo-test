@@ -230,7 +230,9 @@
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="">View Membership</a>
                 <a class="collapse-item" href="">Members List</a>
+                {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "membership_approval_officer" %}">Membership Approval</a>
+                {% endif %}
             </div>
         </div>
     </li>

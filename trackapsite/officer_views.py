@@ -39,7 +39,7 @@ def home(request):
         member = Member.objects.get(admin=user)
         # Get the latest approved membership for this member
         membership = (
-            Membership.objects.filter(member=member, status='Approved')
+            Membership.objects.filter(member=member, status__iexact='approved')
             .select_related('school_year')
             .order_by('-school_year__sy_end')
             .first()
@@ -641,7 +641,12 @@ def MEMBERSHIP_APPROVAL(request):
     GET: Fetch all members and map membership status.
     POST: Update membership status using membership.member_id for uniqueness.
     Sends emails using CustomUser email linked via Member.admin.
+    Only accessible by officers with is_treasurer=True.
     """
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can access membership approval.')
+        return redirect('officer_home')
+
     if request.method == "POST":
         # Use membership.member_id as unique identifier
         member_id = request.POST.get("member_id")
@@ -763,7 +768,7 @@ def MEMBERSHIP_APPROVAL(request):
         else:
             messages.error(request, "Invalid action.")
 
-        return redirect("membership_approval")
+        return redirect("membership_approval_officer")
 
     # --- GET logic ---
     # Only consider memberships that are either NEW (membertype_id=1) or RENEW (membertype_id=2)

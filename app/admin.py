@@ -6,15 +6,15 @@ from django.contrib.auth.admin import UserAdmin
 # Register your models here.
 
 class UserModel(UserAdmin):
-    list_display = ['id','last_name','first_name', 'username', 'user_type']
+    list_display = ['id','last_name','first_name', 'username', 'user_type', 'is_treasurer']
     search_fields = ['username', 'email', 'first_name', 'last_name']
-    list_filter = ['is_active', 'is_staff', 'user_type']
+    list_filter = ['is_active', 'is_staff', 'user_type', 'is_treasurer']
     
     fieldsets = UserAdmin.fieldsets + (
-        (None, {'fields': ('user_type',)}),
+        (None, {'fields': ('user_type', 'is_treasurer')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        (None, {'fields': ('user_type',)}),
+        (None, {'fields': ('user_type', 'is_treasurer')}),
     )
 
 

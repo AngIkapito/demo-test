@@ -16,6 +16,7 @@ class CustomUser(AbstractUser):
     user_type = models.CharField(choices=USER, max_length=25)
     profile_pic = models.ImageField(upload_to='profile_pic/')
     email = models.EmailField(max_length=150, unique=True)
+    is_treasurer = models.BooleanField(default=False, null=True)
 
 
 class IT_Topics(models.Model): 
@@ -127,6 +128,7 @@ class Member(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_dpa_check = models.BooleanField(default=False, null=True)
+    
 
     def __str__(self):
         return self.admin.first_name + " " + self.admin.last_name

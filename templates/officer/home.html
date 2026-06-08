@@ -414,8 +414,8 @@
         msg = '<span class="text-warning fw-bold">Expiring in ' + diff + ' day' + (diff !== 1 ? 's' : '') + ' (' + expiry + ')</span>';
         showRenew = true;
       } else {
-        // Future expiry
-        msg = '<span class="text-danger fw-bold"> Date of Expiry ' + expiry + '</span>';
+        // Future expiry — subscription is active
+        msg = '<span class="text-success fw-bold">Active &mdash; Expires on ' + expiry + '</span>';
       }
 
       // If school_year.status is not active (not '1'), mark this as a previous subscription
