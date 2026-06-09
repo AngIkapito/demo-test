@@ -115,3 +115,5 @@
 2026-06-09 22:19:34,760 | INFO | User jordan02 (id=6) registered (officer) for event id=1 title=test member_id=2
 2026-06-09 22:19:40,893 | WARNING | User jordan02 (id=6) attempted duplicate officer registration for event id=1
 2026-06-09 22:48:26,383 | INFO | User jordan02 (id=6) [officer/treasurer] generated report filename=members_report_20260609_224826.xlsx
+2026-06-09 23:08:27,144 | INFO | User jordan02 (id=6) sent billing: sent=1 failed=0 ids=['2']
+2026-06-09 23:09:27,043 | INFO | User jordan02 (id=6) sent invitations to 1 recipients; member_ids=['2']; event_id=1
