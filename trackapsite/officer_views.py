@@ -3,7 +3,7 @@ from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags
+from app.models import CustomUser, Event, School_Year, Announcement, Salutation, Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, IT_Topics, Intetrested_Topics
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -17,7 +17,8 @@ from django.conf import settings
 import os
 import qrcode
 import pandas as pd
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
+from openpyxl.styles import Font
 from app.audit import audit_logger
 from django.template.loader import render_to_string
 from django.http import FileResponse, Http404
@@ -70,6 +71,140 @@ def home(request):
         context['pending_approvals_count'] = Membership.objects.filter(status__iexact='PENDING').count()
     except Exception:
         context['pending_approvals_count'] = 0
+
+    # Active event + progress bar metrics
+    try:
+        active_event = Event.objects.filter(status='active').order_by('-date').first()
+        if active_event:
+            max_i = int(getattr(active_event, 'max_attendees', 0) or 0)
+            avail_i = int(getattr(active_event, 'available_slots', 0) or 0)
+            reg_count = max(0, max_i - avail_i)
+            prog_pct = int(round((reg_count / max_i) * 100)) if max_i > 0 else 0
+        else:
+            reg_count, avail_i, prog_pct = 0, 0, 0
+        context['event'] = active_event
+        context['registered_count'] = reg_count
+        context['available_slots'] = avail_i
+        context['progress_percent'] = prog_pct
+    except Exception:
+        context['event'] = None
+        context['registered_count'] = 0
+        context['available_slots'] = 0
+        context['progress_percent'] = 0
+
+    # School years for Generate Report modal
+    try:
+        context['school_years'] = School_Year.objects.all().order_by('-sy_start')
+    except Exception:
+        context['school_years'] = []
+
+    # Build ApexCharts column chart data (Registered vs Attended per event)
+    try:
+        events_all = context.get('events') or Event.objects.all()
+        categories, registered_counts, attended_counts = [], [], []
+        for ev in events_all:
+            ev_id = getattr(ev, 'id', None)
+            title = getattr(ev, 'title', '') or f"Event {ev_id}"
+            mem_reg = Member_Event_Registration.objects.filter(event_id=ev_id, is_approved=True).count()
+            mem_att = Member_Event_Registration.objects.filter(event_id=ev_id, is_present=True).count()
+            blk_reg = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_approved=True).count()
+            blk_att = Bulk_Event_Reg.objects.filter(event_id=ev_id, is_present=True).count()
+            categories.append(title)
+            registered_counts.append(mem_reg + blk_reg)
+            attended_counts.append(mem_att + blk_att)
+        chart_series = [
+            {'name': 'Registered', 'data': registered_counts},
+            {'name': 'Attended', 'data': attended_counts},
+        ]
+        context['chart_series_json'] = json.dumps(chart_series)
+        context['chart_categories_json'] = json.dumps(categories)
+    except Exception:
+        context['chart_series_json'] = json.dumps([])
+        context['chart_categories_json'] = json.dumps([])
+
+    # Member rankings by consecutive attendance streak
+    try:
+        selected_sy = request.GET.get('school_year')
+        ev_qs = Event.objects.filter(date__isnull=False)
+        if selected_sy:
+            try:
+                ev_qs = ev_qs.filter(school_year_id=int(selected_sy))
+            except Exception:
+                pass
+        ordered_event_ids = list(ev_qs.order_by('date').values_list('id', flat=True))
+        regs = Member_Event_Registration.objects.filter(
+            event_id__in=ordered_event_ids, is_approved=True
+        ).values('member_id_id', 'event_id')
+        member_events_map = {}
+        for r in regs:
+            mid, eid = r.get('member_id_id'), r.get('event_id')
+            if mid is None or eid is None:
+                continue
+            member_events_map.setdefault(mid, set()).add(eid)
+
+        all_members = context.get('members') or Member.objects.all()
+        member_rankings = []
+        for m in all_members:
+            mid = getattr(m, 'id', None)
+            events_set = member_events_map.get(mid, set())
+            longest = curr = 0
+            for eid in ordered_event_ids:
+                if eid in events_set:
+                    curr += 1
+                    if curr > longest:
+                        longest = curr
+                else:
+                    curr = 0
+            total_joined = len(events_set)
+            try:
+                name = (f"{getattr(m, 'first_name', '') or ''} {getattr(m, 'last_name', '') or ''}").strip() or str(m)
+            except Exception:
+                name = str(m)
+            org_name = ''
+            try:
+                org = getattr(m, 'organization', None)
+                if org:
+                    org_name = getattr(org, 'name', '') or ''
+            except Exception:
+                pass
+            member_rankings.append({
+                'member': m,
+                'member_name': name,
+                'organization': org_name,
+                'longest_streak': longest,
+                'total_joined': total_joined,
+            })
+        member_rankings.sort(key=lambda x: (x['longest_streak'], x['total_joined']), reverse=True)
+        streak_counts = {
+            'three': sum(1 for r in member_rankings if r['longest_streak'] >= 3),
+            'five':  sum(1 for r in member_rankings if r['longest_streak'] >= 5),
+            'ten':   sum(1 for r in member_rankings if r['longest_streak'] >= 10),
+        }
+    except Exception:
+        member_rankings = []
+        streak_counts = {'three': 0, 'five': 0, 'ten': 0}
+        selected_sy = None
+
+    context['member_rankings'] = member_rankings
+    context['streak_counts'] = streak_counts
+    context['selected_school_year'] = int(selected_sy) if selected_sy and str(selected_sy).isdigit() else None
+
+    # IT Topics pie chart data
+    try:
+        from django.db.models import Count as _Count
+        topic_qs = Intetrested_Topics.objects.values('topic_id').annotate(cnt=_Count('id')).order_by('-cnt')
+        pie_labels, pie_series = [], []
+        for row in topic_qs:
+            tid = row.get('topic_id')
+            cnt = row.get('cnt') or 0
+            name = IT_Topics.objects.filter(id=tid).values_list('name', flat=True).first() or f"Topic {tid}"
+            pie_labels.append(name)
+            pie_series.append(cnt)
+    except Exception:
+        pie_labels, pie_series = [], []
+    context['topics_pie_series_json'] = json.dumps(pie_series)
+    context['topics_pie_labels_json'] = json.dumps(pie_labels)
+
     # Build timeline entries from this member's Membership records (same behavior as member_views.home)
     timeline_entries = []
     try:
@@ -449,6 +584,344 @@ def PROFILE_UPDATE(request):
     return render(request, 'officer/profile.html') 
 
 
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def GENERATE_REPORT(request):
+    """Generate Excel members report. Only accessible by officers with is_treasurer=True."""
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can generate reports.')
+        return redirect('officer_home')
+
+    sy_start_id = request.POST.get('sy_start')
+    sy_end_id   = request.POST.get('sy_end')
+
+    sy_qs = School_Year.objects.all()
+    try:
+        if sy_start_id and sy_end_id:
+            sy1 = School_Year.objects.filter(id=int(sy_start_id)).first()
+            sy2 = School_Year.objects.filter(id=int(sy_end_id)).first()
+            if sy1 and sy2:
+                start_date = min(sy1.sy_start, sy2.sy_start)
+                end_date   = max(sy1.sy_end, sy2.sy_end)
+                sy_qs = School_Year.objects.filter(sy_start__gte=start_date, sy_end__lte=end_date)
+            elif sy1:
+                sy_qs = School_Year.objects.filter(id=sy1.id)
+            elif sy2:
+                sy_qs = School_Year.objects.filter(id=sy2.id)
+    except Exception:
+        sy_qs = School_Year.objects.all()
+
+    memberships = Membership.objects.filter(school_year__in=sy_qs)
+    member_ids  = list(memberships.values_list('member_id', flat=True)) if memberships.exists() else []
+    members     = Member.objects.filter(id__in=member_ids).distinct() if member_ids else Member.objects.none()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Members'
+
+    ws['A1'] = 'No.'
+    ws['B1'] = 'School Name'
+    ws['C1'] = 'Member Email'
+    ws['D1'] = 'Member Lastname'
+    ws['E1'] = 'Member Firstname'
+
+    bold_font = Font(bold=True)
+    for col in ['B1', 'C1', 'D1', 'E1']:
+        ws[col].font = bold_font
+
+    events_qs  = Event.objects.filter(school_year__in=sy_qs).order_by('date')
+    event_list = list(events_qs)
+    start_col  = 6
+    for i, ev in enumerate(event_list):
+        cell = ws.cell(row=1, column=start_col + i, value=(getattr(ev, 'title', '') or ''))
+        cell.font = bold_font
+
+    reg_map = {}
+    if event_list and member_ids:
+        ev_ids = [e.id for e in event_list]
+        regs = Member_Event_Registration.objects.filter(
+            event_id__in=ev_ids, member_id_id__in=member_ids
+        ).values('event_id', 'member_id_id', 'is_present')
+        for r in regs:
+            reg_map[(r.get('member_id_id'), r.get('event_id'))] = r.get('is_present')
+
+    row = 2
+    for idx, m in enumerate(members, start=1):
+        school_name = ''
+        try:
+            org_id = getattr(m, 'organization_id', None)
+            if org_id:
+                school_name = Organization.objects.filter(id=org_id).values_list('name', flat=True).first() or ''
+        except Exception:
+            school_name = ''
+
+        email = first = last = ''
+        try:
+            admin_id = getattr(m, 'admin_id', None)
+            if admin_id:
+                cu = CustomUser.objects.filter(id=admin_id).values('email', 'first_name', 'last_name').first()
+                if cu:
+                    email = cu.get('email', '') or ''
+                    first = cu.get('first_name', '') or ''
+                    last  = cu.get('last_name', '') or ''
+        except Exception:
+            pass
+
+        ws.cell(row=row, column=1, value=idx)
+        ws.cell(row=row, column=2, value=school_name)
+        ws.cell(row=row, column=3, value=email)
+        ws.cell(row=row, column=4, value=last)
+        ws.cell(row=row, column=5, value=first)
+        for j, ev in enumerate(event_list):
+            present = reg_map.get((m.id, ev.id))
+            ws.cell(row=row, column=start_col + j, value='Attended' if bool(present) else 'Not Attended')
+        row += 1
+
+    from io import BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f"members_report_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    audit_logger.info(
+        f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) "
+        f"[officer/treasurer] generated report filename={filename}"
+    )
+    return response
+
+
+@login_required(login_url='/')
+def ADD_MEMBER(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can add members.')
+        return redirect('officer_home')
+
+    salutations    = Salutation.objects.all()
+    membershiptypes = MembershipType.objects.all()
+    membertypes    = MemberType.objects.all()
+    officertypes   = OfficerType.objects.all()
+    organizations  = Organization.objects.all()
+
+    if request.method == 'POST':
+        membershiptype_id = request.POST.get('membershiptype_id')
+        organization_id   = request.POST.get('organization_id')
+        salutation_id     = request.POST.get('salutation_id')
+        officertype_id    = request.POST.get('officertype_id')
+        first_name  = request.POST.get('first_name', '').upper()
+        last_name   = request.POST.get('last_name', '').upper()
+        middle_name = request.POST.get('middle_name', '').upper()
+        position    = request.POST.get('position', '').upper()
+        email       = request.POST.get('email')
+        contact_no  = request.POST.get('contact_no')
+        facebook_profile_link = request.POST.get('facebook_profile_link')
+        payment_date = request.POST.get('payment_date')
+        terms_accepted = request.POST.get('terms_accepted') == 'true'
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+
+        birthdate = None
+        birthdate_str = request.POST.get('birthdate')
+        if birthdate_str:
+            try:
+                birthdate = datetime.datetime.strptime(birthdate_str, '%Y-%m-%d').date()
+            except ValueError:
+                messages.warning(request, 'Invalid birthdate format.')
+                return redirect('add_member_officer')
+
+        if email and CustomUser.objects.filter(email=email).exists():
+            messages.warning(request, 'Email is already taken.')
+            return redirect('add_member_officer')
+        elif CustomUser.objects.filter(username=username).exists():
+            messages.warning(request, 'Username is already taken.')
+            return redirect('add_member_officer')
+        else:
+            user = CustomUser(
+                first_name=first_name, last_name=last_name,
+                username=username, email=email, user_type=3,
+            )
+            user.set_password(password)
+            user.save()
+            member = Member(
+                admin=user,
+                membershiptype_id=membershiptype_id,
+                officertype_id=officertype_id,
+                organization_id=organization_id,
+                salutation_id=salutation_id,
+                middle_name=middle_name,
+                birthdate=birthdate,
+                position=position,
+                contact_no=contact_no,
+                facebook_profile_link=facebook_profile_link,
+                payment_date=payment_date,
+                terms_accepted=terms_accepted,
+            )
+            member.save()
+            audit_logger.info(
+                f"User {request.user.username} (id={request.user.id}) [officer/treasurer] "
+                f"added member {user.username} (id={user.id})"
+            )
+            messages.success(request, f'{first_name} {last_name} successfully added.')
+            return redirect('add_member_officer')
+
+    context = {
+        'salutations':    salutations,
+        'membershiptypes': membershiptypes,
+        'membertypes':    membertypes,
+        'officertypes':   officertypes,
+        'organizations':  organizations,
+    }
+    return render(request, 'officer/add_member.html', context)
+
+
+@login_required(login_url='/')
+def EXPORT_MEMBER_PDF(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can export the member list.')
+        return redirect('officer_home')
+
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        payment_ids = Membership.objects.filter(
+            status__iexact='approved', payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_ids)
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
+    from collections import defaultdict
+    revenue_map = defaultdict(lambda: {'count': 0, 'price': 0, 'revenue': 0})
+    for m in members:
+        mt = m.membershiptype
+        if mt:
+            key   = mt.name
+            price = float(mt.price) if mt.price else 0
+            revenue_map[key]['count']   += 1
+            revenue_map[key]['price']    = price
+            revenue_map[key]['revenue'] += price
+    revenue_data   = [{'name': k, 'count': v['count'], 'price': v['price'], 'revenue': v['revenue']} for k, v in revenue_map.items()]
+    total_revenue  = sum(r['revenue'] for r in revenue_data)
+    psite_local    = round(total_revenue * 0.70, 2)
+    psite_national = round(total_revenue * 0.30, 2)
+
+    filter_labels = []
+    if selected_org:
+        try:
+            filter_labels.append(f"Organization: {Organization.objects.get(id=selected_org).name}")
+        except Exception:
+            pass
+    if selected_mtype:
+        try:
+            filter_labels.append(f"Membership Type: {MembershipType.objects.get(id=selected_mtype).name}")
+        except Exception:
+            pass
+    if selected_payment:
+        filter_labels.append(f'Payment Method: {selected_payment}')
+    if date_from:
+        filter_labels.append(f'From: {date_from}')
+    if date_to:
+        filter_labels.append(f'To: {date_to}')
+
+    cu = CustomUser.objects.get(id=request.user.id)
+    generated_by = f"{cu.first_name or ''} {cu.last_name or ''}".strip() or cu.username
+    generated_position = ''
+    gen_member = Member.objects.select_related('officertype').filter(admin_id=cu.id).first()
+    if gen_member and gen_member.officertype:
+        generated_position = gen_member.officertype.name
+
+    context = {
+        'members':            members,
+        'revenue_data':       revenue_data,
+        'total_revenue':      total_revenue,
+        'psite_local':        psite_local,
+        'psite_national':     psite_national,
+        'filter_labels':      filter_labels,
+        'generated_by':       generated_by,
+        'generated_position': generated_position,
+    }
+    return render(request, 'hoo/export_member_pdf.html', context)
+
+
+@login_required(login_url='/')
+def VIEWALL_MEMBER(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can view the member list.')
+        return redirect('officer_home')
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+
+    selected_org = request.GET.get('organization', '')
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+
+    selected_mtype = request.GET.get('membershiptype', '')
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+
+    selected_payment = request.GET.get('payment_method', '')
+    if selected_payment:
+        payment_member_ids = Membership.objects.filter(
+            status__iexact='approved',
+            payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_member_ids)
+
+    date_from = request.GET.get('date_from', '')
+    date_to   = request.GET.get('date_to', '')
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
+    payment_methods = (
+        Membership.objects.filter(status__iexact='approved', payment_method__isnull=False)
+        .exclude(payment_method='')
+        .values_list('payment_method', flat=True)
+        .distinct()
+        .order_by('payment_method')
+    )
+
+    context = {
+        'members': members,
+        'membershiptypes': MembershipType.objects.all(),
+        'organizations': Organization.objects.all(),
+        'selected_org': selected_org,
+        'selected_mtype': selected_mtype,
+        'selected_payment': selected_payment,
+        'payment_methods': payment_methods,
+        'date_from': date_from,
+        'date_to': date_to,
+    }
+    return render(request, 'officer/viewall_member.html', context)
+
+
+@login_required(login_url='/')
+def MEMBER_DETAILS(request, id):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can view member details.')
+        return redirect('officer_home')
+    member = get_object_or_404(Member, id=id)
+    context = {
+        'member': member,
+    }
+    return render(request, 'officer/member_details.html', context)
+
+
 def VIEWALL_EVENT(request):
     # Fetch all events with related school year to reduce queries
     events = Event.objects.select_related('school_year').all()
@@ -459,6 +932,9 @@ def VIEWALL_EVENT(request):
 
 @login_required(login_url='/')
 def ADD_EVENT(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can add events.')
+        return redirect('officer_home')
     if request.method == 'POST':
         title = request.POST.get('title')
         theme = request.POST.get('theme')
@@ -477,7 +953,7 @@ def ADD_EVENT(request):
             active_schoolyear = School_Year.objects.get(status=1)
         except School_Year.DoesNotExist:
             messages.error(request, "No active school year found. Please activate a school year first.")
-            return redirect('add_event')
+            return redirect('add_event_officer')
 
         Event.objects.filter(status='active').update(status='inactive')
 
@@ -550,7 +1026,7 @@ def ADD_EVENT(request):
 
         messages.success(request, f'Event added successfully for cycle {active_schoolyear.sy_start.year} - {active_schoolyear.sy_end.year}!')
         audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added event id={event.id} title={event.title}")
-        return redirect('viewall_event')
+        return redirect('viewall_event2')
 
     members = Member.objects.all()
     officertypes = OfficerType.objects.all()
@@ -574,6 +1050,74 @@ def ADD_EVENT(request):
         'active_schoolyear': active_schoolyear,
         'tags': tags
     })
+@login_required(login_url='/')
+def DELETE_EVENT(request, id):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can delete events.')
+        return redirect('viewall_event2')
+    event = get_object_or_404(Event, id=id)
+    title = getattr(event, 'title', None)
+    event.delete()
+    audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) deleted event id={id} title={title}")
+    messages.success(request, 'Event successfully deleted.')
+    return redirect('viewall_event2')
+
+
+@login_required(login_url='/')
+def EDIT_EVENT(request, id):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can edit events.')
+        return redirect('viewall_event2')
+    event = get_object_or_404(Event, id=id)
+    if request.method == 'POST':
+        event.title = request.POST.get('title')
+        event.theme = request.POST.get('theme')
+        event.date = request.POST.get('date')
+        event.location = request.POST.get('location')
+        event.max_attendees = request.POST.get('max_attendees')
+        event.registration_fee = request.POST.get('registration_fee')
+        if 'banner' in request.FILES:
+            event.banner = request.FILES['banner']
+        event.save()
+        messages.success(request, f'Event "{event.title}" updated successfully!')
+        audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) updated event id={event.id} title={event.title}")
+        return redirect('viewall_event2')
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({
+            'id': event.id,
+            'title': event.title,
+            'theme': event.theme,
+            'date': event.date.strftime('%Y-%m-%d'),
+            'location': event.location,
+            'max_attendees': event.max_attendees,
+            'registration_fee': event.registration_fee,
+        })
+    return redirect('viewall_event2')
+
+
+@login_required(login_url='/')
+def GET_EVENT_JSON(request, id):
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest' or request.method == 'GET':
+        try:
+            event = Event.objects.select_related('school_year').get(id=id)
+            sy = ''
+            if event.school_year:
+                sy = f"{event.school_year.sy_start.year} - {event.school_year.sy_end.year}"
+            return JsonResponse({
+                'id': event.id,
+                'title': event.title or '',
+                'theme': event.theme or '',
+                'date': event.date.strftime('%Y-%m-%d') if event.date else '',
+                'location': event.location or '',
+                'max_attendees': event.max_attendees,
+                'registration_fee': str(event.registration_fee) if event.registration_fee else '0',
+                'school_year': sy,
+            })
+        except Event.DoesNotExist:
+            return JsonResponse({'error': 'Not found'}, status=404)
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+
 def MEMBER_EVENT_REG(request):
     """
     Handles the Member Event Registration form:
@@ -812,6 +1356,54 @@ def MEMBERSHIP_APPROVAL(request):
     return render(request, 'officer/membership_approval.html', context)
 
 
+@login_required(login_url='/')
+def VIEWALL_BULK_REG(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can view event approvals.')
+        return redirect('officer_home')
+
+    events = Event.objects.all().order_by('-date')
+    active_event = Event.objects.filter(status='active').order_by('-date').first()
+
+    selected_event_id = None
+    try:
+        sel = request.GET.get('event')
+        if sel and str(sel).isdigit():
+            selected_event_id = int(sel)
+        elif active_event:
+            selected_event_id = active_event.id
+    except Exception:
+        selected_event_id = active_event.id if active_event else None
+
+    regs_qs = Member_Event_Registration.objects.select_related('member_id__organization', 'member_id__admin')
+    if selected_event_id:
+        regs_qs = regs_qs.filter(event_id=selected_event_id)
+
+    bulk_regs = []
+    for reg in regs_qs.all():
+        member_obj = getattr(reg, 'member_id', None)
+        if not member_obj:
+            continue
+        user = getattr(member_obj, 'admin', None)
+        bulk_regs.append({
+            'id': reg.id,
+            'last_name':  (getattr(user, 'last_name', '') or ''),
+            'first_name': (getattr(user, 'first_name', '') or ''),
+            'registered_by': member_obj,
+            'attending_as': 'Professor',
+            'is_approved': bool(getattr(reg, 'is_approved', False)),
+            'is_present':  bool(getattr(reg, 'is_present', False)),
+            'event_id': getattr(reg, 'event_id', None),
+        })
+
+    context = {
+        'bulk_regs': bulk_regs,
+        'events': events,
+        'selected_event_id': selected_event_id,
+    }
+    return render(request, 'officer/view_bulk_reg.html', context)
+
+
 def BULK_EVENT_REG(request):
     """Render the bulk event registration page."""
     # Fetch the currently active event (latest by date if multiple)
@@ -869,13 +1461,79 @@ def LIST_ATTENDEES_OFFICER(request):
         except Exception:
             org_name = ''
 
-        attendees.append({'first_name': first, 'last_name': last, 'email': email, 'organization': org_name})
+        attendees.append({'id': reg.id, 'first_name': first, 'last_name': last, 'email': email, 'organization': org_name})
 
     events = Event.objects.all().order_by('-date')
     return render(request, 'officer/list_attendees.html', {'attendees': attendees, 'event': active_event, 'events': events})
 
-@login_required(login_url='/')
 
+@login_required(login_url='/')
+def EXPORT_ATTENDEES_EXCEL(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can export attendees.')
+        return redirect('list_attendees_officer')
+
+    event_param = request.GET.get('event')
+    ids_param   = request.GET.get('ids', '')
+
+    event_id = None
+    if event_param and str(event_param).isdigit():
+        event_id = int(event_param)
+
+    regs_qs = Member_Event_Registration.objects.select_related('member_id__admin', 'member_id__organization')
+    if event_id:
+        regs_qs = regs_qs.filter(event_id=event_id)
+
+    if ids_param:
+        try:
+            id_list = [int(x) for x in ids_param.split(',') if x.strip().isdigit()]
+            if id_list:
+                regs_qs = regs_qs.filter(id__in=id_list)
+        except Exception:
+            pass
+
+    ev = Event.objects.filter(id=event_id).first() if event_id else None
+    event_title = ev.title if ev else 'All Events'
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Attendees'
+
+    title_cell = ws.cell(row=1, column=1, value=f'Event: {event_title}')
+    title_cell.font = Font(bold=True, size=13)
+
+    headers = ['First Name', 'Last Name', 'Email', 'Organization']
+    for col, header in enumerate(headers, start=1):
+        cell = ws.cell(row=2, column=col, value=header)
+        cell.font = Font(bold=True)
+
+    row_num = 3
+    for reg in regs_qs:
+        member_obj = getattr(reg, 'member_id', None)
+        user = getattr(member_obj, 'admin', None) if member_obj else None
+        first = getattr(user, 'first_name', '') or ''
+        last  = getattr(user, 'last_name', '') or ''
+        email = getattr(user, 'email', '') or ''
+        org_name = ''
+        try:
+            if member_obj and getattr(member_obj, 'organization', None):
+                org_name = member_obj.organization.name or ''
+        except Exception:
+            pass
+        ws.append([first, last, email, org_name])
+        row_num += 1
+
+    event_label = ev.title.replace(' ', '_').lower() if ev else 'attendees'
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="attendees_{event_label}.xlsx"'
+    wb.save(response)
+    return response
+
+
+@login_required(login_url='/')
 def UPLOAD_BULK_EVENT_REG(request):
     """Render the bulk event registration page and handle file uploads.
 

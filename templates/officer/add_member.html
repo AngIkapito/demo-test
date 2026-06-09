@@ -1,0 +1,250 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="p-5">
+            {% include 'includes/messages.html' %}
+
+            <a href="{% url 'viewall_member_officer' %}" class="btn btn-secondary" title="Go Back">
+                <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
+
+            <div class="text-center">
+                <h1 class="h3 mb-0 text-gray-800">Add Member</h1>
+            </div>
+
+            <form class="user" id="add_member" method="post" action="{% url 'add_member_officer' %}" enctype="multipart/form-data" onsubmit="return validateForm()">
+               {% csrf_token %}
+
+            <fieldset>
+                <label for="is_active">Is Active?</label>
+                <select class="form-control" id="is_active" name="is_active">
+                    <option value="1" selected>True</option>
+                    <option value="0">False</option>
+                </select>
+            </fieldset>
+
+            <fieldset>
+                <legend>Member Information</legend>
+
+                <label for="officertype_id">PSITE CL Officer?</label>
+                <select class="form-control" id="officertype_id" name="officertype_id" required>
+                    <option value="9" selected>MEMBER ONLY</option>
+                    {% for officertype in officertypes %}
+                        {% if officertype.id != 9 %}
+                            <option value="{{ officertype.id }}">{{ officertype.name }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+
+                <div class="form-group">
+                    <label for="membershiptype_id">Membership Type</label>
+                    <select class="form-control" id="membershiptype_id" name="membershiptype_id" required>
+                        <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>
+                        {% for membershiptype in membershiptypes %}
+                            <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{ membershiptype.price }} PESOS</option>
+                        {% endfor %}
+                    </select>
+
+                    <label for="membertype_id">Member Type</label>
+                    <select class="form-control" id="membertype_id" name="membertype_id" required>
+                        <option value="" disabled selected>SELECT MEMBER TYPE</option>
+                        {% for membertype in membertypes %}
+                            <option value="{{ membertype.id }}">{{ membertype.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="organization_id">School/Organization</label>
+                    <select class="form-control" id="organization_id" name="organization_id" required>
+                        <option value="" disabled selected>SELECT SCHOOL / ORGANIZATION</option>
+                        {% for organization in organizations %}
+                            <option value="{{ organization.id }}">{{ organization.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="position">Position</label>
+                    <input type="text" class="form-control text-uppercase" id="position" placeholder="Position" name="position" required/>
+                </div>
+
+                <div class="form-group">
+                    <label for="salutation_id">Salutation</label>
+                    <select class="form-control" id="salutation_id" name="salutation_id" required>
+                        <option value="" disabled selected>SELECT SALUTATION</option>
+                        {% for salutation in salutations %}
+                            <option value="{{ salutation.id }}">{{ salutation.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input type="text" class="form-control text-uppercase" id="first_name" placeholder="First Name" oninput="generateUsername()" name="first_name" required/>
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input type="text" class="form-control text-uppercase" id="last_name" placeholder="Last Name" oninput="generateUsername()" name="last_name" required/>
+                </div>
+                <div class="form-group">
+                    <label for="middle_name">Middle Name</label>
+                    <input type="text" class="form-control text-uppercase" id="middle_name" placeholder="Middle Name" name="middle_name"/>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" class="form-control text-lowercase" id="email" placeholder="Email Address" name="email" required/>
+                </div>
+                <div class="form-group">
+                    <label for="contact_no">Contact Number</label>
+                    <input type="tel" class="form-control" id="contact_no" placeholder="eg. 09123456789" name="contact_no" maxlength="11" required pattern="09[0-9]{9}" title="Please enter a valid 11-digit contact number."/>
+                </div>
+                <div class="form-group">
+                    <label for="birthdate">Birthdate</label>
+                    <input type="date" class="form-control" id="birthdate" name="birthdate" required/>
+                </div>
+                <div class="form-group">
+                    <label for="facebook_profile_link">Facebook Profile Link</label>
+                    <input type="url" class="form-control" id="facebook_profile_link" name="facebook_profile_link" placeholder="eg. https://www.facebook.com/yourprofile" required/>
+                </div>
+                <div class="form-group">
+                    <label for="proof_of_payment">Proof of Payment</label>
+                    <input type="file" class="form-control" id="proof_of_payment" name="proof_of_payment" accept=".pdf,.jpg,.jpeg,.png">
+                </div>
+                <div class="form-group">
+                    <label for="payment_date">Payment Date</label>
+                    <input type="date" class="form-control" id="payment_date" name="payment_date" required/>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Login Information</legend>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" class="form-control text-lowercase" id="username" placeholder="Username" name="username" required/>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-group">
+                        <input type="password" class="form-control" id="password" placeholder="Type 'Sample#01'" name="password" required/>
+                        <div class="input-group-append">
+                            <span class="input-group-text toggle-password" onclick="togglePasswordVisibility()" data-toggle="tooltip" title="Show/Hide Password">
+                                <i class="fas fa-eye" id="eye-icon"></i>
+                            </span>
+                            <button title="Generate Password" class="btn btn-outline-secondary" type="button" onclick="generatePassword()"><i class="fas fa-dice"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+
+            <div id="notificationArea" class="alert alert-danger d-none" role="alert"></div>
+
+            <div class="col-sm mb-3">
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="termsCheckbox" name="terms_accepted" value="true" required>
+                        I accept the terms of membership.
+                    </label>
+                </div>
+                <div class="agreement">
+                    If accepted for membership, I agree to comply with the requirements of the By-Laws, and all regulations adopted by the Society with full knowledge of the responsibility imposed upon me.
+                </div>
+            </div>
+
+            <button id="registerButton" class="btn btn-primary btn-block" type="submit">Add Member</button>
+
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function validateForm() {
+        var checkbox = document.getElementById("termsCheckbox");
+        var password = document.getElementById("password").value;
+        var username = document.getElementById("username").value;
+        var notificationArea = document.getElementById("notificationArea");
+        notificationArea.innerHTML = '';
+        notificationArea.classList.add('d-none');
+        if (!checkbox.checked) {
+            notificationArea.innerHTML += "You must agree to the terms of service.<br>";
+            notificationArea.classList.remove('d-none');
+            return false;
+        }
+        if (username && password && username === password) {
+            notificationArea.innerHTML += "Username and password cannot be the same.<br>";
+            notificationArea.classList.remove('d-none');
+            return false;
+        }
+        return isValidPassword(password);
+    }
+
+    function isValidPassword(password) {
+        var notificationArea = document.getElementById("notificationArea");
+        if (password.length < 8) {
+            notificationArea.innerHTML += "Password must be at least 8 characters long.<br>";
+            notificationArea.classList.remove('d-none');
+            return false;
+        }
+        if (/^\d+$/.test(password)) {
+            notificationArea.innerHTML += "Password cannot be all numeric.<br>";
+            notificationArea.classList.remove('d-none');
+            return false;
+        }
+        var commonPasswords = ["password","123456","123456789","12345678","12345","qwerty","abc123","password1","iloveyou","admin","letmein","welcome","monkey","1234","123"];
+        if (commonPasswords.includes(password.toLowerCase())) {
+            notificationArea.innerHTML += "Password is too common.<br>";
+            notificationArea.classList.remove('d-none');
+            return false;
+        }
+        return true;
+    }
+
+    function togglePasswordVisibility() {
+        var passwordInput = document.getElementById('password');
+        var eyeIcon = document.getElementById('eye-icon');
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            eyeIcon.classList.replace('fa-eye', 'fa-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            eyeIcon.classList.replace('fa-eye-slash', 'fa-eye');
+        }
+    }
+
+    function generatePassword() {
+        var charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        var password = "";
+        for (var i = 0; i < 8; i++) {
+            password += charset[Math.floor(Math.random() * charset.length)];
+        }
+        document.getElementById('password').value = password;
+    }
+
+    function generateUsername() {
+        var first = document.getElementById('first_name').value.trim();
+        var last  = document.getElementById('last_name').value.trim();
+        if (first && last) {
+            var randomNum = Math.floor(Math.random() * 1000);
+            document.getElementById('username').value = first.toLowerCase().charAt(0) + last.toLowerCase() + randomNum;
+        } else {
+            document.getElementById('username').value = '';
+        }
+    }
+
+    document.getElementById('contact_no').addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    });
+
+    var today = new Date();
+    var y = today.getFullYear();
+    var m = String(today.getMonth() + 1).padStart(2, '0');
+    var d = String(today.getDate()).padStart(2, '0');
+    document.getElementById('birthdate').value   = y + '-' + m + '-' + d;
+    document.getElementById('payment_date').value = y + '-' + m + '-' + d;
+</script>
+
+{% endblock %}

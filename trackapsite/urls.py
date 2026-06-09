@@ -167,8 +167,18 @@ urlpatterns = [
     path('officer/Event/BulkRegistration/Save', officer_views.SAVE_BULK_EVENT_REG, name='save_bulk_event_reg_officer'),
     path('officer/MembershipApproval', officer_views.MEMBERSHIP_APPROVAL, name='membership_approval_officer'),
     path('officer/Event/Add', officer_views.ADD_EVENT, name='add_event_officer'),
+    path('officer/Event/Delete/<str:id>', officer_views.DELETE_EVENT, name='delete_event_officer'),
+    path('officer/Event/Edit/<str:id>/', officer_views.EDIT_EVENT, name='edit_event_officer'),
+    path('officer/Event/Get/<str:id>/', officer_views.GET_EVENT_JSON, name='get_event_json_officer'),
     path('officer/Event/Attendees', officer_views.LIST_ATTENDEES_OFFICER, name='list_attendees_officer'),
+    path('officer/Event/Attendees/ExportExcel', officer_views.EXPORT_ATTENDEES_EXCEL, name='export_attendees_excel_officer'),
+    path('officer/BulkRegistrations/ViewAll', officer_views.VIEWALL_BULK_REG, name='viewall_bulk_reg_officer'),
     
+    path('officer/GenerateReport', officer_views.GENERATE_REPORT, name='officer_generate_report'),
+    path('officer/Member/Add', officer_views.ADD_MEMBER, name='add_member_officer'),
+    path('officer/Member/ExportPDF', officer_views.EXPORT_MEMBER_PDF, name='export_member_pdf_officer'),
+    path('officer/Member/ViewAll', officer_views.VIEWALL_MEMBER, name='viewall_member_officer'),
+    path('officer/Member/Details/<str:id>', officer_views.MEMBER_DETAILS, name='member_details_officer'),
     #officer event List
     path('officer/Event/ViewAll', officer_views.VIEWALL_EVENT, name='viewall_event2'),
     #Member Panel

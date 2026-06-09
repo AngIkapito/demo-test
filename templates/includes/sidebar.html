@@ -229,7 +229,9 @@
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="">View Membership</a>
-                <a class="collapse-item" href="">Members List</a>
+                {% if user.is_treasurer %}
+                <a class="collapse-item" href="{% url "viewall_member_officer" %}">Members List</a>
+                {% endif %}
                 {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "membership_approval_officer" %}">Membership Approval</a>
                 {% endif %}
@@ -247,11 +249,16 @@
         <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
             data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="">Add Event</a>
+                {% if user.is_treasurer %}
+                <a class="collapse-item" href="{% url "add_event_officer" %}">Add Event</a>
+                {% endif %}
                 <a class="collapse-item" href="{% url "member_event_reg_officer" %}">Event Registration</a>
                 <a class="collapse-item" href="{% url "viewall_event2" %}">Events List</a>
                 <a class="collapse-item" href="{% url "bulk_event_reg_officer" %}">Bulk registration</a>
                 <a class="collapse-item" href="{% url "list_attendees_officer" %}">Event Attendees</a>
+                {% if user.is_treasurer %}
+                <a class="collapse-item" href="{% url "viewall_bulk_reg_officer" %}">Event Approval/Attendance</a>
+                {% endif %}
             </div>
         </div>
     </li>

@@ -1,34 +1,42 @@
 
 {% extends "includes/base.html" %}
 {% load static %}
-{% block content %}  
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
-
-
-    <!-- Main Content -->
- 
-      <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Welcome, {{user.username}}!</h2>
-        {% comment %} <button class="btn btn-outline-light bg-primary text-white">Logout</button> {% endcomment %}
-      </div>
+<!-- Welcome Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="mb-1">Welcome, {{ user.username }}!</h2>
+    {% if user.is_treasurer %}
+    <span class="badge bg-success fs-6 px-3 py-2">
+      <i class="fas fa-star me-1"></i> Treasurer
+    </span>
+    {% endif %}
+  </div>
+  {% if user.is_treasurer %}
+  <button class="btn btn-primary" data-toggle="modal" data-target="#generateReportModal">
+    <i class="fas fa-file-excel me-1"></i> Generate Report
+  </button>
+  {% endif %}
+</div>
 
 <!-- Stats Cards -->
- <div class="row mb-4">
-    <div class="col-12 col-md-4 mb-3">
-      <div class="card text-bg-light shadow h-100">
-        <div class="card-body d-flex justify-content-between align-items-center">
-          <div>
-            <h6 class="text-muted">Total Registered Members</h6>
-            <h4 class="text-success">{{ members.count }} Active</h4>
-          </div>
-          <i class="fas fa-users fa-2x text-secondary"></i>
+<div class="row mb-4">
+  <div class="col-12 col-md-3 mb-3">
+    <div class="card text-bg-light shadow h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="text-muted">Total Registered Members</h6>
+          <h4 class="text-success">{{ members.count }} Active</h4>
         </div>
+        <i class="fas fa-users fa-2x text-secondary"></i>
       </div>
     </div>
-
-    <div class="col-12 col-md-4 mb-3">
-      <div class="card text-bg-light shadow h-100">
-        <a href="{% url 'viewall_event2' %}">
+  </div>
+  <div class="col-12 col-md-3 mb-3">
+    <div class="card text-bg-light shadow h-100">
+      <a href="{% url 'viewall_event2' %}" class="text-decoration-none">
         <div class="card-body d-flex justify-content-between align-items-center">
           <div>
             <h6 class="text-muted">Total Events Conducted</h6>
@@ -36,56 +44,191 @@
           </div>
           <i class="fas fa-calendar-check fa-2x text-secondary"></i>
         </div>
-         </a>
-      </div>
+      </a>
     </div>
-    
-    <div class="col-12 col-md-4 mb-3">
-      <div class="card text-bg-light shadow h-100">
-        <div class="card-body">
-          <h5 class="card-title">Pending Approvals</h5>
-          <p class="card-text fs-3 fw-bold text-danger">{{ pending_approvals_count }}</p>
+  </div>
+  <div class="col-12 col-md-3 mb-3">
+    <div class="card text-bg-light shadow h-100">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="text-muted">Pending Approvals</h6>
+          <h4 class="text-danger">{{ pending_approvals_count }}</h4>
         </div>
+        <i class="fas fa-clock fa-2x text-secondary"></i>
       </div>
     </div>
   </div>
-      <div class="col-12 col-md-4 mb-3">
-        <div class="card text-bg-light shadow h-100">
-          <div class="card-body" id="subscription-status-card">
-            <h5 class="card-title">Subscription Status</h5>
-            <div id="membership-expiry-message"></div>
+  <div class="col-12 col-md-3 mb-3">
+    <div class="card text-bg-light shadow h-100">
+      <div class="card-body" id="subscription-status-card">
+        <h6 class="text-muted">Subscription Status</h6>
+        <div id="membership-expiry-message"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ranking-card .member-row{display:flex;align-items:center;gap:.75rem;padding:.6rem 0;border-bottom:0}
+  .ranking-card .avatar{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#eee,#ddd);flex:0 0 46px}
+  .ranking-card .profile-placeholder{flex:1;min-width:0}
+  .ranking-card .rank-badge{min-width:46px;text-align:center;background:transparent;color:#495057;font-weight:700}
+  #calendar td.legend-selected{background-color:#ffc107!important;color:#212529!important;border-radius:.25rem}
+  .legend-item{cursor:pointer;text-decoration:none;color:inherit}
+  .legend-item:hover{text-decoration:underline}
+  #calendar td[data-date]{cursor:pointer;transition:background-color .12s ease}
+  #calendar td[data-date]:hover{background-color:rgba(0,0,0,0.03)}
+  #calendar table{table-layout:fixed;width:100%}
+  #calendar table td{padding:.4rem;vertical-align:top}
+  #calendar td.calendar-cell{height:92px}
+  #calendar td.calendar-cell .cell-inner{display:flex;flex-direction:column;justify-content:space-between;height:100%}
+</style>
+
+<div class="row">
+  <!-- Left column -->
+  <div class="col-lg-8">
+
+    <!-- Real-time Registration Overview -->
+    <div class="card mb-4 shadow">
+      <div class="card-header bg-primary text-white">Real-time Registration Overview</div>
+      <div class="card-body">
+        {% if event %}
+          <p><strong>Current Event:</strong> {{ event.title }}</p>
+          <div class="progress mb-3">
+            <div class="progress-bar bg-success" role="progressbar"
+                style="width: {{ progress_percent }}%;"
+                aria-valuenow="{{ registered_count }}"
+                aria-valuemin="0"
+                aria-valuemax="{{ event.max_attendees }}">
+              {{ registered_count }}/{{ event.max_attendees }} Registered
+            </div>
+          </div>
+          <p class="text-muted">{{ available_slots }} slots remaining</p>
+          <div id="officerRegChart" class="mt-3" style="max-width:100%; height:360px;"></div>
+        {% else %}
+          <p>No active events at the moment.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Member Rankings -->
+    <div class="card shadow mb-4 ranking-card">
+      <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <div>
+          <strong>Member Rankings</strong>
+          <div class="small text-muted">Top contributors / competitors (preview)</div>
+        </div>
+        <form id="syFilterForm" method="get" class="d-flex align-items-center">
+          <select name="school_year" onchange="document.getElementById('syFilterForm').submit()" class="form-select form-select-sm">
+            <option value="">All years</option>
+            {% for sy in school_years %}
+              <option value="{{ sy.id }}" {% if selected_school_year and selected_school_year == sy.id %}selected{% endif %}>{{ sy.sy_start.year }}-{{ sy.sy_end.year }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      </div>
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="small text-muted">Members with consecutive attendance streaks</div>
+          <div class="small">
+            <span class="badge bg-success">3x: {{ streak_counts.three }}</span>
+            <span class="badge bg-primary">5x: {{ streak_counts.five }}</span>
+            <span class="badge bg-warning text-dark">10x: {{ streak_counts.ten }}</span>
           </div>
         </div>
-      </div>
-
-  <!-- Calendar (copied from hoo/home) -->
-  <div class="card shadow mb-4">
-    <div class="card-header bg-info text-white">Calendar</div>
-    <div class="card-body">
-      <div id="calendar" class="text-center">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <button id="prevMonth" class="btn btn-sm btn-outline-secondary">&lt;</button>
-          <h5 id="calendarTitle" class="mb-0"></h5>
-          <button id="nextMonth" class="btn btn-sm btn-outline-secondary">&gt;</button>
+        <div class="d-flex flex-column">
+          {% for r in member_rankings %}
+          <div class="member-row py-2">
+            <div class="org-logo" aria-hidden="true" style="flex:0 0 56px;">
+              {% if r.member and r.member.organization and r.member.organization.logo %}
+                <img src="{{ r.member.organization.logo.url }}" class="rounded" style="width:56px;height:46px;object-fit:cover" alt="org-logo">
+              {% endif %}
+            </div>
+            <div class="avatar" aria-hidden="true">
+              {% if r.member and r.member.admin and r.member.admin.profile_pic %}
+                <img src="{{ r.member.admin.profile_pic.url }}" class="rounded-circle" style="width:46px;height:46px;object-fit:cover" alt="avatar">
+              {% endif %}
+            </div>
+            <div class="profile-placeholder">
+              <div><strong>{{ r.member_name }}</strong></div>
+              <div class="small text-muted">{{ r.organization }}</div>
+              <div class="small text-muted">Joined {{ r.total_joined }} events</div>
+            </div>
+            <div class="rank-badge">
+              <span class="badge {% if r.longest_streak >= 10 %}bg-warning text-dark{% elif r.longest_streak >= 5 %}bg-primary{% elif r.longest_streak >= 3 %}bg-success{% else %}bg-secondary{% endif %}">{{ r.longest_streak }}x</span>
+            </div>
+          </div>
+          {% empty %}
+          <div class="text-muted">No member attendance data.</div>
+          {% endfor %}
         </div>
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th class="text-center">Sun</th>
-              <th class="text-center">Mon</th>
-              <th class="text-center">Tue</th>
-              <th class="text-center">Wed</th>
-              <th class="text-center">Thu</th>
-              <th class="text-center">Fri</th>
-              <th class="text-center">Sat</th>
-            </tr>
-          </thead>
-          <tbody id="calendarBody"></tbody>
-        </table>
-        <div id="calendarLegend" class="mt-3 small"></div>
+      </div>
+    </div>
+
+  </div>
+  <!-- Right column -->
+  <div class="col-lg-4">
+
+    <!-- Calendar -->
+    <div class="card shadow mb-4">
+      <div class="card-header bg-info text-white">Calendar</div>
+      <div class="card-body">
+        <div id="calendar" class="text-center">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <button id="prevMonth" class="btn btn-sm btn-outline-secondary">&lt;</button>
+            <h5 id="calendarTitle" class="mb-0"></h5>
+            <button id="nextMonth" class="btn btn-sm btn-outline-secondary">&gt;</button>
+          </div>
+          <table class="table table-bordered">
+            <thead>
+              <tr>
+                <th class="text-center">Sun</th>
+                <th class="text-center">Mon</th>
+                <th class="text-center">Tue</th>
+                <th class="text-center">Wed</th>
+                <th class="text-center">Thu</th>
+                <th class="text-center">Fri</th>
+                <th class="text-center">Sat</th>
+              </tr>
+            </thead>
+            <tbody id="calendarBody"></tbody>
+          </table>
+          <div id="calendarLegend" class="mt-3 small"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IT Topics Pie Chart -->
+    <div class="card shadow mb-4">
+      <div class="card-header bg-info text-white">Interested IT Topics</div>
+      <div class="card-body">
+        <div id="officerTopicsPie" style="max-width:420px;margin:0 auto;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Event details modal (used by calendar) -->
+  <div class="modal fade" id="eventModal" tabindex="-1" aria-labelledby="eventModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="eventModalLabel">Event details</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <div class="col-md-4" id="eventModalBanner"></div>
+            <div class="col-md-8" id="eventModalInfo"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
   {{ events_json|json_script:"events-data" }}
 
@@ -267,109 +410,78 @@
     renderCalendar(currMonth, currYear);
   })();
   </script>
-      {% comment "" %}
-      <!-- Notifications / Approvals -->
-      <div class="card mb-4 shadow">
-        <div class="card-header">
-          Recent Notifications
-        </div>
-        <ul class="list-group list-group-flush">
-          <li class="list-group-item">New member registration pending approval</li>
-          <li class="list-group-item">Event feedback submitted by members</li>
-          <li class="list-group-item">Attendance for AI Forum has been finalized</li>
-        </ul>
-      </div>
-      {% endcomment %}
-        <!-- Timeline Card (redesigned) -->
-        <div class="card mb-4 shadow timeline-card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <div>
-              <strong>Timeline</strong>
-              <div class="small text-muted">Membership and Joined Events</div>
-            </div>
-          </div>
-          <div class="card-body">
-            <ul class="timeline">
-              {% if timeline_entries %}
-                {% for te in timeline_entries %}
-                  <li class="timeline-entry">
-                    <div class="timeline-date">{% if te.date %}{{ te.date }}{% elif te.year %}{{ te.year }}{% else %}—{% endif %}</div>
-                    <div class="timeline-marker {% if te.status == 'Approved' %}marker-success{% elif te.status == 'Pending' %}marker-warning{% else %}marker-primary{% endif %}"></div>
-                    <div class="timeline-body">
-                      <h6 class="mb-1">Membership</h6>
-                      <div class="small text-muted mb-1">{{ te.school_year_display }}</div>
-                      <p class="small mb-0">Status: {{ te.status }}</p>
-                      {% if te.joined_events %}
-                        <div class="small fw-semibold mt-2">Joined events:</div>
-                        <ul class="list-unstyled mt-1 mb-0">
-                          {% for je in te.joined_events %}
-                            <li class="small"><span class="fw-semibold">{{ je.title }}</span> <small class="text-muted">— {{ je.date }}</small></li>
-                          {% endfor %}
-                        </ul>
-                      {% endif %}
-                      {% if te.status != 'DECLINED' and te.status != 'PENDING' %}
-                        <form method="get" action="{% url 'officer_generate_certificate' te.id %}" style="display:inline;">
-                          <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Generate</button>
-                        </form>
-                      {% elif te.status == 'PENDING' %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled title="Membership is pending approval">Generate (Pending)</button>
-                      {% else %}
-                        <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled>Generate (Declined)</button>
-                      {% endif %}
-                    </div>
-                  </li>
-                {% endfor %}
-              {% else %}
-                <li class="timeline-entry">
-                  <div class="timeline-date">—</div>
-                  <div class="timeline-marker marker-primary"></div>
-                  <div class="timeline-body">
-                    <h6 class="mb-1">No membership records</h6>
-                    <p class="small mb-0 text-muted">You have no recorded memberships yet.</p>
-                  </div>
-                </li>
+
+<!-- Timeline Card (full width) -->
+<style>
+  .timeline{list-style:none;margin:0;padding:0;position:relative}
+  .timeline:before{content:'';position:absolute;left:120px;top:12px;bottom:12px;width:2px;background:#e9ecef;border-radius:2px}
+  .timeline-entry{position:relative;display:flex;gap:16px;padding:18px 12px;border-bottom:1px solid #f1f3f5}
+  .timeline-date{width:110px;flex:0 0 110px;text-align:right;padding-right:10px;color:#6c757d;font-size:.875rem}
+  .timeline-marker{position:absolute;left:114px;top:22px;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 6px rgba(0,0,0,0.03)}
+  .timeline-body{padding-left:8px}
+  .marker-primary{background:#0d6efd}
+  .marker-success{background:#198754}
+  .marker-warning{background:#ffc107}
+  .timeline-entry h6{margin:0;font-size:1rem}
+  .timeline-entry p{margin:0}
+  @media (max-width:768px){
+    .timeline:before{left:48px}
+    .timeline-entry{padding-left:12px}
+    .timeline-date{display:block;width:auto;flex:0 0 auto;text-align:left;padding-right:0;margin-bottom:6px}
+    .timeline-marker{left:42px}
+    .timeline-body{padding-left:0}
+  }
+</style>
+<div class="card mb-4 shadow timeline-card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <div>
+      <strong>Timeline</strong>
+      <div class="small text-muted">Membership and Joined Events</div>
+    </div>
+  </div>
+  <div class="card-body">
+    <ul class="timeline">
+      {% if timeline_entries %}
+        {% for te in timeline_entries %}
+          <li class="timeline-entry">
+            <div class="timeline-date">{% if te.date %}{{ te.date }}{% elif te.year %}{{ te.year }}{% else %}—{% endif %}</div>
+            <div class="timeline-marker {% if te.status == 'Approved' %}marker-success{% elif te.status == 'Pending' %}marker-warning{% else %}marker-primary{% endif %}"></div>
+            <div class="timeline-body">
+              <h6 class="mb-1">Membership</h6>
+              <div class="small text-muted mb-1">{{ te.school_year_display }}</div>
+              <p class="small mb-0">Status: {{ te.status }}</p>
+              {% if te.joined_events %}
+                <div class="small fw-semibold mt-2">Joined events:</div>
+                <ul class="list-unstyled mt-1 mb-0">
+                  {% for je in te.joined_events %}
+                    <li class="small"><span class="fw-semibold">{{ je.title }}</span> <small class="text-muted">— {{ je.date }}</small></li>
+                  {% endfor %}
+                </ul>
               {% endif %}
-            </ul>
+              {% if te.status != 'DECLINED' and te.status != 'PENDING' %}
+                <form method="get" action="{% url 'officer_generate_certificate' te.id %}" style="display:inline;">
+                  <button type="submit" class="btn btn-outline-primary btn-sm mt-2">Generate</button>
+                </form>
+              {% elif te.status == 'PENDING' %}
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled>Generate (Pending)</button>
+              {% else %}
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-2" disabled>Generate (Declined)</button>
+              {% endif %}
+            </div>
+          </li>
+        {% endfor %}
+      {% else %}
+        <li class="timeline-entry">
+          <div class="timeline-date">—</div>
+          <div class="timeline-marker marker-primary"></div>
+          <div class="timeline-body">
+            <h6 class="mb-1">No membership records</h6>
+            <p class="small mb-0 text-muted">You have no recorded memberships yet.</p>
           </div>
-        </div>
-
-        <style>
-          /* Redesigned vertical timeline */
-          .timeline{list-style:none;margin:0;padding:0;position:relative}
-          .timeline:before{content:'';position:absolute;left:120px;top:12px;bottom:12px;width:2px;background:#e9ecef;border-radius:2px}
-          .timeline-entry{position:relative;display:flex;gap:16px;padding:18px 12px;border-bottom:1px solid #f1f3f5}
-          .timeline-date{width:110px;flex:0 0 110px;text-align:right;padding-right:10px;color:#6c757d;font-size:.875rem}
-          .timeline-marker{position:absolute;left:114px;top:22px;width:14px;height:14px;border-radius:50%;box-shadow:0 0 0 6px rgba(0,0,0,0.03)}
-          .timeline-body{Padding-left:8px}
-          .marker-primary{background:#0d6efd}
-          .marker-success{background:#198754}
-          .marker-warning{background:#ffc107}
-          .timeline-entry h6{margin:0;font-size:1rem}
-          .timeline-entry p{margin:0}
-
-          /* compact on mobile */
-          @media (max-width:768px){
-            .timeline:before{left:48px}
-            .timeline-entry{padding-left:12px}
-            .timeline-date{display:block;width:auto;flex:0 0 auto;text-align:left;padding-right:0;margin-bottom:6px}
-            .timeline-marker{left:42px}
-            .timeline-body{padding-left:0}
-          }
-        </style>
-      {% comment "" %}
-        <!-- Chart Placeholder -->
-        <div class="card  shadow">
-        <div class="card-header">
-          Member Participation Overview
-        </div>
-        <div class="card-body text-center text-muted" style="height: 200px;">
-          [Analytics Chart Placeholder]
-        </div>
-        </div>
-        {% endcomment %}
-    <!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
-<!-- DITO ANG END NG BODY. WAG KA LALAMPAS -->
-</div>
+        </li>
+      {% endif %}
+    </ul>
+  </div>
 </div>
 
       <!-- Subscription Status Modal -->
@@ -463,5 +575,108 @@
       modal.show();
     }
   });
+</script>
+<!-- Generate Report Modal (treasurer only) -->
+{% if user.is_treasurer %}
+<div class="modal fade" id="generateReportModal" tabindex="-1" role="dialog" aria-labelledby="generateReportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="generateReportModalLabel">Generate Report</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+      </div>
+      <div class="modal-body">
+        <form id="generateReportForm" method="post" action="{% url 'officer_generate_report' %}">
+          {% csrf_token %}
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="syStartSelect">School Year Start</label>
+                <select id="syStartSelect" name="sy_start" class="form-control">
+                  {% for sy in school_years %}
+                    {% if sy.status %}
+                      <option value="{{ sy.id }}" selected>{{ sy.sy_start.year }}</option>
+                    {% endif %}
+                  {% endfor %}
+                  {% for sy in school_years %}
+                    {% if not sy.status %}
+                      <option value="{{ sy.id }}">{{ sy.sy_start.year }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="syEndSelect">School Year End</label>
+                <select id="syEndSelect" name="sy_end" class="form-control">
+                  {% for sy in school_years %}
+                    {% if sy.status %}
+                      <option value="{{ sy.id }}" selected>{{ sy.sy_end.year }}</option>
+                    {% endif %}
+                  {% endfor %}
+                  {% for sy in school_years %}
+                    {% if not sy.status %}
+                      <option value="{{ sy.id }}">{{ sy.sy_end.year }}</option>
+                    {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="submit" class="btn btn-primary">Download</button>
+        </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+  (function(){
+    try{
+      var pieOptions = {
+        series: {{ topics_pie_series_json|safe }},
+        chart: { width: 380, type: 'pie' },
+        labels: {{ topics_pie_labels_json|safe }},
+        responsive: [{ breakpoint: 480, options: { chart: { width: 200 }, legend: { position: 'bottom' } } }]
+      };
+      var pieChart = new ApexCharts(document.querySelector('#officerTopicsPie'), pieOptions);
+      pieChart.render();
+    }catch(e){ console.error('Officer Topics pie init failed', e); }
+  })();
+  (function(){
+    try{
+      var options = {
+        series: {{ chart_series_json|safe }},
+        chart: {
+          type: 'bar',
+          height: 350
+        },
+        plotOptions: {
+          bar: {
+            horizontal: false,
+            columnWidth: '55%',
+            borderRadius: 5,
+            borderRadiusApplication: 'end'
+          }
+        },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ['transparent'] },
+        xaxis: { categories: {{ chart_categories_json|safe }} },
+        yaxis: { title: { text: 'Count' } },
+        fill: { opacity: 1 },
+        tooltip: {
+          y: { formatter: function(val){ return String(val); } }
+        }
+      };
+      var chart = new ApexCharts(document.querySelector('#officerRegChart'), options);
+      chart.render();
+    }catch(e){ console.error('Officer ApexCharts init failed', e); }
+  })();
 </script>
 {% endblock %}

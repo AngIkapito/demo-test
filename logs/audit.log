@@ -109,3 +109,9 @@
 2026-06-08 20:14:00,563 | INFO | User president (id=2) sent billing: sent=1 failed=0 ids=['2']
 2026-06-08 20:22:16,018 | INFO | User president (id=2) sent billing: sent=1 failed=0 ids=['2']
 2026-06-08 20:25:08,118 | INFO | User president (id=2) sent billing: sent=1 failed=0 ids=['2']
+2026-06-09 21:25:27,970 | INFO | User president (id=2) generated members report filename=members_report_20260609_212527.xlsx sy_start=1 sy_end=1
+2026-06-09 22:08:55,507 | INFO | User president (id=2) generated members report filename=members_report_20260609_220855.xlsx sy_start=1 sy_end=1
+2026-06-09 22:19:12,260 | INFO | User jordan02 (id=6) added event id=1 title=test
+2026-06-09 22:19:34,760 | INFO | User jordan02 (id=6) registered (officer) for event id=1 title=test member_id=2
+2026-06-09 22:19:40,893 | WARNING | User jordan02 (id=6) attempted duplicate officer registration for event id=1
+2026-06-09 22:48:26,383 | INFO | User jordan02 (id=6) [officer/treasurer] generated report filename=members_report_20260609_224826.xlsx

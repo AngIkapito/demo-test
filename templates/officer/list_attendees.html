@@ -4,6 +4,7 @@
 	<div class="card shadow mb-4">
 		<div class="card-body">
 			<div class="d-flex justify-content-between align-items-center mb-3">
+				<!-- Event filter -->
 				<form id="eventFilterForm" method="get" class="d-flex align-items-center" action="">
 					<label for="eventSelect" class="mr-3 mb-0 font-weight-bold">Attendees</label>
 					<select id="eventSelect" name="event" class="form-control mr-3">
@@ -15,28 +16,44 @@
 						{% endfor %}
 					</select>
 				</form>
-				<script>
-				// auto-submit when event selection changes
-				document.addEventListener('DOMContentLoaded', function(){
-					const sel = document.getElementById('eventSelect');
-					if(sel){ sel.addEventListener('change', function(){ document.getElementById('eventFilterForm').submit(); }); }
-				});
-				</script>
+
+				<!-- Action buttons -->
+				<div class="d-flex align-items-center gap-2">
+					<button id="selectAllBtn" class="btn btn-primary btn-sm mr-2">Select All</button>
+					{% if user.is_treasurer %}
+					<a id="exportExcelBtn"
+					   href="{% url 'export_attendees_excel_officer' %}{% if event %}?event={{ event.id }}{% endif %}"
+					   class="btn btn-success btn-sm">
+						<i class="fas fa-file-excel"></i>&nbsp; Export Excel
+					</a>
+					{% endif %}
+				</div>
 			</div>
 
 			<div class="table-responsive">
-				<table class="table table-bordered table-striped" id="attendeesTable">
+				<table class="table table-bordered table-striped text-center text-uppercase" id="attendeesTable">
 					<thead>
 						<tr>
+							<th style="width:40px;"><input type="checkbox" id="headerCheckbox" title="Select all"></th>
 							<th>First Name</th>
 							<th>Last Name</th>
 							<th>Email</th>
 							<th>Organization</th>
 						</tr>
 					</thead>
+					<tfoot>
+						<tr>
+							<th></th>
+							<th>First Name</th>
+							<th>Last Name</th>
+							<th>Email</th>
+							<th>Organization</th>
+						</tr>
+					</tfoot>
 					<tbody>
 						{% for a in attendees %}
 							<tr>
+								<td class="align-middle"><input type="checkbox" class="attendee-checkbox" value="{{ a.id }}"></td>
 								<td>{{ a.first_name }}</td>
 								<td>{{ a.last_name }}</td>
 								<td>{{ a.email }}</td>
@@ -44,7 +61,7 @@
 							</tr>
 						{% empty %}
 							<tr>
-								<td colspan="4" class="text-center">No attendees found.</td>
+								<td colspan="5" class="text-center">No attendees found.</td>
 							</tr>
 						{% endfor %}
 					</tbody>
@@ -54,19 +71,91 @@
 	</div>
 
 	<script>
-		document.addEventListener('DOMContentLoaded', function() {
-			// Initialize DataTable for attendees (search + pagination)
-			try {
-				$('#attendeesTable').DataTable({
-					"order": [[ 0, "asc" ]],
-					"paging": true,
-					"searching": true,
-					"lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
-					"columnDefs": [ { "orderable": true, "targets": [0,1,2,3] } ]
+	document.addEventListener('DOMContentLoaded', function() {
+		// DataTable
+		try {
+			$('#attendeesTable').DataTable({
+				"order": [[ 1, "asc" ]],
+				"paging": true,
+				"searching": true,
+				"lengthMenu": [ [10, 25, 50, -1], [10, 25, 50, "All"] ],
+				"columnDefs": [
+					{ "orderable": false, "targets": [0] },
+					{ "orderable": true,  "targets": [1, 2, 3, 4] }
+				]
+			});
+		} catch (e) {
+			console.warn('DataTable init failed:', e);
+		}
+
+		// Auto-submit event filter
+		var eventSelect = document.getElementById('eventSelect');
+		if (eventSelect) {
+			eventSelect.addEventListener('change', function() {
+				document.getElementById('eventFilterForm').submit();
+			});
+		}
+
+		// Header checkbox toggles all row checkboxes
+		var headerCheckbox = document.getElementById('headerCheckbox');
+		if (headerCheckbox) {
+			headerCheckbox.addEventListener('change', function() {
+				document.querySelectorAll('.attendee-checkbox').forEach(function(cb) {
+					cb.checked = headerCheckbox.checked;
 				});
-			} catch (e) {
-				console.warn('DataTable init failed:', e);
-			}
+				updateSelectAllBtn();
+				updateExportLink();
+			});
+		}
+
+		// Select All / Deselect All button
+		var selectAllBtn = document.getElementById('selectAllBtn');
+		if (selectAllBtn) {
+			selectAllBtn.addEventListener('click', function() {
+				var checkboxes = document.querySelectorAll('.attendee-checkbox');
+				var anyUnchecked = Array.from(checkboxes).some(function(cb) { return !cb.checked; });
+				checkboxes.forEach(function(cb) { cb.checked = anyUnchecked; });
+				if (headerCheckbox) headerCheckbox.checked = anyUnchecked;
+				updateSelectAllBtn();
+				updateExportLink();
+			});
+		}
+
+		// Individual checkbox keeps header and button in sync
+		document.querySelectorAll('.attendee-checkbox').forEach(function(cb) {
+			cb.addEventListener('change', function() {
+				var all = document.querySelectorAll('.attendee-checkbox');
+				var checked = document.querySelectorAll('.attendee-checkbox:checked');
+				if (headerCheckbox) headerCheckbox.checked = (checked.length === all.length && all.length > 0);
+				updateSelectAllBtn();
+				updateExportLink();
+			});
 		});
+
+		function updateSelectAllBtn() {
+			if (!selectAllBtn) return;
+			var anyUnchecked = Array.from(document.querySelectorAll('.attendee-checkbox')).some(function(cb) { return !cb.checked; });
+			selectAllBtn.innerText = anyUnchecked ? 'Select All' : 'Deselect All';
+		}
+
+		// Update export link: if rows are selected, append ids= param; else export all
+		function updateExportLink() {
+			var exportBtn = document.getElementById('exportExcelBtn');
+			if (!exportBtn) return;
+			var selected = Array.from(document.querySelectorAll('.attendee-checkbox:checked')).map(function(cb) { return cb.value; }).filter(Boolean);
+			var baseUrl = exportBtn.dataset.baseUrl || exportBtn.getAttribute('href').split('&ids=')[0].split('?ids=')[0];
+			exportBtn.dataset.baseUrl = baseUrl;
+			if (selected.length > 0) {
+				var sep = baseUrl.indexOf('?') !== -1 ? '&' : '?';
+				exportBtn.href = baseUrl + sep + 'ids=' + selected.join(',');
+			} else {
+				exportBtn.href = baseUrl;
+			}
+		}
+
+		// Initialize export link base
+		var exportBtn = document.getElementById('exportExcelBtn');
+		if (exportBtn) exportBtn.dataset.baseUrl = exportBtn.getAttribute('href');
+	});
 	</script>
-	{% endblock %}
+{% endblock %}

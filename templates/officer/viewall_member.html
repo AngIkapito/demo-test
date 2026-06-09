@@ -1,0 +1,192 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+{% include 'includes/messages.html' %}
+
+<div class="card shadow mb-4">
+   <div class="card-body">
+
+      <div class="col-sm-12">
+         <div class="d-sm-flex align-items-center justify-content-between mb-4">
+
+            <div class="d-flex flex-column align-items-start gap-1">
+                <a href="{% url 'officer_home' %}" class="btn btn-secondary" title="Go Back">
+                    <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
+                <form method="get" action="{% url 'viewall_member_officer' %}" id="orgFilterForm" class="d-flex flex-column gap-1 mt-1">
+                    <select name="organization" class="form-select form-select-sm" onchange="document.getElementById('orgFilterForm').submit();" style="min-width:180px;">
+                        <option value="">All Organizations</option>
+                        {% for org in organizations %}
+                            <option value="{{ org.id }}" {% if selected_org == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="membershiptype" class="form-select form-select-sm" onchange="document.getElementById('orgFilterForm').submit();" style="min-width:180px;">
+                        <option value="">All Membership Types</option>
+                        {% for mt in membershiptypes %}
+                            <option value="{{ mt.id }}" {% if selected_mtype == mt.id|stringformat:"s" %}selected{% endif %}>{{ mt.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <select name="payment_method" class="form-select form-select-sm" onchange="document.getElementById('orgFilterForm').submit();" style="min-width:180px;">
+                        <option value="">All Payment Methods</option>
+                        {% for pm in payment_methods %}
+                            <option value="{{ pm }}" {% if selected_payment == pm %}selected{% endif %}>{{ pm }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="d-flex align-items-center gap-1">
+                        <input type="date" name="date_from" class="form-control form-control-sm" value="{{ date_from }}" title="From date" onchange="document.getElementById('orgFilterForm').submit();" style="min-width:130px;">
+                        <span class="small text-muted">to</span>
+                        <input type="date" name="date_to" class="form-control form-control-sm" value="{{ date_to }}" title="To date" onchange="document.getElementById('orgFilterForm').submit();" style="min-width:130px;">
+                        {% if date_from or date_to %}
+                        <a href="{% url 'viewall_member_officer' %}{% if selected_org %}?organization={{ selected_org }}{% endif %}{% if selected_mtype %}{% if selected_org %}&{% else %}?{% endif %}membershiptype={{ selected_mtype }}{% endif %}" class="btn btn-outline-secondary btn-sm" title="Clear dates">&times;</a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+
+            <h1 class="h3 mb-0 text-gray-800">Member List</h1>
+
+            <div class="d-flex flex-column align-items-end gap-1">
+                <div class="d-flex" style="gap:8px;">
+                    <a href="{% url 'add_member_officer' %}" class="btn btn-primary" title="Add Member">
+                        <i class="fas fa-plus"></i>&nbsp;&nbsp; Member
+                    </a>
+                    <a id="exportPdfBtn" href="{% url 'export_member_pdf_officer' %}" target="_blank" class="btn btn-danger" title="Export PDF">
+                        <i class="fas fa-file-pdf"></i>&nbsp;&nbsp; Export PDF
+                    </a>
+                </div>
+                <br>
+                <div class="d-flex" style="gap:10px;">
+                    <button type="button" id="selectAllBtn" class="btn btn-primary btn-sm">Select All</button>
+                    <button type="button" id="deselectAllBtn" class="btn btn-primary btn-sm" style="display:none;">Deselect All</button>
+                </div>
+            </div>
+         </div>
+      </div>
+
+      <div class="table-responsive">
+          <table class="table text-center text-uppercase table-bordered" id="dataTable" width="100%" cellspacing="0">
+            <thead>
+               <tr>
+                  <th style="width:36px;"><input type="checkbox" id="selectAllCheck" title="Select all"></th>
+                  <th>Firstname</th>
+                  <th>Lastname</th>
+                  <th>School/Organization</th>
+                  <th>Position</th>
+                  <th>MembershipType</th>
+                  <th class="text-center">Action</th>
+               </tr>
+            </thead>
+            <tfoot>
+              <tr>
+                 <th></th>
+                 <th>Firstname</th>
+                 <th>Lastname</th>
+                 <th>School/Organization</th>
+                 <th>Position</th>
+                 <th>MembershipType</th>
+                 <th class="text-center">Action</th>
+              </tr>
+            </tfoot>
+
+           <tbody>
+               {% for i in members %}
+                   <tr>
+                       <td class="text-center"><input type="checkbox" class="row-check" value="{{ i.id }}"></td>
+                       <td>{{ i.admin.first_name|upper }}</td>
+                       <td>{{ i.admin.last_name|upper }}</td>
+                       <td>{{ i.organization.name|upper }}</td>
+                       <td>{{ i.position|upper }}</td>
+                       <td>{{ i.membershiptype.name|upper }}</td>
+                       <td class="text-center">
+                           <div class="d-flex justify-content-center align-items-center">
+                               <a href="{% url 'member_details_officer' i.id %}" class="btn btn-sm bg-info-light view-btn" data-toggle="tooltip" title="View Member Info">
+                                   <i class="fas fa-eye"></i>
+                               </a>
+                           </div>
+                       </td>
+                   </tr>
+               {% empty %}
+               <tr>
+                   <td colspan="7">No members found.</td>
+               </tr>
+               {% endfor %}
+           </tbody>
+         </table>
+      </div>
+   </div>
+</div>
+
+<script>
+   $(document).ready(function() {
+       $('#dataTable').DataTable({
+           "order": [[ 4, "desc" ]],
+           "paging": true,
+           "searching": true,
+           "columnDefs": [
+               { "orderable": false, "searchable": false, "targets": 0 },
+               { "orderable": true, "targets": [1, 2, 3, 4, 5, 6] }
+           ]
+       });
+   });
+</script>
+
+<script>
+(function(){
+    var table = document.getElementById('dataTable');
+    var selectAllCheck = document.getElementById('selectAllCheck');
+    var selectAllBtn   = document.getElementById('selectAllBtn');
+    var deselectAllBtn = document.getElementById('deselectAllBtn');
+
+    function getVisibleCheckboxes(){
+        return Array.from(table.querySelectorAll('tbody .row-check'));
+    }
+    function syncHeaderCheck(){
+        var boxes = getVisibleCheckboxes();
+        var checkedCount = boxes.filter(function(cb){ return cb.checked; }).length;
+        selectAllCheck.checked = boxes.length > 0 && checkedCount === boxes.length;
+        selectAllCheck.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+        selectAllBtn.style.display   = checkedCount > 0 ? 'none' : '';
+        deselectAllBtn.style.display = checkedCount > 0 ? ''     : 'none';
+    }
+    function selectAll(checked){
+        getVisibleCheckboxes().forEach(function(cb){ cb.checked = checked; });
+        syncHeaderCheck();
+    }
+    selectAllCheck.addEventListener('change', function(){ selectAll(this.checked); });
+    selectAllBtn.addEventListener('click',    function(){ selectAll(true); });
+    deselectAllBtn.addEventListener('click',  function(){ selectAll(false); });
+    table.addEventListener('change', function(e){
+        if(e.target && e.target.classList.contains('row-check')) syncHeaderCheck();
+    });
+    if(window.jQuery){
+        $(document).on('draw.dt', '#dataTable', function(){ syncHeaderCheck(); });
+    }
+})();
+</script>
+
+<script>
+(function(){
+    var exportBtn  = document.getElementById('exportPdfBtn');
+    var filterForm = document.getElementById('orgFilterForm');
+    if(!exportBtn || !filterForm) return;
+    function updateExportLink(){
+        var params = new URLSearchParams();
+        var org = filterForm.querySelector('[name="organization"]');
+        var mt  = filterForm.querySelector('[name="membershiptype"]');
+        var pm  = filterForm.querySelector('[name="payment_method"]');
+        var dfr = filterForm.querySelector('[name="date_from"]');
+        var dto = filterForm.querySelector('[name="date_to"]');
+        if(org && org.value) params.set('organization',   org.value);
+        if(mt  && mt.value)  params.set('membershiptype', mt.value);
+        if(pm  && pm.value)  params.set('payment_method', pm.value);
+        if(dfr && dfr.value) params.set('date_from',      dfr.value);
+        if(dto && dto.value) params.set('date_to',        dto.value);
+        var qs = params.toString();
+        exportBtn.href = "{% url 'export_member_pdf_officer' %}" + (qs ? '?' + qs : '');
+    }
+    filterForm.addEventListener('change', updateExportLink);
+    updateExportLink();
+})();
+</script>
+
+{% endblock %}

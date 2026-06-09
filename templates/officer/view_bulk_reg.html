@@ -1,0 +1,422 @@
+{% extends "includes/base.html" %}
+{% load static %}
+
+{% block content %}
+{% include 'includes/messages.html' %}
+
+<div class="card shadow mb-4">
+	<div class="card-body">
+		<div class="col-sm-12">
+			<div class="d-sm-flex align-items-center mb-4">
+				<a href="{% url 'officer_home' %}" class="btn btn-secondary" title="Go Back">
+					<i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+				</a>
+				<h1 class="h3 mb-0 text-gray-800 mx-auto">Member Event Registration</h1>
+			</div>
+
+			<!-- Bulk action controls -->
+			<div class="mb-3 d-flex justify-content-end">
+				<div class="me-3">
+					<label for="eventFilter" class="form-label mb-1 small">Filter Event</label>
+					<select id="eventFilter" class="form-select form-select-sm">
+						<option value="">All Events</option>
+						{% for ev in events %}
+							<option value="{{ ev.id }}" data-status="{{ ev.status }}" {% if selected_event_id and ev.id == selected_event_id %}selected{% endif %}>
+								{{ ev.title }}{% if ev.status == 'active' %} (active){% endif %}
+							</option>
+						{% endfor %}
+					</select>
+				</div>
+				<div class="btn-group" role="group">
+					<button id="selectAllBtn" class="btn btn-primary btn-sm">Select All</button>
+					<button id="approveSelectedBtn" class="btn btn-success btn-sm">Approve Selected</button>
+					<button id="declineSelectedBtn" class="btn btn-danger btn-sm">Decline Selected</button>
+					<button id="presentSelectedBtn" class="btn btn-warning btn-sm">Present Selected</button>
+					<button id="absentSelectedBtn" class="btn btn-secondary btn-sm">Absent Selected</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="table-responsive">
+			<table class="table table-bordered text-center text-uppercase" id="dataTable" width="100%" cellspacing="0">
+				<thead>
+					<tr>
+						<th></th>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>School</th>
+						<th>Attending As</th>
+						<th class="text-center">Approval Status</th>
+						<th class="text-center">Attendance Status</th>
+						<th class="text-center">Actions</th>
+					</tr>
+				</thead>
+				<tfoot>
+					<tr>
+						<th></th>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>School</th>
+						<th>Attending As</th>
+						<th class="text-center">Approval Status</th>
+						<th class="text-center">Attendance Status</th>
+						<th class="text-center">Actions</th>
+					</tr>
+				</tfoot>
+				<tbody>
+					{% for reg in bulk_regs %}
+					<tr data-event-id="{{ reg.event_id }}">
+						<td class="align-middle"><input type="checkbox" class="member-checkbox" value="{{ reg.id }}"></td>
+						<td>{{ reg.last_name }}</td>
+						<td>{{ reg.first_name }}</td>
+						<td>
+							{% if reg.registered_by and reg.registered_by.organization %}
+								{{ reg.registered_by.organization.name }}
+							{% else %}
+								N/A
+							{% endif %}
+						</td>
+						<td>{{ reg.attending_as|default:"" }}</td>
+						<td class="text-center align-middle">
+							{% if reg.is_approved %}
+								<span class="badge bg-success">Approved</span>
+							{% else %}
+								<span class="badge bg-danger">Declined</span>
+							{% endif %}
+						</td>
+						<td class="text-center align-middle">
+							{% if reg.is_present %}
+								<span class="badge bg-success">Present</span>
+							{% else %}
+								<span class="badge bg-danger">Absent</span>
+							{% endif %}
+						</td>
+						<td class="text-center">
+							{% if reg.registered_by %}
+								<div class="btn-group" role="group">
+									<button class="btn btn-sm btn-info view-bulk-btn"
+											data-member-id="{{ reg.registered_by.id }}"
+											data-event-id="{{ reg.event_id }}"
+											title="View Bulk"
+											{% if not reg.is_approved or not reg.is_present %}disabled{% endif %}>
+										<i class="fas fa-eye"></i>
+									</button>
+									{% if reg.is_approved %}
+										<button class="btn btn-sm btn-danger approve-btn" data-id="{{ reg.id }}" title="Decline">Decline</button>
+									{% else %}
+										<button class="btn btn-sm btn-success approve-btn" data-id="{{ reg.id }}" title="Approve">Approve</button>
+									{% endif %}
+									{% if reg.is_present %}
+										<button class="btn btn-sm btn-warning present-btn" data-id="{{ reg.id }}" title="Absent" {% if not reg.is_approved %}disabled{% endif %}>Absent</button>
+									{% else %}
+										<button class="btn btn-sm btn-primary present-btn" data-id="{{ reg.id }}" title="Present" {% if not reg.is_approved %}disabled{% endif %}>Present</button>
+									{% endif %}
+								</div>
+							{% else %}
+								-
+							{% endif %}
+						</td>
+					</tr>
+					{% empty %}
+					<tr>
+						<td colspan="8" class="text-center">No registrations found.</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<!-- Inline bulk details section -->
+<div id="bulkDetailsSection" class="card shadow mb-4 d-none">
+	<div class="card-body">
+		<div class="d-sm-flex align-items-center justify-content-between mb-4">
+			<h3 class="h5 mb-0 text-gray-800">Bulk Registrations for <b><span id="bulkOwnerName"></span></b></h3>
+			<div>
+				<button class="btn btn-primary me-2" id="bulkSelectAllBtn">Select All</button>
+				<button class="btn btn-success me-2" id="bulkApproveBtn">Approve Selected</button>
+				<button class="btn btn-danger me-2" id="bulkDeclineBtn">Decline Selected</button>
+				<button class="btn btn-success me-2" id="bulkPresentBtn">Mark Present</button>
+				<button class="btn btn-danger me-2" id="bulkAbsentBtn">Mark Absent</button>
+				<button class="btn btn-secondary" id="closeBulkDetails">Back</button>
+			</div>
+		</div>
+		<div class="table-responsive">
+			<table class="table table-sm table-bordered text-center text-uppercase" id="bulkDetailsTable" width="100%" cellspacing="0">
+				<thead>
+					<tr>
+						<th></th>
+						<th>Last Name</th>
+						<th>First Name</th>
+						<th>Attending As</th>
+					</tr>
+				</thead>
+				<tbody id="bulkDetailsTbody"></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+
+<script>
+$(document).ready(function() {
+	$('#dataTable').DataTable({
+		"order": [[ 1, "asc" ]],
+		"paging": true,
+		"searching": true,
+		"columnDefs": [
+			{ "orderable": true,  "targets": [1, 2, 3, 4, 5, 6] },
+			{ "orderable": false, "targets": [0, 7] }
+		]
+	});
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	var eventFilter = document.getElementById('eventFilter');
+	if (!eventFilter) return;
+
+	document.querySelectorAll('.approve-btn, .present-btn, .view-bulk-btn').forEach(function(btn) {
+		btn.dataset.origDisabled = btn.disabled ? 'true' : 'false';
+	});
+
+	function setActionsDisabled(disabled) {
+		['selectAllBtn','approveSelectedBtn','declineSelectedBtn','presentSelectedBtn','absentSelectedBtn'].forEach(function(id) {
+			var b = document.getElementById(id);
+			if (b) b.disabled = disabled;
+		});
+		document.querySelectorAll('.approve-btn, .present-btn, .view-bulk-btn').forEach(function(btn) {
+			btn.disabled = disabled || btn.dataset.origDisabled === 'true';
+		});
+	}
+
+	function applySelectedEventState(sel) {
+		var opt = sel.options[sel.selectedIndex];
+		var status = opt ? opt.dataset.status : undefined;
+		setActionsDisabled(status && status !== 'active');
+	}
+
+	applySelectedEventState(eventFilter);
+	eventFilter.addEventListener('change', function() {
+		applySelectedEventState(this);
+		var url = new URL(window.location.href);
+		if (this.value) url.searchParams.set('event', this.value);
+		else url.searchParams.delete('event');
+		window.location.href = url.toString();
+	});
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+	function getCookie(name) {
+		var val = null;
+		if (document.cookie) {
+			document.cookie.split(';').forEach(function(c) {
+				c = c.trim();
+				if (c.startsWith(name + '=')) val = decodeURIComponent(c.substring(name.length + 1));
+			});
+		}
+		return val;
+	}
+	var csrftoken = getCookie('csrftoken');
+
+	// Select All toggle
+	var selectAllBtn = document.getElementById('selectAllBtn');
+	if (selectAllBtn) {
+		selectAllBtn.dataset.all = 'false';
+		selectAllBtn.addEventListener('click', function() {
+			var all = document.querySelectorAll('.member-checkbox');
+			var setTo = this.dataset.all !== 'true';
+			all.forEach(function(cb) { cb.checked = setTo; });
+			this.dataset.all = setTo ? 'true' : 'false';
+			this.innerText = setTo ? 'Unselect All' : 'Select All';
+		});
+	}
+
+	function getSelectedIds() {
+		return Array.from(document.querySelectorAll('.member-checkbox:checked')).map(function(cb) { return cb.value; }).filter(Boolean);
+	}
+
+	function bulkAction(ids, url) {
+		if (!ids.length) { alert('No members selected'); return Promise.resolve(); }
+		return fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
+			body: JSON.stringify({ ids: ids })
+		}).then(function(r) { return r.json(); });
+	}
+
+	function bindBulkBtn(btnId, url) {
+		var btn = document.getElementById(btnId);
+		if (!btn) return;
+		btn.addEventListener('click', function() {
+			var ids = getSelectedIds();
+			if (!ids.length) { alert('No members selected'); return; }
+			btn.disabled = true;
+			bulkAction(ids, url).then(function() { btn.disabled = false; window.location.reload(); })
+				.catch(function(e) { btn.disabled = false; console.error(e); alert('Action failed'); });
+		});
+	}
+
+	bindBulkBtn('approveSelectedBtn', '/hoo/MemberRegistrations/ApproveMultiple/');
+	bindBulkBtn('declineSelectedBtn', '/hoo/MemberRegistrations/DeclineMultiple/');
+	bindBulkBtn('presentSelectedBtn', '/hoo/MemberRegistrations/PresentMultiple/');
+	bindBulkBtn('absentSelectedBtn',  '/hoo/MemberRegistrations/AbsentMultiple/');
+
+	// Individual approve/decline
+	document.querySelectorAll('.approve-btn').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			var regId = this.dataset.id;
+			var isApprove = this.innerText.trim().toLowerCase() === 'approve';
+			var url = isApprove ? '/hoo/MemberRegistrations/Approve/' + regId + '/' : '/hoo/MemberRegistrations/Decline/' + regId + '/';
+			fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({}) })
+				.then(function(r) { return r.json(); })
+				.then(function(data) { if (data && data.success) window.location.reload(); else alert('Failed to update approval'); })
+				.catch(function(e) { console.error(e); alert('Error updating approval'); });
+		});
+	});
+
+	// Individual present/absent
+	document.querySelectorAll('.present-btn').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			if (this.disabled) return;
+			var regId = this.dataset.id;
+			var isPresent = this.innerText.trim().toLowerCase() === 'present';
+			var url = isPresent ? '/hoo/MemberRegistrations/Present/' + regId + '/' : '/hoo/MemberRegistrations/Absent/' + regId + '/';
+			fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({}) })
+				.then(function(r) { return r.json(); })
+				.then(function(data) { if (data && data.success) window.location.reload(); else alert('Failed to update attendance'); })
+				.catch(function(e) { console.error(e); alert('Error toggling attendance'); });
+		});
+	});
+
+	// View bulk details
+	document.querySelectorAll('.view-bulk-btn').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			if (this.disabled) return;
+			var memberId = this.dataset.memberId;
+			var eventId  = this.dataset.eventId || (this.closest('tr') ? this.closest('tr').dataset.eventId : null);
+			fetch('/hoo/MemberRegistrations/Get/' + memberId + '/', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+				.then(function(r) { return r.json(); })
+				.then(function(data) {
+					var rows = data.bulk_regs || [];
+					var ownerName = data.member_name || '';
+					if (eventId) {
+						rows = rows.filter(function(r) {
+							if (r.event_id === undefined) return false;
+							if (String(r.event_id) !== String(eventId)) return false;
+							if (r.event_status !== undefined && r.event_status !== 'active') return false;
+							return true;
+						});
+					} else {
+						rows = rows.filter(function(r) { return r.event_status === undefined || r.event_status === 'active'; });
+					}
+					document.getElementById('bulkOwnerName').innerText = ownerName;
+					var tbody = document.getElementById('bulkDetailsTbody');
+					tbody.innerHTML = '';
+					if (!rows.length) {
+						tbody.innerHTML = '<tr><td colspan="4" class="text-center">No bulk registrations found.</td></tr>';
+					} else {
+						rows.forEach(function(r) {
+							var tr = document.createElement('tr');
+							tr.innerHTML = '<td><input type="checkbox" class="bulk-row-checkbox" value="' + (r.id || '') + '"></td><td>' + r.last_name + '</td><td>' + r.first_name + '</td><td>' + (r.attending_as || '') + '</td>';
+							tbody.appendChild(tr);
+						});
+					}
+					document.getElementById('bulkDetailsSection').classList.remove('d-none');
+					document.getElementById('bulkDetailsSection').scrollIntoView({ behavior: 'smooth' });
+
+					// Select all for detail table
+					var bulkSelectAllBtn = document.getElementById('bulkSelectAllBtn');
+					if (bulkSelectAllBtn) {
+						bulkSelectAllBtn.dataset.all = 'false';
+						bulkSelectAllBtn.innerText = 'Select All';
+						bulkSelectAllBtn.addEventListener('click', function() {
+							var all = document.querySelectorAll('#bulkDetailsTbody .bulk-row-checkbox');
+							var setTo = this.dataset.all !== 'true';
+							all.forEach(function(cb) { cb.checked = setTo; });
+							this.dataset.all = setTo ? 'true' : 'false';
+							this.innerText = setTo ? 'Unselect All' : 'Select All';
+						});
+					}
+
+					function getDetailIds() {
+						return Array.from(document.querySelectorAll('#bulkDetailsTbody .bulk-row-checkbox:checked')).map(function(cb) { return cb.value; }).filter(Boolean);
+					}
+
+					var bulkApproveBtn = document.getElementById('bulkApproveBtn');
+					if (bulkApproveBtn) bulkApproveBtn.addEventListener('click', function() {
+						var ids = getDetailIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						var btn = this; btn.disabled = true;
+						fetch('/hoo/MemberRegistrations/BulkApproveMultiple/', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
+							body: JSON.stringify({ ids: ids })
+						}).then(function(r) { return r.json(); })
+						.then(function() { btn.disabled = false; window.location.reload(); })
+						.catch(function(e) { btn.disabled = false; console.error(e); alert('Error during bulk approve'); });
+					});
+
+					var bulkDeclineBtn = document.getElementById('bulkDeclineBtn');
+					if (bulkDeclineBtn) bulkDeclineBtn.addEventListener('click', function() {
+						var ids = getDetailIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						var btn = this; btn.disabled = true;
+						Promise.all(ids.map(function(id) {
+							return fetch('/hoo/MemberRegistrations/BulkDecline/' + id + '/', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
+								body: JSON.stringify({})
+							}).then(function(r) { return r.json(); });
+						})).then(function() { btn.disabled = false; window.location.reload(); })
+						.catch(function(e) { btn.disabled = false; console.error(e); alert('Error during bulk decline'); });
+					});
+
+					var bulkPresentBtn = document.getElementById('bulkPresentBtn');
+					if (bulkPresentBtn) bulkPresentBtn.addEventListener('click', function() {
+						var ids = getDetailIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(function(id) {
+							return fetch('/hoo/attendance/toggle/', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
+								body: JSON.stringify({ id: id, present: true })
+							}).then(function(r) { return r.json(); });
+						})).then(function() { window.location.reload(); })
+						.catch(function(e) { console.error(e); alert('Error during bulk present'); });
+					});
+
+					var bulkAbsentBtn = document.getElementById('bulkAbsentBtn');
+					if (bulkAbsentBtn) bulkAbsentBtn.addEventListener('click', function() {
+						var ids = getDetailIds();
+						if (!ids.length) { alert('No rows selected'); return; }
+						Promise.all(ids.map(function(id) {
+							return fetch('/hoo/attendance/toggle/', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken, 'X-Requested-With': 'XMLHttpRequest' },
+								body: JSON.stringify({ id: id, present: false })
+							}).then(function(r) { return r.json(); });
+						})).then(function() { window.location.reload(); })
+						.catch(function(e) { console.error(e); alert('Error during bulk absent'); });
+					});
+				})
+				.catch(function(e) {
+					console.error('Error fetching bulk rows', e);
+					var tbody = document.getElementById('bulkDetailsTbody');
+					tbody.innerHTML = '<tr><td colspan="4" class="text-danger text-center">Failed to load data.</td></tr>';
+					document.getElementById('bulkDetailsSection').classList.remove('d-none');
+				});
+		});
+	});
+
+	document.getElementById('closeBulkDetails').addEventListener('click', function() {
+		document.getElementById('bulkDetailsSection').classList.add('d-none');
+		document.getElementById('bulkDetailsTbody').innerHTML = '';
+	});
+});
+</script>
+
+{% endblock %}
