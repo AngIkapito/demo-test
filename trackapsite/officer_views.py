@@ -9,7 +9,9 @@ from django.utils import timezone
 from django.http import JsonResponse
 import datetime
 from django.views.decorators.http import require_http_methods
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage, EmailMultiAlternatives
+from email.mime.image import MIMEImage
+from django.db.models import Max
 from django.utils.crypto import get_random_string
 import json
 from django.db import transaction
@@ -1531,6 +1533,212 @@ def EXPORT_ATTENDEES_EXCEL(request):
     response['Content-Disposition'] = f'attachment; filename="attendees_{event_label}.xlsx"'
     wb.save(response)
     return response
+
+
+@login_required(login_url='/')
+def EVENT_INVITATIONS(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can send event invitations.')
+        return redirect('officer_home')
+
+    status_filter = request.GET.get('status_filter', 'all')
+    base_qs = Member.objects.select_related('admin', 'organization')
+
+    if status_filter in ('active', 'inactive'):
+        latest = Membership.objects.values('member_id').annotate(latest_id=Max('id'))
+        latest_ids = [r['latest_id'] for r in latest if r.get('latest_id')]
+        if latest_ids:
+            if status_filter == 'active':
+                member_ids = list(Membership.objects.filter(id__in=latest_ids, status__iexact='APPROVED').values_list('member_id', flat=True))
+            else:
+                member_ids = list(Membership.objects.filter(id__in=latest_ids, status__iexact='DECLINED').values_list('member_id', flat=True))
+            members = base_qs.filter(id__in=member_ids)
+        else:
+            members = Member.objects.none()
+    else:
+        members = base_qs.all()
+
+    return render(request, 'officer/event_invitations.html', {'members': members, 'status_filter': status_filter})
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def SEND_INVITATIONS(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can send invitations.')
+        return redirect('officer_home')
+
+    member_ids = request.POST.getlist('member_ids')
+    subject    = request.POST.get('subject', '').strip()
+    body       = request.POST.get('body', '').strip()
+
+    if not member_ids:
+        messages.error(request, 'No members selected for invitations.')
+        return redirect('officer_event_invitations')
+
+    if not subject or not body:
+        messages.error(request, 'Subject and message body are required.')
+        return redirect('officer_event_invitations')
+
+    members    = Member.objects.select_related('admin').filter(id__in=member_ids)
+    recipients = [m.admin.email for m in members if getattr(m, 'admin', None) and getattr(m.admin, 'email', None)]
+
+    if not recipients:
+        messages.error(request, 'Selected members do not have email addresses.')
+        return redirect('officer_event_invitations')
+
+    event       = Event.objects.filter(status='active').order_by('-date').first()
+    event_title = event.title if event else ''
+    banner_path = None
+    qr_path     = None
+    banner_url  = ''
+
+    if event and getattr(event, 'banner', None):
+        try:
+            banner_url  = request.build_absolute_uri(event.banner.url)
+            banner_path = event.banner.path
+        except Exception:
+            pass
+
+    if event and getattr(event, 'qr_code', None):
+        try:
+            qr_path = event.qr_code.path
+        except Exception:
+            pass
+
+    message = f"{body}\n\n"
+    if event_title:
+        message += f"Event: {event_title}\n"
+    if banner_url:
+        message += f"Banner: {banner_url}\n"
+
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+    try:
+        parts = []
+        if banner_path and os.path.exists(banner_path):
+            parts.append('<img src="cid:bannerimg" alt="Event Banner" style="display:block;width:80px;height:80px;object-fit:cover;margin:0 0 8px 0;">')
+        parts.append(f"<div>{body.replace(chr(10), '<br>')}</div>")
+        if qr_path and os.path.exists(qr_path):
+            parts.append('<div style="margin-top:12px;"><p style="margin:0 0 6px 0;"><strong>Scan QR to register:</strong></p><img src="cid:qrimg" alt="Event QR" style="width:200px;height:200px;object-fit:contain;"></div>')
+        html_content = f"<div>{''.join(parts)}</div>"
+
+        msg = EmailMultiAlternatives(subject=subject, body=message, from_email=from_email, to=[from_email], bcc=recipients)
+        msg.attach_alternative(html_content, "text/html")
+
+        if banner_path and os.path.exists(banner_path):
+            try:
+                with open(banner_path, 'rb') as f:
+                    img_data = f.read()
+                mime_img = MIMEImage(img_data)
+                mime_img.add_header('Content-ID', '<bannerimg>')
+                mime_img.add_header('Content-Disposition', 'inline; filename="%s"' % os.path.basename(banner_path))
+                msg.attach(mime_img)
+            except Exception:
+                pass
+
+        if qr_path and os.path.exists(qr_path):
+            try:
+                with open(qr_path, 'rb') as f:
+                    qr_data = f.read()
+                mime_qr = MIMEImage(qr_data)
+                mime_qr.add_header('Content-ID', '<qrimg>')
+                mime_qr.add_header('Content-Disposition', 'inline; filename="%s"' % os.path.basename(qr_path))
+                msg.attach(mime_qr)
+            except Exception:
+                pass
+
+        for uploaded in request.FILES.getlist('attachment'):
+            try:
+                msg.attach(uploaded.name, uploaded.read(), getattr(uploaded, 'content_type', 'application/pdf'))
+            except Exception:
+                continue
+
+        msg.send(fail_silently=False)
+        messages.success(request, f'Invitations sent to {len(recipients)} recipient(s).')
+        audit_logger.info(f"User {request.user.username} (id={request.user.id}) sent invitations to {len(recipients)} recipients; member_ids={member_ids}; event_id={getattr(event, 'id', None)}")
+    except Exception as e:
+        messages.error(request, f'Failed to send invitations: {str(e)}')
+        audit_logger.exception(f"Failed to send invitations by user {request.user.username} (id={request.user.id}) error={e}")
+
+    return redirect('officer_event_invitations')
+
+
+@login_required(login_url='/')
+def SEND_BILLING_PAGE(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can send billing.')
+        return redirect('officer_home')
+
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = Member.objects.filter(id__in=approved_ids).select_related(
+        'admin', 'organization', 'membershiptype', 'officertype', 'salutation'
+    ).order_by('organization__name', 'admin__last_name')
+
+    selected_org   = request.GET.get('organization', '')
+    selected_mtype = request.GET.get('membershiptype', '')
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+
+    organizations   = Organization.objects.filter(id__in=Member.objects.filter(id__in=approved_ids).values_list('organization_id', flat=True)).order_by('name')
+    membershiptypes = MembershipType.objects.filter(id__in=Member.objects.filter(id__in=approved_ids).values_list('membershiptype_id', flat=True)).order_by('name')
+
+    return render(request, 'officer/send_billing.html', {
+        'members': members,
+        'organizations': organizations,
+        'membershiptypes': membershiptypes,
+        'selected_org': selected_org,
+        'selected_mtype': selected_mtype,
+    })
+
+
+@login_required(login_url='/')
+@require_http_methods(["POST"])
+def PROCESS_SEND_BILLING(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Only the treasurer can send billing.')
+        return redirect('officer_home')
+
+    member_ids = request.POST.getlist('member_ids')
+    subject    = request.POST.get('subject', 'PSITE Membership Billing Invoice').strip()
+    body_text  = request.POST.get('body', '').strip()
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None)
+    logo_path  = os.path.join(settings.BASE_DIR, 'static', 'img', 'psitecl-logo.png')
+    today_str  = datetime.date.today().strftime('%B %d, %Y')
+
+    if not member_ids:
+        messages.error(request, 'No members selected.')
+        return redirect('send_billing_officer')
+
+    from trackapsite.hoo_views import _generate_billing_pdf
+    members = Member.objects.filter(id__in=member_ids).select_related('admin', 'organization', 'membershiptype', 'officertype', 'salutation')
+    sent = failed = 0
+    for member in members:
+        email = getattr(member.admin, 'email', None)
+        if not email:
+            failed += 1
+            continue
+        try:
+            pdf_buf   = _generate_billing_pdf(member, today_str, logo_path)
+            full_name = f"{member.admin.first_name} {member.admin.last_name}".strip()
+            msg_body  = body_text or (
+                f"Dear {full_name},\n\nPlease find attached your PSITE membership billing invoice.\n\nKindly settle the payment at your earliest convenience.\n\nThank you."
+            )
+            email_msg = EmailMessage(subject=subject, body=msg_body, from_email=from_email, to=[email])
+            email_msg.attach(f"billing_{(member.admin.username or member.id)}.pdf", pdf_buf.read(), 'application/pdf')
+            email_msg.send()
+            sent += 1
+        except Exception as exc:
+            failed += 1
+            audit_logger.error(f"Billing email failed for member id={member.id}: {exc}")
+
+    if sent:
+        messages.success(request, f'Billing invoice sent to {sent} member(s).')
+    if failed:
+        messages.warning(request, f'Failed to send to {failed} member(s) (no email or error).')
+    audit_logger.info(f"User {request.user.username} (id={request.user.id}) sent billing: sent={sent} failed={failed} ids={member_ids}")
+    return redirect('send_billing_officer')
 
 
 @login_required(login_url='/')

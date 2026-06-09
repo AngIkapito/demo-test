@@ -231,9 +231,8 @@
                 <a class="collapse-item" href="">View Membership</a>
                 {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "viewall_member_officer" %}">Members List</a>
-                {% endif %}
-                {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "membership_approval_officer" %}">Membership Approval</a>
+                <a class="collapse-item" href="{% url "send_billing_officer" %}">Send Billing</a>
                 {% endif %}
             </div>
         </div>
@@ -258,6 +257,7 @@
                 <a class="collapse-item" href="{% url "list_attendees_officer" %}">Event Attendees</a>
                 {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "viewall_bulk_reg_officer" %}">Event Approval/Attendance</a>
+                <a class="collapse-item" href="{% url "officer_event_invitations" %}">Event Invitations</a>
                 {% endif %}
             </div>
         </div>

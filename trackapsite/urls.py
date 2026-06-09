@@ -173,6 +173,10 @@ urlpatterns = [
     path('officer/Event/Attendees', officer_views.LIST_ATTENDEES_OFFICER, name='list_attendees_officer'),
     path('officer/Event/Attendees/ExportExcel', officer_views.EXPORT_ATTENDEES_EXCEL, name='export_attendees_excel_officer'),
     path('officer/BulkRegistrations/ViewAll', officer_views.VIEWALL_BULK_REG, name='viewall_bulk_reg_officer'),
+    path('officer/Event/Invitations', officer_views.EVENT_INVITATIONS, name='officer_event_invitations'),
+    path('officer/SendInvitations', officer_views.SEND_INVITATIONS, name='officer_send_invitations'),
+    path('officer/Member/SendBilling', officer_views.SEND_BILLING_PAGE, name='send_billing_officer'),
+    path('officer/Member/ProcessSendBilling', officer_views.PROCESS_SEND_BILLING, name='process_send_billing_officer'),
     
     path('officer/GenerateReport', officer_views.GENERATE_REPORT, name='officer_generate_report'),
     path('officer/Member/Add', officer_views.ADD_MEMBER, name='add_member_officer'),

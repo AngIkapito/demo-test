@@ -1,0 +1,197 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+{% include 'includes/messages.html' %}
+
+<div class="card shadow mb-4">
+   <div class="card-body">
+      <div class="col-sm-12">
+         <div class="d-sm-flex align-items-center justify-content-between mb-4">
+            <a href="{% url 'officer_home' %}" class="btn btn-secondary" title="Go Back">
+                <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+            </a>
+            <h1 class="h3 mb-0 text-gray-800">Send Event Invitations</h1>
+            <div>
+                <form method="get" class="form-inline">
+                    <label for="statusFilter" class="mr-2">Membership:</label>
+                    <select id="statusFilter" name="status_filter" class="form-control mr-2" onchange="this.form.submit()">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </form>
+            </div>
+            <button id="selectAllBtn" class="btn btn-primary mr-2">Select All</button>
+            <button id="sendInvitationsBtn" class="btn btn-success" data-toggle="modal" data-target="#sendInvitationsModal">
+                <i class="fas fa-envelope"></i>&nbsp; Send Invitations
+            </button>
+         </div>
+      </div>
+
+      <div class="table-responsive">
+         <table class="table text-center text-uppercase table-bordered" id="dataTable" width="100%" cellspacing="0">
+            <thead>
+                <tr>
+                    <th class="text-center"><input type="checkbox" id="selectAll" title="Select all"></th>
+                    <th>School / Organization</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                </tr>
+            </thead>
+            <tfoot>
+               <tr>
+                   <th></th>
+                   <th>School / Organization</th>
+                   <th>First Name</th>
+                   <th>Last Name</th>
+               </tr>
+            </tfoot>
+            <tbody>
+                {% for i in members %}
+                    <tr>
+                        <td class="text-center"><input type="checkbox" class="member-checkbox" name="member_ids" value="{{ i.id }}"></td>
+                        <td>{{ i.organization.name|upper }}</td>
+                        <td>{{ i.admin.first_name|upper }}</td>
+                        <td>{{ i.admin.last_name|upper }}</td>
+                    </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4">No members found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+         </table>
+      </div>
+   </div>
+</div>
+
+<!-- Send Invitations Modal -->
+<div class="modal fade" id="sendInvitationsModal" tabindex="-1" role="dialog" aria-labelledby="sendInvitationsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <form id="sendInvitationsForm" method="post" action="{% url 'officer_send_invitations' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sendInvitationsModalLabel">
+                        <i class="fas fa-envelope text-success mr-2"></i> Send Invitations
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2" style="font-size:13px;">
+                        <i class="fas fa-users mr-1"></i> <span id="invCountText">0 member(s) selected.</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="invSubject">Subject</label>
+                        <input id="invSubject" name="subject" type="text" class="form-control" placeholder="Email subject" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="invBody">Message</label>
+                        <textarea id="invBody" name="body" class="form-control" rows="6" placeholder="Write your message here" required></textarea>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label for="invAttachment">Attach PDF(s) <small class="text-muted">(optional)</small></label>
+                        <input id="invAttachment" name="attachment" type="file" accept="application/pdf" class="form-control-file" multiple>
+                        <small class="form-text text-muted">You can select multiple PDF files.</small>
+                        <ul id="selectedFilesList" class="list-unstyled mb-0 mt-2"></ul>
+                    </div>
+                    <div id="memberHiddenInputs"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="confirmSendInvitationsBtn">
+                        <i class="fas fa-paper-plane mr-1"></i> Send
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "order": [[ 1, "asc" ]],
+        "paging": true,
+        "searching": true,
+        "columnDefs": [
+            { "orderable": true,  "targets": [1, 2, 3] },
+            { "orderable": false, "targets": [0] }
+        ]
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var headerCheckbox = document.getElementById('selectAll');
+    var selectAllBtn   = document.getElementById('selectAllBtn');
+
+    function allCheckboxes() { return Array.from(document.querySelectorAll('.member-checkbox')); }
+    function checkedBoxes()  { return allCheckboxes().filter(function(cb) { return cb.checked; }); }
+    function anyUnchecked()  { return allCheckboxes().some(function(cb) { return !cb.checked; }); }
+
+    function setAll(checked) {
+        allCheckboxes().forEach(function(cb) { cb.checked = checked; });
+        if (headerCheckbox) headerCheckbox.checked = checked;
+        if (selectAllBtn) selectAllBtn.textContent = checked ? 'Deselect All' : 'Select All';
+        syncCount();
+    }
+    function syncCount() {
+        var n = checkedBoxes().length;
+        var el = document.getElementById('invCountText');
+        if (el) el.textContent = n + ' member(s) selected.';
+    }
+
+    if (headerCheckbox) headerCheckbox.addEventListener('change', function() { setAll(this.checked); });
+    if (selectAllBtn) selectAllBtn.addEventListener('click', function(e) { e.preventDefault(); setAll(anyUnchecked()); });
+    allCheckboxes().forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            if (headerCheckbox) headerCheckbox.checked = !anyUnchecked();
+            if (selectAllBtn) selectAllBtn.textContent = !anyUnchecked() ? 'Deselect All' : 'Select All';
+            syncCount();
+        });
+    });
+
+    document.getElementById('sendInvitationsModal').addEventListener('show.bs.modal', syncCount);
+
+    var sendForm = document.getElementById('sendInvitationsForm');
+    if (sendForm) {
+        sendForm.addEventListener('submit', function(e) {
+            var checked = checkedBoxes();
+            if (checked.length === 0) {
+                e.preventDefault();
+                alert('Please select at least one member.');
+                return;
+            }
+            var container = document.getElementById('memberHiddenInputs');
+            container.innerHTML = '';
+            checked.forEach(function(cb) {
+                var inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'member_ids'; inp.value = cb.value;
+                container.appendChild(inp);
+            });
+        });
+    }
+
+    var fileInput = document.getElementById('invAttachment');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            var list = document.getElementById('selectedFilesList');
+            if (!list) return;
+            list.innerHTML = '';
+            Array.from(this.files || []).forEach(function(f) {
+                var li = document.createElement('li');
+                li.className = 'd-flex align-items-center mb-1';
+                li.innerHTML = '<i class="fas fa-file-pdf fa-lg text-danger mr-2"></i><span class="text-truncate" style="max-width:420px;">' + f.name + '</span>';
+                list.appendChild(li);
+            });
+        });
+    }
+});
+</script>
+
+{% endblock %}

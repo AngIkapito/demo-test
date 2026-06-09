@@ -37,7 +37,7 @@
 			<script>
 			// Simple helper to reveal table after successful upload
 			(function(){
-				const form = document.querySelector('form[action="{% url 'upload_bulk_event_reg_officer' %}"]');
+				const form = document.querySelector('form[action="{% url "upload_bulk_event_reg_officer" %}"]');
 				if(form){
 					form.addEventListener('submit', function(){
 						const tbl = document.querySelector('.table-responsive');
