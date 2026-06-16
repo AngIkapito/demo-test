@@ -54,6 +54,9 @@
                     <a id="exportPdfBtn" href="{% url 'export_member_pdf_officer' %}" target="_blank" class="btn btn-danger" title="Export PDF">
                         <i class="fas fa-file-pdf"></i>&nbsp;&nbsp; Export PDF
                     </a>
+                    <a id="exportSummaryBtn" href="{% url 'export_summary_pdf_officer' %}" target="_blank" class="btn btn-dark" title="Export Total Summary">
+                        <i class="fas fa-chart-bar"></i>&nbsp;&nbsp; Summary PDF
+                    </a>
                     {% endif %}
                 </div>
                 <br>
@@ -168,10 +171,11 @@
 
 <script>
 (function(){
-    var exportBtn  = document.getElementById('exportPdfBtn');
-    var filterForm = document.getElementById('orgFilterForm');
-    if(!exportBtn || !filterForm) return;
-    function updateExportLink(){
+    var exportBtn   = document.getElementById('exportPdfBtn');
+    var summaryBtn  = document.getElementById('exportSummaryBtn');
+    var filterForm  = document.getElementById('orgFilterForm');
+    if(!filterForm) return;
+    function updateExportLinks(){
         var params = new URLSearchParams();
         var org = filterForm.querySelector('[name="organization"]');
         var mt  = filterForm.querySelector('[name="membershiptype"]');
@@ -184,10 +188,11 @@
         if(dfr && dfr.value) params.set('date_from',      dfr.value);
         if(dto && dto.value) params.set('date_to',        dto.value);
         var qs = params.toString();
-        exportBtn.href = "{% url 'export_member_pdf_officer' %}" + (qs ? '?' + qs : '');
+        if(exportBtn)  exportBtn.href  = "{% url 'export_member_pdf_officer' %}"  + (qs ? '?' + qs : '');
+        if(summaryBtn) summaryBtn.href = "{% url 'export_summary_pdf_officer' %}" + (qs ? '?' + qs : '');
     }
-    filterForm.addEventListener('change', updateExportLink);
-    updateExportLink();
+    filterForm.addEventListener('change', updateExportLinks);
+    updateExportLinks();
 })();
 </script>
 

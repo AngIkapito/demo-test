@@ -171,6 +171,7 @@ class Membership(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     processed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
     file_path = models.CharField(max_length=255, blank=True, null=True)
+    or_number = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.member.admin.first_name} {self.member.admin.last_name} - {self.membertype.name} ({self.school_year})"

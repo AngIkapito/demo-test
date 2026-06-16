@@ -190,6 +190,7 @@ urlpatterns = [
     path('officer/GenerateReport', officer_views.GENERATE_REPORT, name='officer_generate_report'),
     path('officer/Member/Add', officer_views.ADD_MEMBER, name='add_member_officer'),
     path('officer/Member/ExportPDF', officer_views.EXPORT_MEMBER_PDF, name='export_member_pdf_officer'),
+    path('officer/Member/ExportSummaryPDF', officer_views.EXPORT_SUMMARY_PDF, name='export_summary_pdf_officer'),
     path('officer/Member/ViewAll', officer_views.VIEWALL_MEMBER, name='viewall_member_officer'),
     path('officer/Member/Details/<str:id>', officer_views.MEMBER_DETAILS, name='member_details_officer'),
     #officer event List

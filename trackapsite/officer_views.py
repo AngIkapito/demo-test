@@ -864,6 +864,240 @@ def EXPORT_MEMBER_PDF(request):
 
 
 @login_required(login_url='/')
+def EXPORT_SUMMARY_PDF(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+
+    from collections import defaultdict
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    import io, datetime as dt
+
+    # Active school year label
+    try:
+        active_sy = School_Year.objects.filter(is_active=True).first()
+        sy_label = str(active_sy) if active_sy else ''
+    except Exception:
+        sy_label = ''
+
+    # Apply filters
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    members = list(Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype'))
+
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    qs = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+    if selected_org:
+        qs = qs.filter(organization_id=selected_org)
+    if selected_mtype:
+        qs = qs.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        pid = Membership.objects.filter(status__iexact='approved', payment_method__iexact=selected_payment).values_list('member_id', flat=True).distinct()
+        qs = qs.filter(id__in=pid)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    members = list(qs)
+
+    # Build type → price map (ordered by name)
+    type_price = {}
+    for m in members:
+        mt = m.membershiptype
+        if mt and mt.name not in type_price:
+            type_price[mt.name] = float(mt.price) if mt.price else 0.0
+    type_names = sorted(type_price.keys())
+
+    # Build month matrix: {(year,month): {type_name: count}}
+    month_matrix = {}
+    for m in members:
+        mt = m.membershiptype
+        if not mt:
+            continue
+        created = m.created_at
+        if created:
+            key = (created.year, created.month)
+            label = created.strftime('%B')
+        else:
+            key = (9999, 99)
+            label = 'Unknown'
+        if key not in month_matrix:
+            month_matrix[key] = {'label': label, 'types': defaultdict(int)}
+        month_matrix[key]['types'][mt.name] += 1
+
+    sorted_keys = sorted(month_matrix.keys())
+
+    # Totals per type
+    total_per_type = defaultdict(int)
+    for key in sorted_keys:
+        for t in type_names:
+            total_per_type[t] += month_matrix[key]['types'][t]
+
+    revenue_per_type   = {t: total_per_type[t] * type_price[t] for t in type_names}
+    total_revenue      = sum(revenue_per_type.values())
+    thirty_pct_total   = total_revenue * 0.30
+    thirty_pct_per_type = {t: revenue_per_type[t] * 0.30 for t in type_names}
+
+    # ---- Build table rows ----
+    # Header row
+    header = ['Months'] + type_names + ['30%']
+    rows = [header]
+
+    # Month rows
+    for key in sorted_keys:
+        entry = month_matrix[key]
+        month_revenue = sum(entry['types'][t] * type_price[t] for t in type_names)
+        thirty_month  = month_revenue * 0.30
+        row = [entry['label']]
+        for t in type_names:
+            cnt = entry['types'][t]
+            row.append(str(cnt) if cnt else '')
+        row.append(f"{thirty_month:,.2f}" if thirty_month else '')
+        rows.append(row)
+
+    # TOTAL counts row
+    total_counts_row = ['TOTAL:'] + [str(total_per_type[t]) for t in type_names] + [f"{thirty_pct_total:,.2f}"]
+    rows.append(total_counts_row)
+
+    # Revenue per type row (blank label, no 30% cell)
+    revenue_row = [''] + [f"{revenue_per_type[t]:,.0f}" for t in type_names] + ['']
+    rows.append(revenue_row)
+
+    # 30% per type TOTAL row
+    thirty_row = ['TOTAL:'] + [f"{thirty_pct_per_type[t]:,.2f}" for t in type_names] + [f"{thirty_pct_total:,.2f}"]
+    rows.append(thirty_row)
+
+    total_idx   = len(rows) - 3
+    revenue_idx = len(rows) - 2
+    thirty_idx  = len(rows) - 1
+
+    # ---- Build PDF ----
+    buffer   = io.BytesIO()
+    num_cols = len(header)
+    pagesize = landscape(A4) if num_cols > 5 else A4
+    page_w   = pagesize[0] - 3*cm
+
+    month_w = 2.8*cm
+    last_w  = 3.2*cm
+    type_w  = (page_w - month_w - last_w) / max(len(type_names), 1)
+    col_widths = [month_w] + [type_w] * len(type_names) + [last_w]
+
+    doc = SimpleDocTemplate(buffer, pagesize=pagesize,
+                            rightMargin=1.5*cm, leftMargin=1.5*cm,
+                            topMargin=1.5*cm, bottomMargin=1.5*cm)
+    styles   = getSampleStyleSheet()
+    title_st = ParagraphStyle('T', parent=styles['Title'],   fontSize=14, spaceAfter=2)
+    sub_st   = ParagraphStyle('S', parent=styles['Heading3'], fontSize=11, spaceAfter=6)
+    norm_st  = ParagraphStyle('N', parent=styles['Normal'],  fontSize=9)
+
+    elements = []
+
+    # Logo
+    logo_path = finders.find('img/psitecl-logo.png')
+    if logo_path:
+        logo = Image(logo_path, width=4*cm, height=4*cm)
+        logo.hAlign = 'CENTER'
+        elements.append(logo)
+        elements.append(Spacer(1, 0.2*cm))
+
+    elements.append(Paragraph('SUMMARY OF COLLECTION', title_st))
+    if sy_label:
+        elements.append(Paragraph(f'AY {sy_label}', sub_st))
+
+    filter_parts = []
+    if date_from:      filter_parts.append(f'From: {date_from}')
+    if date_to:        filter_parts.append(f'To: {date_to}')
+    if selected_org:
+        try: filter_parts.append(f'Org: {Organization.objects.get(id=selected_org).name}')
+        except Exception: pass
+    if filter_parts:
+        elements.append(Paragraph('Filters: ' + '  |  '.join(filter_parts), norm_st))
+    elements.append(Spacer(1, 0.4*cm))
+
+    t = Table(rows, colWidths=col_widths, repeatRows=1)
+    t.setStyle(TableStyle([
+        # Header
+        ('BACKGROUND',     (0, 0),            (-1, 0),            colors.HexColor('#37474f')),
+        ('TEXTCOLOR',      (0, 0),            (-1, 0),            colors.white),
+        ('FONTNAME',       (0, 0),            (-1, 0),            'Helvetica-Bold'),
+        ('FONTSIZE',       (0, 0),            (-1, -1),           9),
+        ('ALIGN',          (0, 0),            (-1, -1),           'CENTER'),
+        ('ALIGN',          (0, 1),            (0, -1),            'LEFT'),
+        # Alternating rows
+        ('ROWBACKGROUNDS', (0, 1),            (-1, total_idx-1),  [colors.whitesmoke, colors.white]),
+        # TOTAL counts row
+        ('BACKGROUND',     (0, total_idx),    (-1, total_idx),    colors.HexColor('#ffccbc')),
+        ('FONTNAME',       (0, total_idx),    (-1, total_idx),    'Helvetica-Bold'),
+        # Revenue row
+        ('BACKGROUND',     (0, revenue_idx),  (-1, revenue_idx),  colors.HexColor('#f5f5f5')),
+        ('FONTNAME',       (0, revenue_idx),  (-1, revenue_idx),  'Helvetica-Bold'),
+        # 30% TOTAL row
+        ('BACKGROUND',     (0, thirty_idx),   (-1, thirty_idx),   colors.HexColor('#ffccbc')),
+        ('FONTNAME',       (0, thirty_idx),   (-1, thirty_idx),   'Helvetica-Bold'),
+        ('GRID',           (0, 0),            (-1, -1),           0.5, colors.HexColor('#bdbdbd')),
+        ('TOPPADDING',     (0, 0),            (-1, -1),           4),
+        ('BOTTOMPADDING',  (0, 0),            (-1, -1),           4),
+        ('LEFTPADDING',    (0, 0),            (-1, -1),           5),
+        ('RIGHTPADDING',   (0, 0),            (-1, -1),           5),
+    ]))
+    elements.append(t)
+    elements.append(Spacer(1, 1.0*cm))
+
+    # ---- Reviewed By / Confirmed By section ----
+    def get_officer_info(flag, role_label=''):
+        try:
+            cu = CustomUser.objects.filter(**{flag: True}).first()
+            if not cu:
+                return ('', '')
+            name = f"{cu.first_name or ''} {cu.last_name or ''}".strip() or cu.username
+            return (name, role_label)
+        except Exception:
+            return ('', '')
+
+    auditor_name,   auditor_pos   = get_officer_info('is_auditor',   'Auditor')
+    treasurer_name, treasurer_pos = get_officer_info('is_treasurer', 'Treasurer')
+
+    sig_data = [
+        ['Confirmed By:', '', 'Reviewed By:'],
+        ['', '', ''],
+        ['', '', ''],
+        [treasurer_name, '', auditor_name],
+        [treasurer_pos,  '', auditor_pos],
+    ]
+
+    sig_col_w = [page_w * 0.40, page_w * 0.20, page_w * 0.40]
+    sig_table = Table(sig_data, colWidths=sig_col_w)
+    sig_table.setStyle(TableStyle([
+        ('FONTNAME',     (0, 0),  (0, 0),  'Helvetica-Bold'),
+        ('FONTNAME',     (2, 0),  (2, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',     (0, 0),  (-1, -1), 9),
+        ('ALIGN',        (0, 0),  (0, -1),  'LEFT'),
+        ('ALIGN',        (2, 0),  (2, -1),  'RIGHT'),
+        ('FONTNAME',     (0, 3),  (0, 3),  'Helvetica-Bold'),
+        ('FONTNAME',     (2, 3),  (2, 3),  'Helvetica-Bold'),
+        ('LINEABOVE',    (0, 2),  (0, 2),  0.8, colors.black),
+        ('LINEABOVE',    (2, 2),  (2, 2),  0.8, colors.black),
+        ('TOPPADDING',   (0, 0),  (-1, -1), 3),
+        ('BOTTOMPADDING',(0, 0),  (-1, -1), 3),
+    ]))
+    elements.append(sig_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    response = HttpResponse(buffer, content_type='application/pdf')
+    response['Content-Disposition'] = 'inline; filename="membership_summary.pdf"'
+    return response
+
+
+@login_required(login_url='/')
 def VIEWALL_MEMBER(request):
     if not getattr(request.user, 'is_treasurer', False) and not getattr(request.user, 'is_auditor', False) and not getattr(request.user, 'is_secretary', False):
         messages.error(request, 'Access denied.')
@@ -1228,6 +1462,7 @@ def MEMBERSHIP_APPROVAL(request):
         if action == "approve":
             # Approve the membership record
             membership.status = "APPROVED"
+            membership.or_number = request.POST.get("or_number", "").strip() or None
             # record who processed this approval (store the id directly)
             try:
                 membership.processed_by_id = getattr(request.user, 'id', None)
