@@ -17,6 +17,10 @@ class CustomUser(AbstractUser):
     profile_pic = models.ImageField(upload_to='profile_pic/')
     email = models.EmailField(max_length=150, unique=True)
     is_treasurer = models.BooleanField(default=False, null=True)
+    is_areacoor = models.BooleanField(default=False, null=True)
+    is_pro = models.BooleanField(default=False, null=True)
+    is_auditor = models.BooleanField(default=False, null=True)
+    is_secretary = models.BooleanField(default=False, null=True)
 
 
 class IT_Topics(models.Model): 
@@ -237,7 +241,7 @@ class Announcement(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()  # Changed to TextField for longer descriptions
     banner = models.ImageField(upload_to='announcementbanner/')  # Simplified upload path
-    status = models.BooleanField(default=True)
+    status = models.BooleanField(default=False)
     created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)  # Change to SET_NULL
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -348,3 +352,14 @@ class Limit_Insti_Mem(models.Model):
     def __str__(self):
         return f"{self.organization.name} - {self.school_year}"
 
+
+class Invitation_History(models.Model):
+    member = models.ForeignKey(Member, on_delete=models.CASCADE, blank=True, null=True)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        member_name = f"{self.member.admin.first_name} {self.member.admin.last_name}".strip() if self.member and self.member.admin else 'N/A'
+        event_title = self.event.title if self.event else 'N/A'
+        return f"{member_name} - {event_title} ({self.status})"

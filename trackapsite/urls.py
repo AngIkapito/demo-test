@@ -53,6 +53,7 @@ urlpatterns = [
     path('hoo/Member/ProcessSendBilling', hoo_views.PROCESS_SEND_BILLING, name='process_send_billing'),
     path('hoo/Event/Invitations', hoo_views.EVENT_INVITATIONS, name='hoo_event_invitations'),
     path('hoo/SendInvitations', hoo_views.SEND_INVITATIONS, name='hoo_send_invitations'),
+    path('hoo/Event/InvitationHistory', hoo_views.VIEW_INVITATION_HISTORY, name='hoo_invitation_history'),
     path('hoo/Member/Edit/<str:id>', hoo_views.EDIT_MEMBER, name='edit_member'),
     path('hoo/Member/Update', hoo_views.UPDATE_MEMBER, name='update_member'),
     path('hoo/Member/Delete/<str:id>', hoo_views.DELETE_MEMBER, name='delete_member'),
@@ -106,6 +107,7 @@ urlpatterns = [
     path('hoo/Announcement/Edit/<str:id>', hoo_views.EDIT_ANNOUNCEMENT, name='edit_announcement'),
     path('hoo/Announcement/Update', hoo_views.UPDATE_ANNOUNCEMENT, name='update_announcement'),
     path('hoo/Announcement/Delete/<str:id>', hoo_views.DELETE_ANNOUNCEMENT, name='delete_announcement'),
+    path('hoo/Announcement/Approve/<str:id>', hoo_views.APPROVE_ANNOUNCEMENT, name='approve_announcement'),
     
     #Add Salutation
     # path('hoo/Salutation/Add', hoo_views.ADD_SALUTATION, name='add_salutation'),
@@ -175,9 +177,16 @@ urlpatterns = [
     path('officer/BulkRegistrations/ViewAll', officer_views.VIEWALL_BULK_REG, name='viewall_bulk_reg_officer'),
     path('officer/Event/Invitations', officer_views.EVENT_INVITATIONS, name='officer_event_invitations'),
     path('officer/SendInvitations', officer_views.SEND_INVITATIONS, name='officer_send_invitations'),
+    path('officer/Event/InvitationHistory', officer_views.VIEW_INVITATION_HISTORY, name='officer_invitation_history'),
     path('officer/Member/SendBilling', officer_views.SEND_BILLING_PAGE, name='send_billing_officer'),
     path('officer/Member/ProcessSendBilling', officer_views.PROCESS_SEND_BILLING, name='process_send_billing_officer'),
     
+    path('officer/Announcement/View', officer_views.VIEW_ANNOUNCEMENT_OFFICER, name='officer_view_announcement'),
+    path('officer/Announcement/Add', officer_views.ADD_ANNOUNCEMENT_OFFICER, name='officer_add_announcement'),
+    path('officer/Announcement/Edit/<str:id>', officer_views.EDIT_ANNOUNCEMENT_OFFICER, name='officer_edit_announcement'),
+    path('officer/Announcement/Update', officer_views.UPDATE_ANNOUNCEMENT_OFFICER, name='officer_update_announcement'),
+    path('officer/Announcement/Delete/<str:id>', officer_views.DELETE_ANNOUNCEMENT_OFFICER, name='officer_delete_announcement'),
+
     path('officer/GenerateReport', officer_views.GENERATE_REPORT, name='officer_generate_report'),
     path('officer/Member/Add', officer_views.ADD_MEMBER, name='add_member_officer'),
     path('officer/Member/ExportPDF', officer_views.EXPORT_MEMBER_PDF, name='export_member_pdf_officer'),

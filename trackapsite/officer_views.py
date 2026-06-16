@@ -3,7 +3,7 @@ from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year, Announcement, Salutation, Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, IT_Topics, Intetrested_Topics
+from app.models import CustomUser, Event, School_Year, Announcement, Salutation, Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, IT_Topics, Intetrested_Topics, Invitation_History
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -88,11 +88,15 @@ def home(request):
         context['registered_count'] = reg_count
         context['available_slots'] = avail_i
         context['progress_percent'] = prog_pct
+        context['is_active_chair']    = bool(active_event and getattr(active_event, 'chair_id', None) == user.id)
+        context['is_active_co_chair'] = bool(active_event and getattr(active_event, 'co_chair_id', None) == user.id)
     except Exception:
         context['event'] = None
         context['registered_count'] = 0
         context['available_slots'] = 0
         context['progress_percent'] = 0
+        context['is_active_chair']    = False
+        context['is_active_co_chair'] = False
 
     # School years for Generate Report modal
     try:
@@ -861,8 +865,8 @@ def EXPORT_MEMBER_PDF(request):
 
 @login_required(login_url='/')
 def VIEWALL_MEMBER(request):
-    if not getattr(request.user, 'is_treasurer', False):
-        messages.error(request, 'Access denied. Only the treasurer can view the member list.')
+    if not getattr(request.user, 'is_treasurer', False) and not getattr(request.user, 'is_auditor', False) and not getattr(request.user, 'is_secretary', False):
+        messages.error(request, 'Access denied.')
         return redirect('officer_home')
     approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
     members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
@@ -1189,9 +1193,12 @@ def MEMBERSHIP_APPROVAL(request):
     Sends emails using CustomUser email linked via Member.admin.
     Only accessible by officers with is_treasurer=True.
     """
-    if not getattr(request.user, 'is_treasurer', False):
-        messages.error(request, 'Access denied. Only the treasurer can access membership approval.')
+    if not getattr(request.user, 'is_treasurer', False) and not getattr(request.user, 'is_auditor', False):
+        messages.error(request, 'Access denied.')
         return redirect('officer_home')
+    if request.method == 'POST' and getattr(request.user, 'is_auditor', False) and not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied. Auditors can only view membership approvals.')
+        return redirect('membership_approval_officer')
 
     if request.method == "POST":
         # Use membership.member_id as unique identifier
@@ -1537,8 +1544,8 @@ def EXPORT_ATTENDEES_EXCEL(request):
 
 @login_required(login_url='/')
 def EVENT_INVITATIONS(request):
-    if not getattr(request.user, 'is_treasurer', False):
-        messages.error(request, 'Access denied. Only the treasurer can send event invitations.')
+    if not getattr(request.user, 'is_treasurer', False) and not getattr(request.user, 'is_secretary', False):
+        messages.error(request, 'Access denied.')
         return redirect('officer_home')
 
     status_filter = request.GET.get('status_filter', 'all')
@@ -1564,8 +1571,8 @@ def EVENT_INVITATIONS(request):
 @login_required(login_url='/')
 @require_http_methods(["POST"])
 def SEND_INVITATIONS(request):
-    if not getattr(request.user, 'is_treasurer', False):
-        messages.error(request, 'Access denied. Only the treasurer can send invitations.')
+    if not getattr(request.user, 'is_treasurer', False) and not getattr(request.user, 'is_secretary', False):
+        messages.error(request, 'Access denied.')
         return redirect('officer_home')
 
     member_ids = request.POST.getlist('member_ids')
@@ -1654,6 +1661,9 @@ def SEND_INVITATIONS(request):
                 continue
 
         msg.send(fail_silently=False)
+        if event:
+            for m in members:
+                Invitation_History.objects.create(member=m, event=event, status='sent')
         messages.success(request, f'Invitations sent to {len(recipients)} recipient(s).')
         audit_logger.info(f"User {request.user.username} (id={request.user.id}) sent invitations to {len(recipients)} recipients; member_ids={member_ids}; event_id={getattr(event, 'id', None)}")
     except Exception as e:
@@ -1661,6 +1671,55 @@ def SEND_INVITATIONS(request):
         audit_logger.exception(f"Failed to send invitations by user {request.user.username} (id={request.user.id}) error={e}")
 
     return redirect('officer_event_invitations')
+
+
+@login_required(login_url='/')
+def VIEW_INVITATION_HISTORY(request):
+    user = request.user
+    is_treasurer   = getattr(user, 'is_treasurer', False)
+    chair_event_ids    = list(Event.objects.filter(chair_id=user.id).values_list('id', flat=True))
+    co_chair_event_ids = list(Event.objects.filter(co_chair_id=user.id).values_list('id', flat=True))
+
+    is_secretary = getattr(user, 'is_secretary', False)
+    if not is_treasurer and not is_secretary and not chair_event_ids and not co_chair_event_ids:
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+
+    selected_event  = request.GET.get('event', '')
+    selected_status = request.GET.get('status', '')
+
+    if is_treasurer:
+        history_qs = Invitation_History.objects.select_related(
+            'member__admin', 'member__organization', 'event'
+        ).order_by('-created_at')
+    else:
+        accessible_ids = set(chair_event_ids) | set(co_chair_event_ids)
+        history_qs = Invitation_History.objects.filter(
+            event_id__in=accessible_ids
+        ).select_related('member__admin', 'member__organization', 'event').order_by('-created_at')
+
+    if selected_event:
+        history_qs = history_qs.filter(event_id=selected_event)
+    if selected_status:
+        history_qs = history_qs.filter(status__iexact=selected_status)
+
+    if is_treasurer:
+        events = Event.objects.all().order_by('-date')
+    else:
+        accessible_ids = set(chair_event_ids) | set(co_chair_event_ids)
+        events = Event.objects.filter(id__in=accessible_ids).order_by('-date')
+
+    statuses = Invitation_History.objects.values_list('status', flat=True).distinct()
+
+    return render(request, 'officer/invitation_history.html', {
+        'history': history_qs,
+        'events': events,
+        'statuses': statuses,
+        'selected_event': selected_event,
+        'selected_status': selected_status,
+        'chair_event_ids': chair_event_ids,
+        'co_chair_event_ids': co_chair_event_ids,
+    })
 
 
 @login_required(login_url='/')
@@ -1945,4 +2004,81 @@ def SAVE_BULK_EVENT_REG(request):
     return redirect('bulk_event_reg_officer')
 
 
-    
+# Announcement Module (PIO)
+@login_required(login_url='/')
+def VIEW_ANNOUNCEMENT_OFFICER(request):
+    if not getattr(request.user, 'is_pro', False):
+        messages.error(request, 'Access denied. Only the PIO can manage announcements.')
+        return redirect('officer_home')
+    announcements = Announcement.objects.all()
+    return render(request, 'officer/view_announcement.html', {'announcements': announcements})
+
+@login_required(login_url='/')
+def ADD_ANNOUNCEMENT_OFFICER(request):
+    if not getattr(request.user, 'is_pro', False):
+        messages.error(request, 'Access denied. Only the PIO can add announcements.')
+        return redirect('officer_home')
+    if request.method == 'POST':
+        title       = request.POST.get('announcement_title')
+        description = request.POST.get('announcement_description')
+        banner      = request.FILES.get('announcement_banner')
+        status      = request.POST.get('announcement_status')
+        tags_raw    = request.POST.get('announcement_tags')
+        announcement = Announcement(
+            title=title,
+            description=description,
+            banner=banner,
+            status=False,
+            created_by_id=request.user.id,
+        )
+        announcement.save()
+        if tags_raw:
+            tags_list = [t.strip() for t in tags_raw.split(',')]
+            announcement.tags.add(*tags_list)
+        messages.success(request, 'Announcement successfully added!')
+        return redirect('officer_view_announcement')
+    return render(request, 'officer/add_announcement.html')
+
+@login_required(login_url='/')
+def DELETE_ANNOUNCEMENT_OFFICER(request, id):
+    if not getattr(request.user, 'is_pro', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    announcement = get_object_or_404(Announcement, id=id)
+    announcement.delete()
+    messages.success(request, 'Announcement successfully deleted.')
+    return redirect('officer_view_announcement')
+
+@login_required(login_url='/')
+def EDIT_ANNOUNCEMENT_OFFICER(request, id):
+    if not getattr(request.user, 'is_pro', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    announcement = get_object_or_404(Announcement, id=id)
+    return render(request, 'officer/edit_announcement.html', {'announcement': announcement})
+
+@login_required(login_url='/')
+def UPDATE_ANNOUNCEMENT_OFFICER(request):
+    if not getattr(request.user, 'is_pro', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    if request.method == 'POST':
+        id          = request.POST.get('announcement_id')
+        announcement = get_object_or_404(Announcement, id=id)
+        announcement.title       = request.POST.get('announcement_title')
+        announcement.description = request.POST.get('announcement_description')
+        banner = request.FILES.get('announcement_banner')
+        if banner:
+            announcement.banner = banner
+        status = request.POST.get('announcement_status')
+        if status == '1':
+            announcement.status = True
+        elif status == '0':
+            announcement.status = False
+        tags_raw = request.POST.get('announcement_tags')
+        if tags_raw:
+            announcement.tags.set(*[t.strip() for t in tags_raw.split(',')])
+        announcement.save()
+        messages.success(request, 'Announcement successfully updated.')
+        return redirect('officer_view_announcement')
+    return redirect('officer_view_announcement')

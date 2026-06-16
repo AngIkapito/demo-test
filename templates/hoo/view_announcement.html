@@ -66,19 +66,22 @@
                      <p>No file associated</p>
                         {% endif %}</td> {% endcomment %}
 
-                   <td><h5 hidden>{{ i.status }}</h5>
-                     <span id="toggle-icon" onclick="toggleAnnouncements()" style="cursor: pointer;">
-                         {% if i.status %}
-                             &#x1F7E2; &nbsp SHOW <!-- Green circle for ON -->
-                         {% else %}
-                             &#x1F534; &nbsp HIDE<!-- Red circle for OFF -->
-                         {% endif %}
-                     </span></td>
+                   <td>
+                     {% if i.status %}
+                         <span class="badge badge-success">&#x1F7E2; Published</span>
+                     {% else %}
+                         <span class="badge badge-warning text-dark">&#x23F3; Pending</span>
+                     {% endif %}
+                   </td>
                   <td>{% for tag in i.tags.all %}<i>#{{ tag }}&nbsp;</i>{% endfor %}</td>
                    <td>{{i.updated_at}}</td>
                    {% comment %} <td>{{i.created_by.username}}</td> {% endcomment %}
                    <td class="text-right">
                       <div class="actions text-center">
+                         <a href="{% url 'approve_announcement' i.id %}" class="btn btn-sm {% if i.status %}btn-warning{% else %}btn-success{% endif %}" data-toggle="tooltip" data-placement="top" title="{% if i.status %}Hide{% else %}Approve{% endif %}">
+                           <i class="fas {% if i.status %}fa-eye-slash{% else %}fa-check{% endif %}" style="font-size:16px"></i>
+                           {% if i.status %}Hide{% else %}Approve{% endif %}
+                         </a>
                          <a href="{% url 'edit_announcement' i.id %}" class="btn btn-sm bg-success-light" data-toggle="tooltip" data-placement="top" title="Edit">
                            <i class="fas fa-pen" style="font-size:20px"></i>
                        </a> 

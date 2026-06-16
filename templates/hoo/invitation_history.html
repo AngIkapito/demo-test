@@ -1,0 +1,107 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+{% include 'includes/messages.html' %}
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="col-sm-12">
+
+            <div class="d-sm-flex align-items-center justify-content-between mb-4">
+
+                <div class="d-flex flex-column align-items-start gap-1">
+                    <a href="{% url 'hoo_home' %}" class="btn btn-secondary" title="Go Back">
+                        <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+                    </a>
+                    <form method="get" action="{% url 'hoo_invitation_history' %}" id="historyFilterForm" class="d-flex flex-column gap-1 mt-1">
+                        <select name="event" class="form-select form-select-sm" onchange="document.getElementById('historyFilterForm').submit();" style="min-width:220px;">
+                            <option value="">All Events</option>
+                            {% for ev in events %}
+                                <option value="{{ ev.id }}" {% if selected_event == ev.id|stringformat:"s" %}selected{% endif %}>{{ ev.title }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="status" class="form-select form-select-sm" onchange="document.getElementById('historyFilterForm').submit();" style="min-width:180px;">
+                            <option value="">All Statuses</option>
+                            {% for s in statuses %}
+                                <option value="{{ s }}" {% if selected_status == s %}selected{% endif %}>{{ s|capfirst }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+                </div>
+
+                <h1 class="h3 mb-0 text-gray-800">View Sent Invitation History</h1>
+
+                <div></div>
+
+            </div>
+
+            <div class="table-responsive">
+                <table class="table text-center text-uppercase table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>School / Organization</th>
+                            <th>Event Title</th>
+                            <th>Status</th>
+                            <th>Sent At</th>
+                        </tr>
+                    </thead>
+                    <tfoot>
+                        <tr>
+                            <th>#</th>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>School / Organization</th>
+                            <th>Event Title</th>
+                            <th>Status</th>
+                            <th>Sent At</th>
+                        </tr>
+                    </tfoot>
+                    <tbody>
+                        {% for h in history %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>{% if h.member and h.member.admin %}{{ h.member.admin.first_name|upper }}{% else %}-{% endif %}</td>
+                            <td>{% if h.member and h.member.admin %}{{ h.member.admin.last_name|upper }}{% else %}-{% endif %}</td>
+                            <td>{% if h.member and h.member.organization %}{{ h.member.organization.name|upper }}{% else %}-{% endif %}</td>
+                            <td>{{ h.event.title|upper }}</td>
+                            <td>
+                                {% if h.status == 'sent' %}
+                                    <span class="badge badge-success">{{ h.status|capfirst }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">{{ h.status|capfirst }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ h.created_at|date:"M d, Y H:i" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted py-3">No invitation history found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    $('#dataTable').DataTable({
+        "order": [[ 6, "desc" ]],
+        "paging": true,
+        "searching": true,
+        "columnDefs": [
+            { "orderable": false, "targets": [0] },
+            { "orderable": true,  "targets": [1, 2, 3, 4, 5, 6] }
+        ]
+    });
+});
+</script>
+
+{% endblock %}

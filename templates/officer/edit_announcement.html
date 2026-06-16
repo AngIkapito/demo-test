@@ -1,0 +1,87 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="row">
+    <div class="col-sm-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="col-sm-12">
+                    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+                        <a href="{% url 'officer_view_announcement' %}" class="btn btn-secondary" title="Go Back">
+                            <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+                        </a>
+                        <div class="text-center flex-grow-1">
+                            <h1 class="h3 mb-0 text-gray-800">Edit Announcement</h1>
+                        </div>
+                    </div>
+                </div>
+
+                <form method="post" action="{% url 'officer_update_announcement' %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    {% include 'includes/messages.html' %}
+
+                    <input type="hidden" name="announcement_id" value="{{ announcement.id }}" />
+
+                    <div class="col-sm-11">
+                        <label>Title</label>
+                        <input type="text" class="form-control text-uppercase" name="announcement_title" value="{{ announcement.title }}" placeholder="Enter Announcement Title" />
+                    </div><br>
+
+                    <div class="col-sm-11">
+                        <label>Description</label>
+                        <input type="text" class="form-control text-uppercase" name="announcement_description" value="{{ announcement.description }}" placeholder="Enter Announcement Description" />
+                    </div><br>
+
+                    <div class="col-sm-11">
+                        <label>Banner</label>
+                        <input type="file" class="form-control" id="announcement_banner" name="announcement_banner" accept="image/*" onchange="previewImage(event)" />
+                    </div>
+                    <div class="col-sm-11">
+                        {% if announcement.banner %}
+                            <img id="image_preview" src="{{ announcement.banner.url }}" alt="Current Banner" style="width:192px;height:192px;object-fit:cover;margin-top:10px;border:2px solid gray;border-radius:4px;" />
+                        {% else %}
+                            <img id="image_preview" src="#" alt="Image Preview" style="width:192px;height:192px;object-fit:cover;margin-top:10px;border:2px solid gray;border-radius:4px;display:none;" />
+                        {% endif %}
+                    </div><br>
+
+                    <div class="col-sm-11">
+                        <label>Tags (comma-separated):</label>
+                        <input type="text" id="announcement_tags" name="announcement_tags" value="{% for tag in announcement.tags.all %}{{ tag }}, {% endfor %}" />
+                    </div><br>
+
+                    <div class="col-sm-11">
+                        <label>Publish it Now?</label>
+                        <select class="form-control" name="announcement_status">
+                            <option value="1" {% if announcement.status %}selected{% endif %}>YES</option>
+                            <option value="0" {% if not announcement.status %}selected{% endif %}>NO</option>
+                        </select>
+                    </div><br>
+
+                    <div class="col-sm">
+                        <button type="submit" class="btn btn-primary">Update Announcement</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function previewImage(event) {
+    const imagePreview = document.getElementById('image_preview');
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        imagePreview.src = '#';
+        imagePreview.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

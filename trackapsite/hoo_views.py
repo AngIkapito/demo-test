@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth.hashers import check_password
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, Intetrested_Topics, IT_Topics, Event_Evaluation
+from app.models import CustomUser, Event, School_Year,Announcement, Salutation,Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, Intetrested_Topics, IT_Topics, Event_Evaluation, Invitation_History
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 import json
@@ -2091,7 +2091,7 @@ def ADD_ANNOUNCEMENT(request):
             title = announcement_title,
             description = announcement_description,
             banner = announcement_banner,
-            status = announcement_status,
+            status = False,
             created_by_id=request.user.id  # Set the created_by_username to the current user
         )
         announcement.save()
@@ -2106,6 +2106,14 @@ def ADD_ANNOUNCEMENT(request):
         audit_logger.info(f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) added announcement id={announcement.id} title={announcement.title}")
         return redirect('view_announcement')
     return render(request, 'hoo/add_announcement.html')
+
+def APPROVE_ANNOUNCEMENT(request, id):
+    announcement = get_object_or_404(Announcement, id=id)
+    announcement.status = not announcement.status
+    announcement.save()
+    state = 'approved' if announcement.status else 'hidden'
+    messages.success(request, f'Announcement "{announcement.title}" has been {state}.')
+    return redirect('view_announcement')
 
 def DELETE_ANNOUNCEMENT(request, id):
     announcement = Announcement.objects.get(id = id)
@@ -2680,6 +2688,9 @@ def SEND_INVITATIONS(request):
                 continue
 
         msg.send(fail_silently=False)
+        if event:
+            for m in members:
+                Invitation_History.objects.create(member=m, event=event, status='sent')
         messages.success(request, f'Invitations sent to {len(recipients)} recipients.')
         audit_logger.info(
             f"User {getattr(request.user, 'username', None)} (id={getattr(request.user, 'id', None)}) sent invitations to {len(recipients)} recipients; member_ids={member_ids}; event_id={getattr(event, 'id', None)}; event_title={event_title}"
@@ -2692,6 +2703,31 @@ def SEND_INVITATIONS(request):
 
     return redirect('hoo_event_invitations')
 
+
+@login_required(login_url='/')
+def VIEW_INVITATION_HISTORY(request):
+    selected_event = request.GET.get('event', '')
+    selected_status = request.GET.get('status', '')
+
+    history_qs = Invitation_History.objects.select_related(
+        'member__admin', 'member__organization', 'event'
+    ).order_by('-created_at')
+
+    if selected_event:
+        history_qs = history_qs.filter(event_id=selected_event)
+    if selected_status:
+        history_qs = history_qs.filter(status__iexact=selected_status)
+
+    events = Event.objects.all().order_by('-date')
+    statuses = Invitation_History.objects.values_list('status', flat=True).distinct()
+
+    return render(request, 'hoo/invitation_history.html', {
+        'history': history_qs,
+        'events': events,
+        'statuses': statuses,
+        'selected_event': selected_event,
+        'selected_status': selected_status,
+    })
 
 
 def GET_EVENT_JSON(request, id):

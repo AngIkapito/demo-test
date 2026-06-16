@@ -91,6 +91,7 @@
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="{% url "viewall_event" %}">Events List</a>
                 <a class="collapse-item" href="{% url "hoo_event_invitations" %}">Event Invitations</a>
+                <a class="collapse-item" href="{% url "hoo_invitation_history" %}">Invitation History</a>
                 <a class="collapse-item" href="">Competition List</a>
                 <a class="collapse-item" href="{% url "viewall_bulk_reg" %}">Event Approval/Attendance</a>
                 <a class="collapse-item" href="{% url "list_attendees" %}">Event Attendees</a>
@@ -220,6 +221,7 @@
         </div>
     </li>
     <!-- Membership Nav Item - Pages Collapse Menu -->
+    {% if not user.is_areacoor and not user.is_pro %}
     <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseTwo"
             aria-expanded="true" aria-controls="collapseTwo">
@@ -229,14 +231,19 @@
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="">View Membership</a>
-                {% if user.is_treasurer %}
+                {% if user.is_treasurer or user.is_auditor or user.is_secretary %}
                 <a class="collapse-item" href="{% url "viewall_member_officer" %}">Members List</a>
+                {% endif %}
+                {% if user.is_treasurer or user.is_auditor %}
                 <a class="collapse-item" href="{% url "membership_approval_officer" %}">Membership Approval</a>
+                {% endif %}
+                {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "send_billing_officer" %}">Send Billing</a>
                 {% endif %}
             </div>
         </div>
     </li>
+    {% endif %}
 
     <!-- EVENTS Nav Item - Utilities Collapse Menu -->
     <li class="nav-item">
@@ -251,19 +258,46 @@
                 {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "add_event_officer" %}">Add Event</a>
                 {% endif %}
+                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor %}
                 <a class="collapse-item" href="{% url "member_event_reg_officer" %}">Event Registration</a>
+                {% endif %}
                 <a class="collapse-item" href="{% url "viewall_event2" %}">Events List</a>
+                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor and not user.is_secretary %}
                 <a class="collapse-item" href="{% url "bulk_event_reg_officer" %}">Bulk registration</a>
+                {% endif %}
                 <a class="collapse-item" href="{% url "list_attendees_officer" %}">Event Attendees</a>
                 {% if user.is_treasurer %}
                 <a class="collapse-item" href="{% url "viewall_bulk_reg_officer" %}">Event Approval/Attendance</a>
+                {% endif %}
+                {% if user.is_treasurer or user.is_secretary %}
                 <a class="collapse-item" href="{% url "officer_event_invitations" %}">Event Invitations</a>
+                {% endif %}
+                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor and user.is_treasurer or not user.is_areacoor and not user.is_pro and not user.is_auditor and user.is_secretary or not user.is_areacoor and not user.is_pro and not user.is_auditor and user.chair_events.exists or not user.is_areacoor and not user.is_pro and not user.is_auditor and user.co_chair_events.exists %}
+                <a class="collapse-item" href="{% url "officer_invitation_history" %}">Invitation History</a>
                 {% endif %}
             </div>
         </div>
     </li>
 
+    <!-- Announcements Nav Item (PIO only) -->
+    {% if user.is_pro %}
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseAnnouncements"
+            aria-expanded="true" aria-controls="collapseAnnouncements">
+            <i class="fas fa-bullhorn"></i>
+            <span>Announcements</span>
+        </a>
+        <div id="collapseAnnouncements" class="collapse" aria-labelledby="headingAnnouncements" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "officer_view_announcement" %}">View Announcements</a>
+                <a class="collapse-item" href="{% url "officer_add_announcement" %}">Add Announcement</a>
+            </div>
+        </div>
+    </li>
+    {% endif %}
+
     <!-- USER Nav Item - Pages Collapse Menu -->
+    {% if not user.is_areacoor and not user.is_pro %}
     <li class="nav-item">
         <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapsePages"
             aria-expanded="true" aria-controls="collapsePages">
@@ -276,6 +310,7 @@
             </div>
         </div>
     </li>
+    {% endif %}
 
     <!-- Nav Item - Charts -->
     <li class="nav-item">

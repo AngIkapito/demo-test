@@ -47,12 +47,14 @@
 
             <div class="d-flex flex-column align-items-end gap-1">
                 <div class="d-flex" style="gap:8px;">
+                    {% if not user.is_auditor and not user.is_secretary %}
                     <a href="{% url 'add_member_officer' %}" class="btn btn-primary" title="Add Member">
                         <i class="fas fa-plus"></i>&nbsp;&nbsp; Member
                     </a>
                     <a id="exportPdfBtn" href="{% url 'export_member_pdf_officer' %}" target="_blank" class="btn btn-danger" title="Export PDF">
                         <i class="fas fa-file-pdf"></i>&nbsp;&nbsp; Export PDF
                     </a>
+                    {% endif %}
                 </div>
                 <br>
                 <div class="d-flex" style="gap:10px;">
