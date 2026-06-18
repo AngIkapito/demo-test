@@ -135,7 +135,7 @@ def ANNOUNCEMENT(request):
         results = Tags.objects.all()
     
     # Get all announcements and order them by updated_at date, descending
-    announcements = Announcement.objects.all().order_by('-updated_at')
+    announcements = Announcement.objects.filter(status=True).order_by('-updated_at')
     
     # Get the latest announcement   
     latest_announcement = announcements.first()  # This will be the latest announcement

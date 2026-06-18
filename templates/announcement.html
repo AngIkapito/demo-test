@@ -199,11 +199,9 @@
                data-title="{{ announcement.title|escapejs }}"
                data-description="{{ announcement.description|escapejs }}"
                data-date="{{ announcement.updated_at|date:'F j, Y' }}"
-               data-image="{{ announcement.image.url|default:'https://picsum.photos/1000/300' }}">
-            {% if announcement.image %}
-              <img src="{{ announcement.image.url }}" class="card-img-top rounded-top announcement-banner" alt="{{ announcement.title }} image">
-            {% else %}
-              <img src="https://picsum.photos/1000/300" class="card-img-top rounded-top announcement-banner" alt="placeholder">
+               data-image="{% if announcement.banner %}{{ announcement.banner.url }}{% endif %}">
+            {% if announcement.banner %}
+              <img src="{{ announcement.banner.url }}" class="card-img-top rounded-top announcement-banner" alt="{{ announcement.title }} image">
             {% endif %}
             <div class="card-body d-flex flex-column">
               <h5 class="card-title">{{ announcement.title }}</h5>
@@ -237,7 +235,7 @@
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <img id="modalImage" src="https://picsum.photos/1000/300" class="img-fluid mb-3" alt="modal image">
+          <img id="modalImage" src="" class="img-fluid mb-3" alt="modal image" style="display:none;">
           <p id="modalDescription"></p>
           <p class="text-muted small" id="modalDate"></p>
           <p id="modalTags" class="small text-muted"></p>
@@ -457,7 +455,9 @@
         document.getElementById('modalTitle').textContent = title;
         document.getElementById('modalDescription').textContent = desc;
         document.getElementById('modalDate').textContent = date ? 'Published on: ' + date : '';
-        document.getElementById('modalImage').setAttribute('src', image);
+        const modalImg = document.getElementById('modalImage');
+        if(image){ modalImg.setAttribute('src', image); modalImg.style.display = ''; }
+        else { modalImg.setAttribute('src', ''); modalImg.style.display = 'none'; }
         const tagsHtml = parseTags(tags).map(t => `<i>#${t}</i>`).join(' ');
         document.getElementById('modalTags').innerHTML = tagsHtml ? 'Categories: ' + tagsHtml : '';
       });

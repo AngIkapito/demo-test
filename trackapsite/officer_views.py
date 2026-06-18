@@ -787,8 +787,10 @@ def EXPORT_MEMBER_PDF(request):
         messages.error(request, 'Access denied. Only the treasurer can export the member list.')
         return redirect('officer_home')
 
+    from django.db.models import Subquery, OuterRef
     approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
-    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+    or_number_sq = Membership.objects.filter(member_id=OuterRef('id'), status__iexact='approved').order_by('-id').values('or_number')[:1]
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype').annotate(or_number=Subquery(or_number_sq))
 
     selected_org     = request.GET.get('organization', '')
     selected_mtype   = request.GET.get('membershiptype', '')
