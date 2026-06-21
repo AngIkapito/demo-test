@@ -279,6 +279,23 @@
         </div>
     </li>
 
+    <!-- Invoice Nav Item (Treasurer only) -->
+    {% if user.is_treasurer %}
+    <li class="nav-item">
+        <a class="nav-link collapsed" href="#" data-toggle="collapse" data-target="#collapseInvoice"
+            aria-expanded="true" aria-controls="collapseInvoice">
+            <i class="fas fa-file-invoice"></i>
+            <span>Invoice</span>
+        </a>
+        <div id="collapseInvoice" class="collapse" aria-labelledby="headingInvoice" data-parent="#accordionSidebar">
+            <div class="bg-white py-2 collapse-inner rounded">
+                <a class="collapse-item" href="{% url "officer_view_invoice" %}">View Invoices</a>
+                <a class="collapse-item" href="{% url "officer_add_invoice" %}">Add Invoice</a>
+            </div>
+        </div>
+    </li>
+    {% endif %}
+
     <!-- Announcements Nav Item (PIO only) -->
     {% if user.is_pro %}
     <li class="nav-item">

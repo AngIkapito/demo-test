@@ -1,0 +1,135 @@
+{% extends "includes/base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="card shadow mb-4">
+    <div class="card-body">
+        <div class="p-4">
+
+            {% include 'includes/messages.html' %}
+
+            <a href="{% url 'officer_view_invoice' %}" class="btn btn-secondary" title="Go Back">
+                <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back
+            </a>
+
+            <div class="text-center mb-4">
+                <h1 class="h3 mb-0 text-gray-800">
+                    <i class="fas fa-file-invoice text-primary me-2"></i> Add Invoice
+                </h1>
+                <p class="text-muted small mt-1">Fill in the details below to create a new service invoice.</p>
+            </div>
+
+            <form method="post" action="{% url 'officer_add_invoice' %}">
+                {% csrf_token %}
+
+                <fieldset class="mb-4">
+                    <legend class="font-weight-bold text-primary border-bottom pb-1 mb-3">
+                        <i class="fas fa-hashtag"></i> Invoice Reference
+                    </legend>
+                    <div class="form-group">
+                        <label for="invoice_no">Invoice No. <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-hashtag"></i></span>
+                            </div>
+                            <input type="text" class="form-control" id="invoice_no" name="invoice_no"
+                                   placeholder="e.g. 1001" value="{{ post.invoice_no }}"
+                                   maxlength="4" required>
+                        </div>
+                        <small class="form-text text-muted">Maximum 4 characters. Must be unique.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="created_at">Date <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
+                            </div>
+                            <input type="datetime-local" class="form-control" id="created_at" name="created_at"
+                                   value="{{ post.created_at }}">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="mb-4">
+                    <legend class="font-weight-bold text-primary border-bottom pb-1 mb-3">
+                        <i class="fas fa-user"></i> Payee Information
+                    </legend>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="name">Name <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" id="name" name="name"
+                                           placeholder="School or Name of Person Paid"
+                                           value="{{ post.name }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="institution">Institution <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fas fa-university"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" id="institution" name="institution"
+                                           placeholder="School / Institution"
+                                           value="{{ post.institution }}" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <fieldset class="mb-4">
+                    <legend class="font-weight-bold text-primary border-bottom pb-1 mb-3">
+                        <i class="fas fa-money-bill-wave"></i> Payment Details
+                    </legend>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="payment">Payment For <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                    </div>
+                                    <input type="text" class="form-control" id="payment" name="payment"
+                                           placeholder="Ex. National Convention, IRCITE 2026 Delegates"
+                                           value="{{ post.payment }}" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-group">
+                                <label for="amt_paid">Amount Paid <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">₱</span>
+                                    </div>
+                                    <input type="number" class="form-control" id="amt_paid" name="amt_paid"
+                                           placeholder="0" value="{{ post.amt_paid }}"
+                                           min="0" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </fieldset>
+
+                <div class="d-flex justify-content-end" style="gap:8px;">
+                    <a href="{% url 'officer_view_invoice' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>&nbsp; Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>&nbsp; Save Invoice
+                    </button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

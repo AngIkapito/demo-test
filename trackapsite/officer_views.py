@@ -3,7 +3,7 @@ from django.urls import path, include, reverse
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import update_session_auth_hash
 from django.contrib import messages
-from app.models import CustomUser, Event, School_Year, Announcement, Salutation, Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, IT_Topics, Intetrested_Topics, Invitation_History
+from app.models import CustomUser, Event, School_Year, Announcement, Salutation, Organization, MemberType, MembershipType, Member, OfficerType, Region, Membership, Member_Event_Registration, Bulk_Event_Reg, Tags, IT_Topics, Intetrested_Topics, Invitation_History, Invoice
 from django.utils.safestring import mark_safe
 from django.utils import timezone
 from django.http import JsonResponse
@@ -20,7 +20,7 @@ import os
 import qrcode
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from app.audit import audit_logger
 from django.template.loader import render_to_string
 from django.http import FileResponse, Http404
@@ -1462,9 +1462,13 @@ def MEMBERSHIP_APPROVAL(request):
             return redirect("membership_approval")
 
         if action == "approve":
+            or_number = request.POST.get("or_number", "").strip() or None
+            if or_number and Membership.objects.filter(or_number=or_number).exclude(id=membership.id).exists():
+                messages.error(request, f'OR Number "{or_number}" is already used by another membership. Please use a different OR Number.')
+                return redirect("membership_approval_officer")
             # Approve the membership record
             membership.status = "APPROVED"
-            membership.or_number = request.POST.get("or_number", "").strip() or None
+            membership.or_number = or_number
             # record who processed this approval (store the id directly)
             try:
                 membership.processed_by_id = getattr(request.user, 'id', None)
@@ -2285,6 +2289,152 @@ def DELETE_ANNOUNCEMENT_OFFICER(request, id):
     announcement.delete()
     messages.success(request, 'Announcement successfully deleted.')
     return redirect('officer_view_announcement')
+
+
+# ── Invoice CRUD (Treasurer only) ──────────────────────────────────────────────
+
+@login_required(login_url='/')
+def VIEW_INVOICE(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    invoices = Invoice.objects.all().order_by('-created_at')
+    return render(request, 'officer/view_invoice.html', {'invoices': invoices})
+
+
+@login_required(login_url='/')
+def ADD_INVOICE(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    if request.method == 'POST':
+        invoice_no = request.POST.get('invoice_no')
+        if Invoice.objects.filter(invoice_no=invoice_no).exists():
+            messages.error(request, f'Invoice No. "{invoice_no}" already exists. Please use a different number.')
+            return render(request, 'officer/add_invoice.html', {'post': request.POST})
+        Invoice.objects.create(
+            invoice_no  = invoice_no,
+            name        = request.POST.get('name'),
+            institution = request.POST.get('institution'),
+            payment     = request.POST.get('payment') or 0,
+            amt_paid    = request.POST.get('amt_paid') or 0,
+            created_at  = request.POST.get('created_at') or None,
+        )
+        messages.success(request, 'Invoice added successfully.')
+        return redirect('officer_view_invoice')
+    return render(request, 'officer/add_invoice.html')
+
+
+@login_required(login_url='/')
+def EDIT_INVOICE(request, id):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    invoice = get_object_or_404(Invoice, id=id)
+    return render(request, 'officer/edit_invoice.html', {'invoice': invoice})
+
+
+@login_required(login_url='/')
+def UPDATE_INVOICE(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    if request.method == 'POST':
+        invoice    = get_object_or_404(Invoice, id=request.POST.get('invoice_id'))
+        invoice_no = request.POST.get('invoice_no')
+        if Invoice.objects.filter(invoice_no=invoice_no).exclude(id=invoice.id).exists():
+            messages.error(request, f'Invoice No. "{invoice_no}" already exists. Please use a different number.')
+            return redirect('officer_view_invoice')
+        invoice.invoice_no  = invoice_no
+        invoice.name        = request.POST.get('name')
+        invoice.institution = request.POST.get('institution')
+        invoice.payment     = request.POST.get('payment') or 0
+        invoice.amt_paid    = request.POST.get('amt_paid') or 0
+        created_at          = request.POST.get('created_at')
+        if created_at:
+            invoice.created_at = created_at
+        invoice.save()
+        messages.success(request, 'Invoice updated successfully.')
+    return redirect('officer_view_invoice')
+
+
+@login_required(login_url='/')
+def DELETE_INVOICE(request, id):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+    get_object_or_404(Invoice, id=id).delete()
+    messages.success(request, 'Invoice deleted.')
+    return redirect('officer_view_invoice')
+
+
+@login_required(login_url='/')
+def EXPORT_INVOICE_EXCEL(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+
+    invoices = Invoice.objects.all().order_by('-created_at')
+
+    region_name = 'Region 3'
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Service Invoice'
+
+    thin = Side(style='thin')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    header_fill = PatternFill(start_color='D9E1F2', end_color='D9E1F2', fill_type='solid')
+    center = Alignment(horizontal='center', vertical='center')
+
+    ws['A1'] = 'PSITE Inc.'
+    ws['A1'].font = Font(bold=True, size=12)
+
+    ws['A2'] = 'Region:'
+    ws['A2'].font = Font(bold=True)
+    ws['B2'] = region_name
+
+    ws['A3'] = 'Summary of Service Invoice'
+    ws['A3'].font = Font(bold=True, size=11)
+
+    headers = ['Invoice No.', 'NAME', 'INSTITUTION', 'PAYMENT', 'AMT PAID', 'DATE']
+    header_row = 5
+    for col, h in enumerate(headers, start=1):
+        cell = ws.cell(row=header_row, column=col, value=h)
+        cell.font = Font(bold=True)
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = border
+
+    for row_idx, inv in enumerate(invoices, start=header_row + 1):
+        data = [
+            inv.invoice_no,
+            inv.name,
+            inv.institution,
+            inv.payment,
+            inv.amt_paid,
+            inv.created_at.strftime('%m/%d/%Y') if inv.created_at else '',
+        ]
+        for col, val in enumerate(data, start=1):
+            cell = ws.cell(row=row_idx, column=col, value=val)
+            cell.border = border
+            if col in (1, 5):
+                cell.alignment = center
+
+    ws.column_dimensions['A'].width = 12
+    ws.column_dimensions['B'].width = 30
+    ws.column_dimensions['C'].width = 30
+    ws.column_dimensions['D'].width = 40
+    ws.column_dimensions['E'].width = 12
+    ws.column_dimensions['F'].width = 12
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename="Service_Invoice.xlsx"'
+    wb.save(response)
+    return response
+
 
 @login_required(login_url='/')
 def EDIT_ANNOUNCEMENT_OFFICER(request, id):

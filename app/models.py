@@ -364,3 +364,14 @@ class Invitation_History(models.Model):
         member_name = f"{self.member.admin.first_name} {self.member.admin.last_name}".strip() if self.member and self.member.admin else 'N/A'
         event_title = self.event.title if self.event else 'N/A'
         return f"{member_name} - {event_title} ({self.status})"
+
+class Invoice(models.Model):
+    invoice_no = models.CharField(max_length=10, unique=True)
+    name = models.CharField(max_length = 100)
+    institution = models.CharField(max_length = 100)
+    payment = models.CharField(max_length = 100)
+    amt_paid = models.IntegerField()
+    created_at = models.DateTimeField(null = True, blank = True)
+
+    def __str__(self):
+        return f"Invoice #{self.invoice_no} - {self.name} ({self.institution})"

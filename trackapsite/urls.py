@@ -181,6 +181,13 @@ urlpatterns = [
     path('officer/Member/SendBilling', officer_views.SEND_BILLING_PAGE, name='send_billing_officer'),
     path('officer/Member/ProcessSendBilling', officer_views.PROCESS_SEND_BILLING, name='process_send_billing_officer'),
     
+    path('officer/Invoice/View', officer_views.VIEW_INVOICE, name='officer_view_invoice'),
+    path('officer/Invoice/Add', officer_views.ADD_INVOICE, name='officer_add_invoice'),
+    path('officer/Invoice/Edit/<str:id>', officer_views.EDIT_INVOICE, name='officer_edit_invoice'),
+    path('officer/Invoice/Update', officer_views.UPDATE_INVOICE, name='officer_update_invoice'),
+    path('officer/Invoice/Delete/<str:id>', officer_views.DELETE_INVOICE, name='officer_delete_invoice'),
+    path('officer/Invoice/ExportExcel', officer_views.EXPORT_INVOICE_EXCEL, name='officer_export_invoice_excel'),
+
     path('officer/Announcement/View', officer_views.VIEW_ANNOUNCEMENT_OFFICER, name='officer_view_announcement'),
     path('officer/Announcement/Add', officer_views.ADD_ANNOUNCEMENT_OFFICER, name='officer_add_announcement'),
     path('officer/Announcement/Edit/<str:id>', officer_views.EDIT_ANNOUNCEMENT_OFFICER, name='officer_edit_announcement'),
