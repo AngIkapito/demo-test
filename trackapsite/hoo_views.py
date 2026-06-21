@@ -1595,6 +1595,7 @@ def PROCESS_SEND_BILLING(request):
 
 def AUDIT_LOG(request):
     import re
+    from django.core.paginator import Paginator
     log_path = os.path.join(settings.BASE_DIR, 'logs', 'audit.log')
     entries = []
     level_filter  = request.GET.get('level', '').upper()
@@ -1622,8 +1623,13 @@ def AUDIT_LOG(request):
     except FileNotFoundError:
         entries = []
 
+    paginator  = Paginator(entries, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj   = paginator.get_page(page_number)
+
     context = {
-        'entries': entries,
+        'entries': page_obj,
+        'page_obj': page_obj,
         'level_filter': level_filter,
         'search_filter': search_filter,
         'total': len(entries),

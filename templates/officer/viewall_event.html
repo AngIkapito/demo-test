@@ -12,7 +12,7 @@
             <a href="{% url 'officer_home' %}" class="btn btn-secondary" title="Go Back">
                 <i class="fas fa-arrow-left"></i>&nbsp;&nbsp; Back</a>
              <h1 class="h3 mb-0 text-gray-800">Event List</h1>
-             {% if user.is_treasurer %}
+             {% if not user.is_treasurer %}
              <a href="{% url 'add_event_officer' %}" class="btn btn-primary" title="Add Event">
                 <i class="fas fa-plus"></i>&nbsp;&nbsp; Event
              </a>
@@ -64,14 +64,14 @@
                                         data-toggle="tooltip" title="View Event Info">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                {% if user.is_treasurer %}
-                                <!-- Edit Icon (treasurer only) -->
+                                {% if not user.is_treasurer %}
+                                <!-- Edit Icon (non-treasurer only) -->
                                 <button class="btn btn-sm bg-success-light edit-btn"
                                         data-id="{{ event.id }}"
                                         data-toggle="tooltip" title="Edit">
                                     <i class="fas fa-pen" style="font-size:16px;"></i>
                                 </button>
-                                <!-- Delete Icon (treasurer only) -->
+                                <!-- Delete Icon (non-treasurer only) -->
                                 <button class="btn btn-sm bg-danger-light delete-btn"
                                         data-id="{{ event.id }}"
                                         data-title="{{ event.title }}"

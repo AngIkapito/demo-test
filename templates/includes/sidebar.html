@@ -69,12 +69,7 @@
         </a>
         <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
-                <a class="collapse-item" href="{% url "add_member" %}">Add Member</a>
-                <a class="collapse-item" href="{% url "membership_registration" %}">Membership Registration</a>
-                <a class="collapse-item" href="{% url "membership_approval" %}">Membership Aprroval</a>
-                <a class="collapse-item" href="">Membership Records</a>
                 <a class="collapse-item" href="{% url "viewall_member" %}">Members List</a>
-                <a class="collapse-item" href="{% url "send_billing" %}">Send Billing</a>
             </div>
         </div>
     </li>
@@ -90,12 +85,7 @@
             data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
                 <a class="collapse-item" href="{% url "viewall_event" %}">Events List</a>
-                <a class="collapse-item" href="{% url "hoo_event_invitations" %}">Event Invitations</a>
                 <a class="collapse-item" href="{% url "hoo_invitation_history" %}">Invitation History</a>
-                <a class="collapse-item" href="">Competition List</a>
-                <a class="collapse-item" href="{% url "viewall_bulk_reg" %}">Event Approval/Attendance</a>
-                <a class="collapse-item" href="{% url "list_attendees" %}">Event Attendees</a>
-                {% comment %} <h6 class="collapse-header">Events</h6> {% endcomment %}
             </div>
         </div>
     </li>
@@ -255,14 +245,11 @@
         <div id="collapseUtilities" class="collapse" aria-labelledby="headingUtilities"
             data-parent="#accordionSidebar">
             <div class="bg-white py-2 collapse-inner rounded">
-                {% if user.is_treasurer %}
-                <a class="collapse-item" href="{% url "add_event_officer" %}">Add Event</a>
-                {% endif %}
-                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor %}
+                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor and not user.is_treasurer %}
                 <a class="collapse-item" href="{% url "member_event_reg_officer" %}">Event Registration</a>
                 {% endif %}
                 <a class="collapse-item" href="{% url "viewall_event2" %}">Events List</a>
-                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor and not user.is_secretary %}
+                {% if not user.is_areacoor and not user.is_pro and not user.is_auditor and not user.is_secretary and not user.is_treasurer %}
                 <a class="collapse-item" href="{% url "bulk_event_reg_officer" %}">Bulk registration</a>
                 {% endif %}
                 <a class="collapse-item" href="{% url "list_attendees_officer" %}">Event Attendees</a>
