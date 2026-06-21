@@ -6,15 +6,15 @@ from django.contrib.auth.admin import UserAdmin
 # Register your models here.
 
 class UserModel(UserAdmin):
-    list_display = ['id','last_name','first_name', 'username', 'user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary']
+    list_display = ['id','last_name','first_name', 'username', 'user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary', 'email']
     search_fields = ['username', 'email', 'first_name', 'last_name']
-    list_filter = ['is_active', 'is_staff', 'user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary']
+    list_filter = ['is_active', 'is_staff', 'user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary','email']
     
     fieldsets = UserAdmin.fieldsets + (
         ('Role & Permissions', {'fields': ('user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary')}),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Role & Permissions', {'fields': ('user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary')}),
+        ('Role & Permissions', {'fields': ('email','user_type', 'is_treasurer', 'is_areacoor', 'is_pro', 'is_auditor', 'is_secretary')}),
     )
 
 

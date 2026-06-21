@@ -128,7 +128,7 @@
                                         <select class="form-control" id="membershiptype_id" name="membershiptype_id" required>
                                             <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>
                                             {% for membershiptype in membershiptypes %}
-                                                <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{membershiptype.price}} PESOS</option>
+                                                <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - ₱{{ membershiptype.price }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
@@ -140,7 +140,6 @@
                                                 <option value="{{ organization.id }}">{{ organization.name }}</option>
                                             {% endfor %}
                                         </select>
-                                        <small class="form-text text-danger mt-1">School not listed? Contact your School representative to Email PSITE CL &lt; <a href="mailto:jtiongco.work@gmail.com" title="Compose email to jtiongco.work@gmail.com" target="_blank" rel="noopener noreferrer">jtiongco.work@gmail.com</a> &gt; to add your institution</small>
                                     </div>
                                 </div>
                                 <div class="form-row">

@@ -43,7 +43,7 @@
                     <select class="form-control" id="membershiptype_id" name="membershiptype_id" required>
                         <option value="" disabled selected>SELECT MEMBERSHIP TYPE</option>
                         {% for membershiptype in membershiptypes %}
-                            <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - {{ membershiptype.price }} PESOS</option>
+                            <option value="{{ membershiptype.id }}">{{ membershiptype.name }} - ₱{{ membershiptype.price }}</option>
                         {% endfor %}
                     </select>
 
