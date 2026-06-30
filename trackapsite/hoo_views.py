@@ -1225,6 +1225,136 @@ def EXPORT_MEMBER_PDF(request):
     }
     return render(request, 'hoo/export_member_pdf.html', context)
 
+def EXPORT_MEMBER_EXCEL(request):
+    import io, datetime as dt
+    from django.db.models import Subquery, OuterRef
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    or_number_sq = Membership.objects.filter(member_id=OuterRef('id'), status__iexact='approved').order_by('-id').values('or_number')[:1]
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype').annotate(or_number=Subquery(or_number_sq))
+
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        payment_ids = Membership.objects.filter(
+            status__iexact='approved', payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_ids)
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
+    members = list(members)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Member List'
+
+    thin   = Side(style='thin', color='BDBDBD')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    header_fill = PatternFill('solid', fgColor='1C2E4A')
+    alt_fill    = PatternFill('solid', fgColor='EBF0F7')
+    total_fill  = PatternFill('solid', fgColor='D9E1F2')
+
+    col_headers = ['#', 'Complete Name', 'Last Name', 'First Name', 'Middle Initial', 'Organization', 'Position', 'Membership Type', 'Registered', 'OR Number']
+    col_widths  = [5,    28,              18,           18,           18,              28,             16,         20,               16,           16]
+    num_cols    = len(col_headers)
+    last_col    = get_column_letter(num_cols)
+
+    for col_idx, width in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    # ---- Header block ----
+    ws.merge_cells(f'A1:{last_col}1')
+    ws['A1'] = 'MEMBERSHIP REPORT SUMMARY'
+    ws['A1'].font      = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[1].height = 20
+
+    ws.merge_cells(f'A2:{last_col}2')
+    ws['A2'] = 'PSITE-R3'
+    ws['A2'].font      = Font(size=10)
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[2].height = 16
+
+    period_from = date_from if date_from else 'DATE FROM'
+    period_to   = date_to   if date_to   else 'DATE TO'
+    ws.merge_cells(f'A3:{last_col}3')
+    ws['A3'] = f'Period: ({period_from}) - ({period_to})'
+    ws['A3'].font      = Font(size=10)
+    ws['A3'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[3].height = 16
+
+    ws.row_dimensions[4].height = 6
+
+    # ---- Column header row (row 5) ----
+    TABLE_START = 5
+    for col_idx, header_val in enumerate(col_headers, start=1):
+        cell = ws.cell(row=TABLE_START, column=col_idx, value=header_val)
+        cell.font      = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill      = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border    = border
+    ws.row_dimensions[TABLE_START].height = 22
+
+    for row_idx, m in enumerate(members, start=1):
+        row_fill  = alt_fill if row_idx % 2 == 0 else PatternFill('solid', fgColor='FFFFFF')
+        full_name = f"{m.admin.last_name.upper()}, {m.admin.first_name.upper()}" if m.admin else ''
+        registered = m.created_at.strftime('%b %d, %Y') if m.created_at else '-'
+        or_num     = m.or_number if m.or_number else '-'
+
+        row_data = [
+            row_idx,
+            full_name,
+            m.admin.last_name.upper() if m.admin else '',
+            m.admin.first_name.upper() if m.admin else '',
+            m.middle_name.upper() if m.middle_name else '',
+            m.organization.name.upper() if m.organization else '',
+            m.position.upper() if m.position else '',
+            m.membershiptype.name.upper() if m.membershiptype else '',
+            registered,
+            or_num,
+        ]
+        excel_row = TABLE_START + row_idx
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=excel_row, column=col_idx, value=value)
+            cell.fill      = row_fill
+            cell.border    = border
+            cell.alignment = Alignment(horizontal='center' if col_idx in (1, 9, 10) else 'left', vertical='center')
+            cell.font      = Font(size=10, color='000000')
+
+    total_row = TABLE_START + len(members) + 1
+    ws.merge_cells(f'A{total_row}:I{total_row}')
+    ws.cell(row=total_row, column=1, value='Total Members').font      = Font(bold=True, size=10)
+    ws.cell(row=total_row, column=1).alignment = Alignment(horizontal='right', vertical='center')
+    ws.cell(row=total_row, column=1).fill      = total_fill
+    ws.cell(row=total_row, column=1).border    = border
+    ws.cell(row=total_row, column=10, value=len(members)).font      = Font(bold=True, size=10)
+    ws.cell(row=total_row, column=10).alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(row=total_row, column=10).fill      = total_fill
+    ws.cell(row=total_row, column=10).border    = border
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Member_List_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
 def _get_pdf_fonts():
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont

@@ -48,6 +48,7 @@ urlpatterns = [
     path('hoo/Member/Add', hoo_views.ADD_MEMBER, name='add_member'),
     path('hoo/Member/ViewAll', hoo_views.VIEWALL_MEMBER, name='viewall_member'),
     path('hoo/Member/ExportPDF', hoo_views.EXPORT_MEMBER_PDF, name='export_member_pdf'),
+    path('hoo/Member/ExportExcel', hoo_views.EXPORT_MEMBER_EXCEL, name='export_member_excel'),
     path('hoo/AuditLog', hoo_views.AUDIT_LOG, name='audit_log'),
     path('hoo/Member/SendBilling', hoo_views.SEND_BILLING_PAGE, name='send_billing'),
     path('hoo/Member/ProcessSendBilling', hoo_views.PROCESS_SEND_BILLING, name='process_send_billing'),
@@ -197,7 +198,9 @@ urlpatterns = [
     path('officer/GenerateReport', officer_views.GENERATE_REPORT, name='officer_generate_report'),
     path('officer/Member/Add', officer_views.ADD_MEMBER, name='add_member_officer'),
     path('officer/Member/ExportPDF', officer_views.EXPORT_MEMBER_PDF, name='export_member_pdf_officer'),
+    path('officer/Member/ExportExcel', officer_views.EXPORT_MEMBER_EXCEL, name='export_member_excel_officer'),
     path('officer/Member/ExportSummaryPDF', officer_views.EXPORT_SUMMARY_PDF, name='export_summary_pdf_officer'),
+    path('officer/Member/ExportSummaryExcel', officer_views.EXPORT_SUMMARY_EXCEL, name='export_summary_excel_officer'),
     path('officer/Member/ViewAll', officer_views.VIEWALL_MEMBER, name='viewall_member_officer'),
     path('officer/Member/Details/<str:id>', officer_views.MEMBER_DETAILS, name='member_details_officer'),
     #officer event List

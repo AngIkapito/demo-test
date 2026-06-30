@@ -866,6 +866,146 @@ def EXPORT_MEMBER_PDF(request):
 
 
 @login_required(login_url='/')
+def EXPORT_MEMBER_EXCEL(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+
+    import io, datetime as dt
+    from django.db.models import Subquery, OuterRef
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    or_number_sq = Membership.objects.filter(member_id=OuterRef('id'), status__iexact='approved').order_by('-id').values('or_number')[:1]
+    members = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype').annotate(or_number=Subquery(or_number_sq))
+
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    if selected_org:
+        members = members.filter(organization_id=selected_org)
+    if selected_mtype:
+        members = members.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        payment_ids = Membership.objects.filter(
+            status__iexact='approved', payment_method__iexact=selected_payment
+        ).values_list('member_id', flat=True).distinct()
+        members = members.filter(id__in=payment_ids)
+    if date_from:
+        members = members.filter(created_at__date__gte=date_from)
+    if date_to:
+        members = members.filter(created_at__date__lte=date_to)
+
+    members = list(members)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Member List'
+
+    thin   = Side(style='thin',   color='BDBDBD')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    header_fill = PatternFill('solid', fgColor='1C2E4A')
+    alt_fill    = PatternFill('solid', fgColor='EBF0F7')
+    total_fill  = PatternFill('solid', fgColor='D9E1F2')
+
+    col_headers = ['#', 'Complete Name', 'Last Name', 'First Name', 'Middle Initial', 'Organization', 'Position', 'Membership Type', 'Registered', 'OR Number']
+    col_widths  = [5,    28,              18,           18,           18,              28,             16,         20,               16,           16]
+    num_cols    = len(col_headers)
+    last_col    = get_column_letter(num_cols)
+
+    for col_idx, width in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+
+    # ---- Header block ----
+    # Row 1: MEMBERSHIP REPORT SUMMARY (bold)
+    ws.merge_cells(f'A1:{last_col}1')
+    ws['A1'] = 'MEMBERSHIP REPORT SUMMARY'
+    ws['A1'].font      = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[1].height = 20
+
+    # Row 2: PSITE-R3
+    ws.merge_cells(f'A2:{last_col}2')
+    ws['A2'] = 'PSITE-R3'
+    ws['A2'].font      = Font(size=10)
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[2].height = 16
+
+    # Row 3: For the Period ... (use filter dates if set)
+    period_from = date_from if date_from else 'DATE FROM'
+    period_to   = date_to   if date_to   else 'DATE TO'
+    ws.merge_cells(f'A3:{last_col}3')
+    ws['A3'] = f'Period: ({period_from}) - ({period_to})'
+    ws['A3'].font      = Font(size=10)
+    ws['A3'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[3].height = 16
+
+    # Row 4: blank separator
+    ws.row_dimensions[4].height = 6
+
+    # ---- Column header row (row 5) ----
+    TABLE_START = 5
+    for col_idx, header_val in enumerate(col_headers, start=1):
+        cell = ws.cell(row=TABLE_START, column=col_idx, value=header_val)
+        cell.font      = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill      = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border    = border
+    ws.row_dimensions[TABLE_START].height = 22
+
+    for row_idx, m in enumerate(members, start=1):
+        row_fill = alt_fill if row_idx % 2 == 0 else PatternFill('solid', fgColor='FFFFFF')
+        full_name = f"{m.admin.last_name.upper()}, {m.admin.first_name.upper()}" if m.admin else ''
+        registered = m.created_at.strftime('%b %d, %Y') if m.created_at else '-'
+        or_num = m.or_number if m.or_number else '-'
+
+        row_data = [
+            row_idx,
+            full_name,
+            m.admin.last_name.upper() if m.admin else '',
+            m.admin.first_name.upper() if m.admin else '',
+            m.middle_name.upper() if m.middle_name else '',
+            m.organization.name.upper() if m.organization else '',
+            m.position.upper() if m.position else '',
+            m.membershiptype.name.upper() if m.membershiptype else '',
+            registered,
+            or_num,
+        ]
+        excel_row = TABLE_START + row_idx
+        for col_idx, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=excel_row, column=col_idx, value=value)
+            cell.fill      = row_fill
+            cell.border    = border
+            cell.alignment = Alignment(horizontal='center' if col_idx in (1, 9, 10) else 'left', vertical='center')
+            cell.font      = Font(size=10, color='000000')
+
+    total_row = TABLE_START + len(members) + 1
+    ws.merge_cells(f'A{total_row}:I{total_row}')
+    ws.cell(row=total_row, column=1, value='Total Members').font      = Font(bold=True, size=10)
+    ws.cell(row=total_row, column=1).alignment = Alignment(horizontal='right', vertical='center')
+    ws.cell(row=total_row, column=1).fill      = total_fill
+    ws.cell(row=total_row, column=1).border    = border
+    ws.cell(row=total_row, column=10, value=len(members)).font      = Font(bold=True, size=10)
+    ws.cell(row=total_row, column=10).alignment = Alignment(horizontal='center', vertical='center')
+    ws.cell(row=total_row, column=10).fill      = total_fill
+    ws.cell(row=total_row, column=10).border    = border
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Member_List_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required(login_url='/')
 def EXPORT_SUMMARY_PDF(request):
     if not getattr(request.user, 'is_treasurer', False):
         messages.error(request, 'Access denied.')
@@ -1096,6 +1236,258 @@ def EXPORT_SUMMARY_PDF(request):
     buffer.seek(0)
     response = HttpResponse(buffer, content_type='application/pdf')
     response['Content-Disposition'] = 'inline; filename="membership_summary.pdf"'
+    return response
+
+
+@login_required(login_url='/')
+def EXPORT_SUMMARY_EXCEL(request):
+    if not getattr(request.user, 'is_treasurer', False):
+        messages.error(request, 'Access denied.')
+        return redirect('officer_home')
+
+    from collections import defaultdict
+    import io, datetime as dt
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    # Active school year label
+    try:
+        active_sy = School_Year.objects.filter(status=1).first()
+        if active_sy:
+            sy_label = f'{active_sy.sy_start.year} - {active_sy.sy_end.year}'
+        else:
+            sy_label = ''
+    except Exception:
+        sy_label = ''
+
+    # Apply filters (same as PDF view)
+    approved_ids = Membership.objects.filter(status__iexact='approved').values_list('member_id', flat=True).distinct()
+    selected_org     = request.GET.get('organization', '')
+    selected_mtype   = request.GET.get('membershiptype', '')
+    selected_payment = request.GET.get('payment_method', '')
+    date_from        = request.GET.get('date_from', '')
+    date_to          = request.GET.get('date_to', '')
+
+    qs = Member.objects.filter(id__in=approved_ids).select_related('admin', 'organization', 'membershiptype')
+    if selected_org:
+        qs = qs.filter(organization_id=selected_org)
+    if selected_mtype:
+        qs = qs.filter(membershiptype_id=selected_mtype)
+    if selected_payment:
+        pid = Membership.objects.filter(status__iexact='approved', payment_method__iexact=selected_payment).values_list('member_id', flat=True).distinct()
+        qs = qs.filter(id__in=pid)
+    if date_from:
+        qs = qs.filter(created_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(created_at__date__lte=date_to)
+    members = list(qs)
+
+    # Build type → price map
+    type_price = {}
+    for m in members:
+        mt = m.membershiptype
+        if mt and mt.name not in type_price:
+            type_price[mt.name] = float(mt.price) if mt.price else 0.0
+    type_names = sorted(type_price.keys())
+
+    # Build month matrix
+    month_matrix = {}
+    for m in members:
+        mt = m.membershiptype
+        if not mt:
+            continue
+        created = m.created_at
+        if created:
+            key = (created.year, created.month)
+            label = created.strftime('%B')
+        else:
+            key = (9999, 99)
+            label = 'Unknown'
+        if key not in month_matrix:
+            month_matrix[key] = {'label': label, 'types': defaultdict(int)}
+        month_matrix[key]['types'][mt.name] += 1
+
+    sorted_keys = sorted(month_matrix.keys())
+
+    # Totals per type
+    total_per_type = defaultdict(int)
+    for key in sorted_keys:
+        for t in type_names:
+            total_per_type[t] += month_matrix[key]['types'][t]
+
+    revenue_per_type    = {t: total_per_type[t] * type_price[t] for t in type_names}
+    total_revenue       = sum(revenue_per_type.values())
+    thirty_pct_total    = total_revenue * 0.30
+    thirty_pct_per_type = {t: revenue_per_type[t] * 0.30 for t in type_names}
+
+    # ---- Build Excel ----
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Summary of Collection'
+
+    # Style helpers
+    thin  = Side(style='thin',   color='BDBDBD')
+    thick = Side(style='medium', color='37474F')
+    border_all  = Border(left=thin, right=thin, top=thin, bottom=thin)
+    border_bold = Border(left=thick, right=thick, top=thick, bottom=thick)
+
+    header_fill  = PatternFill('solid', fgColor='37474F')
+    total_fill   = PatternFill('solid', fgColor='FFCCBC')
+    revenue_fill = PatternFill('solid', fgColor='F5F5F5')
+    alt_fill     = PatternFill('solid', fgColor='F9F9F9')
+
+    num_cols = 1 + len(type_names) + 1   # Months + types + 30%
+    last_col = get_column_letter(num_cols)
+
+    # ---- Header block ----
+    ws.merge_cells(f'A1:{last_col}1')
+    ws['A1'] = 'MEMBERSHIP REPORT SUMMARY'
+    ws['A1'].font      = Font(bold=True, size=12)
+    ws['A1'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[1].height = 20
+
+    ws.merge_cells(f'A2:{last_col}2')
+    ws['A2'] = 'PSITE-R3'
+    ws['A2'].font      = Font(size=10)
+    ws['A2'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[2].height = 16
+
+    ws.merge_cells(f'A3:{last_col}3')
+    ws['A3'] = f'AY: {sy_label}' if sy_label else ''
+    ws['A3'].font      = Font(bold=True, size=10)
+    ws['A3'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[3].height = 16
+
+    period_from = date_from if date_from else 'DATE FROM'
+    period_to   = date_to   if date_to   else 'DATE TO'
+    ws.merge_cells(f'A4:{last_col}4')
+    ws['A4'] = f'Period: ({period_from}) - ({period_to})'
+    ws['A4'].font      = Font(size=10)
+    ws['A4'].alignment = Alignment(horizontal='left', vertical='center')
+    ws.row_dimensions[4].height = 16
+
+    ws.row_dimensions[5].height = 6
+
+    data_start_row = 6
+
+    # ---- Column header row ----
+    col_headers = ['Months'] + type_names + ['30%']
+    for col_idx, header_val in enumerate(col_headers, start=1):
+        cell = ws.cell(row=data_start_row, column=col_idx, value=header_val)
+        cell.font      = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill      = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        cell.border    = border_all
+    ws.row_dimensions[data_start_row].height = 30
+
+    # ---- Month data rows ----
+    current_row = data_start_row + 1
+    month_row_start = current_row
+    for i, key in enumerate(sorted_keys):
+        entry = month_matrix[key]
+        month_revenue = sum(entry['types'][t] * type_price[t] for t in type_names)
+        thirty_month  = month_revenue * 0.30
+        row_fill = alt_fill if i % 2 == 0 else PatternFill('solid', fgColor='FFFFFF')
+
+        ws.cell(row=current_row, column=1, value=entry['label']).alignment = Alignment(horizontal='left')
+        for col_idx, t in enumerate(type_names, start=2):
+            cnt = entry['types'][t]
+            ws.cell(row=current_row, column=col_idx, value=cnt if cnt else '')
+        ws.cell(row=current_row, column=num_cols, value=round(thirty_month, 2) if thirty_month else '')
+
+        for col_idx in range(1, num_cols + 1):
+            cell = ws.cell(row=current_row, column=col_idx)
+            cell.fill   = row_fill
+            cell.border = border_all
+            cell.alignment = Alignment(horizontal='center' if col_idx > 1 else 'left', vertical='center')
+        current_row += 1
+
+    # ---- TOTAL counts row ----
+    total_row = current_row
+    ws.cell(row=total_row, column=1, value='TOTAL:')
+    for col_idx, t in enumerate(type_names, start=2):
+        ws.cell(row=total_row, column=col_idx, value=total_per_type[t])
+    ws.cell(row=total_row, column=num_cols, value=round(thirty_pct_total, 2))
+    for col_idx in range(1, num_cols + 1):
+        cell = ws.cell(row=total_row, column=col_idx)
+        cell.font      = Font(bold=True, size=10)
+        cell.fill      = total_fill
+        cell.border    = border_all
+        cell.alignment = Alignment(horizontal='center' if col_idx > 1 else 'left', vertical='center')
+    current_row += 1
+
+    # ---- Revenue per type row ----
+    revenue_row = current_row
+    ws.cell(row=revenue_row, column=1, value='')
+    for col_idx, t in enumerate(type_names, start=2):
+        ws.cell(row=revenue_row, column=col_idx, value=round(revenue_per_type[t], 0))
+    ws.cell(row=revenue_row, column=num_cols, value='')
+    for col_idx in range(1, num_cols + 1):
+        cell = ws.cell(row=revenue_row, column=col_idx)
+        cell.font      = Font(bold=True, size=10)
+        cell.fill      = revenue_fill
+        cell.border    = border_all
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+    current_row += 1
+
+    # ---- 30% per type TOTAL row ----
+    thirty_row = current_row
+    ws.cell(row=thirty_row, column=1, value='TOTAL:')
+    for col_idx, t in enumerate(type_names, start=2):
+        ws.cell(row=thirty_row, column=col_idx, value=round(thirty_pct_per_type[t], 2))
+    ws.cell(row=thirty_row, column=num_cols, value=round(thirty_pct_total, 2))
+    for col_idx in range(1, num_cols + 1):
+        cell = ws.cell(row=thirty_row, column=col_idx)
+        cell.font      = Font(bold=True, size=10)
+        cell.fill      = total_fill
+        cell.border    = border_all
+        cell.alignment = Alignment(horizontal='center' if col_idx > 1 else 'left', vertical='center')
+    current_row += 2
+
+    # ---- Signature section ----
+    def get_officer_info(flag, role_label=''):
+        try:
+            cu = CustomUser.objects.filter(**{flag: True}).first()
+            if not cu:
+                return ('', '')
+            name = f"{cu.first_name or ''} {cu.last_name or ''}".strip() or cu.username
+            return (name, role_label)
+        except Exception:
+            return ('', '')
+
+    auditor_name,   auditor_pos   = get_officer_info('is_auditor',   'Auditor')
+    treasurer_name, treasurer_pos = get_officer_info('is_treasurer', 'Treasurer')
+
+    mid_col = (num_cols // 2) + 1
+
+    ws.cell(row=current_row, column=1,       value='Confirmed By:').font = Font(bold=True, size=10)
+    ws.cell(row=current_row, column=mid_col, value='Reviewed By:').font  = Font(bold=True, size=10)
+    current_row += 3
+
+    sig_row = current_row
+    ws.cell(row=sig_row, column=1,       value=treasurer_name).font = Font(bold=True, size=10)
+    ws.cell(row=sig_row, column=mid_col, value=auditor_name).font   = Font(bold=True, size=10)
+    for c in range(1, mid_col - 1):
+        ws.cell(row=sig_row - 1, column=c).border = Border(bottom=Side(style='thin', color='000000'))
+    for c in range(mid_col, num_cols + 1):
+        ws.cell(row=sig_row - 1, column=c).border = Border(bottom=Side(style='thin', color='000000'))
+    current_row += 1
+    ws.cell(row=current_row, column=1,       value=treasurer_pos).font = Font(size=9, color='555555')
+    ws.cell(row=current_row, column=mid_col, value=auditor_pos).font   = Font(size=9, color='555555')
+
+    # ---- Column widths ----
+    ws.column_dimensions['A'].width = 18
+    for col_idx in range(2, num_cols):
+        ws.column_dimensions[get_column_letter(col_idx)].width = max(14, len(type_names[col_idx - 2]) + 4) if type_names else 14
+    ws.column_dimensions[last_col].width = 14
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    filename = f"Membership_Summary_{dt.datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
 
 

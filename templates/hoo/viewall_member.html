@@ -53,8 +53,11 @@
                     <a href="{% url 'add_member' %}" class="btn btn-primary" title="Add Member">
                         <i class="fas fa-plus"></i>&nbsp;&nbsp; Member
                     </a>
-                    <a id="exportPdfBtn" href="{% url 'export_member_pdf' %}" target="_blank" class="btn btn-danger" title="Export PDF">
+                    <a id="exportPdfBtn" href="#" target="_blank" class="btn btn-danger disabled" title="Select date range to export" aria-disabled="true">
                         <i class="fas fa-file-pdf"></i>&nbsp;&nbsp; Export PDF
+                    </a>
+                    <a id="exportExcelBtn" href="#" class="btn btn-success disabled" title="Select date range to export" aria-disabled="true">
+                        <i class="fas fa-file-excel"></i>&nbsp;&nbsp; Export Excel
                     </a>
                 </div>
                 <br>
@@ -261,12 +264,28 @@
 
 <script>
 (function(){
-    // Keep Export PDF link in sync with current filter params
-    var exportBtn = document.getElementById('exportPdfBtn');
-    var filterForm = document.getElementById('orgFilterForm');
-    if(!exportBtn || !filterForm) return;
+    var exportBtn     = document.getElementById('exportPdfBtn');
+    var exportExcelBtn = document.getElementById('exportExcelBtn');
+    var filterForm    = document.getElementById('orgFilterForm');
+    if(!filterForm) return;
+    var exportBtns = [exportBtn, exportExcelBtn];
 
-    function updateExportLink(){
+    function setExportEnabled(enabled){
+        exportBtns.forEach(function(btn){
+            if(!btn) return;
+            if(enabled){
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.title = '';
+            } else {
+                btn.classList.add('disabled');
+                btn.setAttribute('aria-disabled', 'true');
+                btn.title = 'Select date range to export';
+            }
+        });
+    }
+
+    function updateExportLinks(){
         var params = new URLSearchParams();
         var org  = filterForm.querySelector('[name="organization"]');
         var mt   = filterForm.querySelector('[name="membershiptype"]');
@@ -279,11 +298,17 @@
         if(dfr  && dfr.value)  params.set('date_from',      dfr.value);
         if(dto  && dto.value)  params.set('date_to',        dto.value);
         var qs = params.toString();
-        exportBtn.href = "{% url 'export_member_pdf' %}" + (qs ? '?' + qs : '');
+        var datesSet = dfr && dfr.value && dto && dto.value;
+        setExportEnabled(!!datesSet);
+        if(datesSet){
+            if(exportBtn)      exportBtn.href      = "{% url 'export_member_pdf' %}"   + (qs ? '?' + qs : '');
+            if(exportExcelBtn) exportExcelBtn.href = "{% url 'export_member_excel' %}" + (qs ? '?' + qs : '');
+        }
     }
 
-    filterForm.addEventListener('change', updateExportLink);
-    updateExportLink();
+    filterForm.addEventListener('change', updateExportLinks);
+    filterForm.addEventListener('input',  updateExportLinks);
+    updateExportLinks();
 })();
 </script>
 

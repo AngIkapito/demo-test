@@ -51,11 +51,17 @@
                     <a href="{% url 'add_member_officer' %}" class="btn btn-primary" title="Add Member">
                         <i class="fas fa-plus"></i>&nbsp;&nbsp; Member
                     </a>
-                    <a id="exportPdfBtn" href="{% url 'export_member_pdf_officer' %}" target="_blank" class="btn btn-danger" title="Export PDF">
+                    <a id="exportPdfBtn" href="#" target="_blank" class="btn btn-danger disabled" title="Select date range to export" aria-disabled="true">
                         <i class="fas fa-file-pdf"></i>&nbsp;&nbsp; Export PDF
                     </a>
-                    <a id="exportSummaryBtn" href="{% url 'export_summary_pdf_officer' %}" target="_blank" class="btn btn-dark" title="Export Total Summary">
+                    <a id="exportExcelBtn" href="#" class="btn btn-success disabled" title="Select date range to export" aria-disabled="true">
+                        <i class="fas fa-file-excel"></i>&nbsp;&nbsp; Export Excel
+                    </a>
+                    <a id="exportSummaryBtn" href="#" target="_blank" class="btn btn-dark disabled" title="Select date range to export" aria-disabled="true">
                         <i class="fas fa-chart-bar"></i>&nbsp;&nbsp; Summary PDF
+                    </a>
+                    <a id="exportSummaryExcelBtn" href="#" class="btn btn-success disabled" title="Select date range to export" aria-disabled="true">
+                        <i class="fas fa-file-excel"></i>&nbsp;&nbsp; Summary Excel
                     </a>
                     {% endif %}
                 </div>
@@ -171,10 +177,29 @@
 
 <script>
 (function(){
-    var exportBtn   = document.getElementById('exportPdfBtn');
-    var summaryBtn  = document.getElementById('exportSummaryBtn');
-    var filterForm  = document.getElementById('orgFilterForm');
+    var exportBtn         = document.getElementById('exportPdfBtn');
+    var exportExcelBtn    = document.getElementById('exportExcelBtn');
+    var summaryBtn        = document.getElementById('exportSummaryBtn');
+    var summaryExcelBtn   = document.getElementById('exportSummaryExcelBtn');
+    var filterForm        = document.getElementById('orgFilterForm');
     if(!filterForm) return;
+    var exportBtns = [exportBtn, exportExcelBtn, summaryBtn, summaryExcelBtn];
+
+    function setExportEnabled(enabled){
+        exportBtns.forEach(function(btn){
+            if(!btn) return;
+            if(enabled){
+                btn.classList.remove('disabled');
+                btn.removeAttribute('aria-disabled');
+                btn.title = '';
+            } else {
+                btn.classList.add('disabled');
+                btn.setAttribute('aria-disabled', 'true');
+                btn.title = 'Select date range to export';
+            }
+        });
+    }
+
     function updateExportLinks(){
         var params = new URLSearchParams();
         var org = filterForm.querySelector('[name="organization"]');
@@ -188,10 +213,17 @@
         if(dfr && dfr.value) params.set('date_from',      dfr.value);
         if(dto && dto.value) params.set('date_to',        dto.value);
         var qs = params.toString();
-        if(exportBtn)  exportBtn.href  = "{% url 'export_member_pdf_officer' %}"  + (qs ? '?' + qs : '');
-        if(summaryBtn) summaryBtn.href = "{% url 'export_summary_pdf_officer' %}" + (qs ? '?' + qs : '');
+        var datesSet = dfr && dfr.value && dto && dto.value;
+        setExportEnabled(!!datesSet);
+        if(datesSet){
+            if(exportBtn)       exportBtn.href       = "{% url 'export_member_pdf_officer' %}"    + (qs ? '?' + qs : '');
+            if(exportExcelBtn)  exportExcelBtn.href  = "{% url 'export_member_excel_officer' %}"  + (qs ? '?' + qs : '');
+            if(summaryBtn)      summaryBtn.href      = "{% url 'export_summary_pdf_officer' %}"   + (qs ? '?' + qs : '');
+            if(summaryExcelBtn) summaryExcelBtn.href = "{% url 'export_summary_excel_officer' %}" + (qs ? '?' + qs : '');
+        }
     }
     filterForm.addEventListener('change', updateExportLinks);
+    filterForm.addEventListener('input',  updateExportLinks);
     updateExportLinks();
 })();
 </script>
